@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 class RegisterRequest(BaseModel):
     email: str = Field(..., min_length=5, max_length=255, examples=["dev@acme.com"])
-    password: str = Field(..., min_length=8, max_length=128)
+    password: str = Field(..., min_length=6, max_length=128)
     display_name: str | None = Field(None, max_length=100, examples=["Carlos Dev"])
 
 

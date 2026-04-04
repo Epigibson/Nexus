@@ -33,6 +33,14 @@ async function handleResponse<T>(res: Response): Promise<T> {
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    // FastAPI validation errors come as detail: [{msg, loc, type}, ...]
+    if (Array.isArray(body.detail)) {
+      const messages = body.detail.map((e: { msg?: string; loc?: string[] }) => {
+        const field = e.loc?.slice(-1)[0] || "";
+        return field ? `${field}: ${e.msg}` : (e.msg || "Error de validación");
+      });
+      throw new Error(messages.join(". "));
+    }
     throw new Error(body.detail || `API Error: ${res.status}`);
   }
   return res.json();

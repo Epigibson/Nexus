@@ -138,6 +138,9 @@ export default function LoginPage() {
                   required
                   minLength={6}
                 />
+                {mode === "register" && password.length > 0 && password.length < 6 && (
+                  <p className="text-xs text-amber-400">Mínimo 6 caracteres ({password.length}/6)</p>
+                )}
               </div>
 
               {error && (

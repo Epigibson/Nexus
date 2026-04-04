@@ -1,0 +1,76 @@
+---
+title: "Configuration"
+sidebarTitle: "Configuration"
+description: "Referencia completa del archivo antigravity.yaml."
+---
+
+## Ubicación
+
+El archivo `antigravity.yaml` se ubica en la raíz del proyecto o en `~/.antigravity/config.yaml` como global.
+
+## Schema Completo
+
+```yaml
+# ─── Metadatos del proyecto ───
+name: my-project              # Nombre único del proyecto
+description: "Descripción"     # Descripción opcional
+repo_url: "https://..."        # URL del repositorio
+
+# ─── Entornos ───
+environments:
+  - name: development          # Nombre del entorno
+    branch: develop            # Rama de Git
+    env_vars:                  # Variables de entorno
+      NODE_ENV: development
+      DATABASE_URL: postgresql://localhost/dev
+      API_KEY: "{{vault:api_key_dev}}"  # Futuro: referencia a vault
+    cli_profiles:              # Perfiles de herramientas CLI
+      - tool: gh               # Herramienta (gh, aws, supabase, vercel, mongosh)
+        account: dev-personal  # Identificador de cuenta/perfil
+        org: acme              # Organización (opcional)
+        region: us-east-1      # Región (opcional, AWS/cloud)
+
+  - name: staging
+    branch: staging
+    env_vars:
+      NODE_ENV: staging
+    cli_profiles:
+      - tool: gh
+        account: acme-bot
+      - tool: aws
+        account: acme-staging
+        region: us-east-1
+
+  - name: production
+    branch: main
+    env_vars:
+      NODE_ENV: production
+    cli_profiles:
+      - tool: gh
+        account: acme-bot
+      - tool: aws
+        account: acme-prod
+        region: us-east-1
+
+# ─── Skills ───
+skills:
+  - name: context-injection    # Inyección de env vars
+    enabled: true
+    priority: 1                # Orden de ejecución
+  - name: git-state            # Cambio de rama
+    enabled: true
+    priority: 2
+  - name: cli-switching        # Cambio de CLI profiles
+    enabled: true
+    priority: 3
+```
+
+## Tools Soportados
+
+| Tool | Comando | Parámetros |
+|------|---------|-----------|
+| `gh` | `gh auth switch` | `account` |
+| `aws` | `aws sso login` | `account`, `region` |
+| `supabase` | `supabase link` | `account` (project-ref), `org` |
+| `vercel` | `vercel switch` | `account`, `org` |
+| `mongosh` | `atlas config set` | `account` |

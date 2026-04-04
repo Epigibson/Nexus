@@ -1,0 +1,173 @@
+---
+title: "Arquitectura"
+sidebarTitle: "Arquitectura"
+description: "Cómo está diseñado Antigravity: componentes, flujos, y decisiones de diseño."
+---
+
+## Vista General
+
+```mermaid
+graph TB
+    CLI[🔧 CLI - Go Binary]
+    API[⚡ FastAPI Backend :8000]
+    DASH[🖥️ Dashboard Next.js :3000]
+    DB[(💾 SQLite / PostgreSQL)]
+
+    DASH -->|REST + JWT| API
+    API -->|SQLAlchemy| DB
+    CLI -.->|Futuro: API Key| API
+    CLI -->|YAML Config| LOCAL[📁 antigravity.yaml]
+    CLI -->|Append-only| AUDIT[📋 audit.jsonl]
+```
+
+## Componentes
+
+### 1. CLI (Go) — Motor Core
+
+El motor que ejecuta los switches. Arquitectura **hexagonal** con 0 dependencias en el core:
+
+```
+core/internal/
+├── domain/        → Entidades puras (Project, Skill, CLIProfile)
+├── port/          → Interfaces (CLIProfiler, ConfigReader)
+├── service/       → Orchestrator (coordina skills)
+└── adapter/       → Implementaciones (CLI, Config, Executors, Audit)
+```
+
+<Info>
+  La arquitectura hexagonal permite añadir nuevos CLI tools sin tocar la lógica de negocio.
+  Solo implementas la interface `CLIProfiler`.
+</Info>
+
+### 2. Backend API (FastAPI) — Cerebro
+
+API REST con 20+ endpoints, autenticación JWT, y validación Pydantic v2:
+
+```
+api/app/
+├── models/       → SQLAlchemy ORM (9 tablas)
+├── schemas/      → Pydantic v2 request/response
+├── services/     → Lógica de negocio + freemium
+├── routers/      → Endpoints REST (6 routers)
+└── middleware/   → JWT auth dependency
+```
+
+### 3. Dashboard (Next.js) — Interfaz
+
+Dashboard web premium con dark mode, conectado al API en tiempo real:
+
+```
+dashboard/src/
+├── app/          → App Router (login, dashboard, projects, audit, settings)
+├── components/   → shadcn/ui + custom
+└── lib/          → API client tipado + AuthProvider
+```
+
+## Flujo de un Context Switch
+
+```mermaid
+sequenceDiagram
+    participant Dev as 👤 Developer
+    participant CLI as 🔧 CLI
+    participant Config as 📁 YAML
+    participant Skills as ⚙️ Skills
+    participant Tools as 🔑 CLI Tools
+    participant Audit as 📋 Audit
+
+    Dev->>CLI: antigravity switch saas --env dev
+    CLI->>Config: Lee antigravity.yaml
+    Config-->>CLI: Environment "dev" config
+
+    CLI->>Skills: 1. Context Injection
+    Skills->>Skills: Genera script PowerShell/Bash
+    Skills-->>CLI: ✅ 12 variables inyectadas
+
+    CLI->>Skills: 2. Git State
+    Skills->>Tools: git checkout develop
+    Tools-->>CLI: ✅ Rama cambiada
+
+    CLI->>Skills: 3. CLI Switching
+    Skills->>Tools: gh auth switch --user dev-personal
+    Skills->>Tools: aws sso login --profile acme-dev
+    Skills->>Tools: supabase link --project-ref saas-dev
+    Skills->>Tools: vercel switch saas-dev
+    Skills->>Tools: mongosh (set connection)
+    Tools-->>CLI: ✅ 5/5 tools switched
+
+    CLI->>Audit: Append audit entry
+    CLI-->>Dev: ✅ Switch completado (1.2s)
+```
+
+## Flujo de Autenticación (Dashboard)
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 Browser
+    participant Next as 🖥️ Next.js
+    participant API as ⚡ FastAPI
+    participant DB as 💾 SQLite
+
+    User->>Next: GET /
+    Next->>Next: Check localStorage (ag_token)
+    alt No token
+        Next-->>User: Redirect /login
+        User->>API: POST /auth/login {email, password}
+        API->>DB: SELECT user WHERE email
+        API->>API: Verify bcrypt hash
+        API->>API: Sign JWT token
+        API-->>User: {access_token, user_id}
+        User->>Next: Store in localStorage
+        Next-->>User: Redirect /dashboard
+    else Token exists
+        Next->>API: GET /auth/me (Bearer token)
+        API->>API: Decode JWT
+        API->>DB: SELECT user WHERE id
+        API-->>Next: UserResponse
+        Next-->>User: Dashboard with real data
+    end
+```
+
+## Modelo de Datos
+
+```mermaid
+erDiagram
+    User ||--o{ Organization : owns
+    Organization ||--o{ OrganizationMember : has
+    Organization ||--o{ Project : contains
+    Organization ||--o| Subscription : has
+    Project ||--o{ EnvironmentProfile : has
+    Project ||--o{ SkillConfiguration : has
+    SkillDefinition ||--o{ SkillConfiguration : configures
+    User ||--o{ AuditLog : generates
+    Project ||--o{ AuditLog : tracks
+```
+
+## Decisiones de Diseño
+
+<AccordionGroup>
+  <Accordion title="¿Por qué Go para el CLI?" icon="golang">
+    - **Binarios estáticos** sin runtime dependencies
+    - **Cross-compilation** trivial (Windows, Mac, Linux)
+    - **Cobra CLI** es el estándar de la industria (kubectl, gh, docker)
+    - **Rendimiento** cercano a C sin la complejidad de Rust
+  </Accordion>
+  <Accordion title="¿Por qué FastAPI para el API?" icon="python">
+    - **Pydantic v2** con validación automática a nivel de schema
+    - **Swagger UI** auto-generado sin código adicional
+    - **Async nativo** para concurrencia alta con SQLAlchemy 2.0
+    - **Ecosystem Python** amplio para ML/AI features futuros
+  </Accordion>
+  <Accordion title="¿Por qué SQLite primero?" icon="database">
+    - **0 dependencias** externas para desarrollo local
+    - **Migración a PostgreSQL** = cambiar 1 línea en `.env`
+    - Los modelos SQLAlchemy son **agnósticos al motor**
+  </Accordion>
+  <Accordion title="¿Por qué JWT local en vez de Supabase Auth?" icon="lock">
+    - **Desarrollo offline** sin depender de servicios externos
+    - La interfaz es idéntica: `Authorization: Bearer {token}`
+    - **Swap a Supabase Auth** = cambiar solo el middleware de validación
+  </Accordion>
+  <Accordion title="Seguridad Zero-Knowledge" icon="shield">
+    Los secretos del usuario se encriptan localmente con AES-256-GCM, derivando la clave con Argon2id de la master password. **El servidor nunca ve la master password ni los secretos en claro.**
+  </Accordion>
+</AccordionGroup>

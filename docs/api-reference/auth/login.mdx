@@ -1,0 +1,41 @@
+---
+title: "Login"
+api: "POST /api/v1/auth/login"
+description: "Autenticarse y obtener un JWT token."
+---
+
+<ParamField body="email" type="string" required>
+  Email registrado.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Contraseña de la cuenta.
+</ParamField>
+
+<RequestExample>
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "dev@acme-corp.com",
+    "password": "password123"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "user_id": "user-1",
+  "email": "dev@acme-corp.com",
+  "display_name": "Carlos Dev"
+}
+```
+</ResponseExample>
+
+<Note>
+  El token expira en 24 horas (configurable con `ACCESS_TOKEN_EXPIRE_MINUTES`).
+  Usa el token en el header `Authorization: Bearer {token}` para endpoints protegidos.
+</Note>

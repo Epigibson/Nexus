@@ -1,0 +1,43 @@
+---
+title: "Create Project"
+api: "POST /api/v1/projects/"
+description: "Crear un nuevo proyecto. Valida límites del plan freemium."
+auth: "bearer"
+---
+
+<ParamField body="name" type="string" required>
+  Nombre del proyecto. 2-100 caracteres.
+</ParamField>
+
+<ParamField body="slug" type="string" required>
+  Slug único (lowercase, hyphens). Pattern: `^[a-z0-9-]+$`
+</ParamField>
+
+<ParamField body="description" type="string">
+  Descripción del proyecto. Máximo 500 caracteres.
+</ParamField>
+
+<ParamField body="repo_url" type="string">
+  URL del repositorio Git.
+</ParamField>
+
+<RequestExample>
+```bash
+curl -X POST http://localhost:8000/api/v1/projects/ \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Mi Nuevo Proyecto",
+    "slug": "mi-nuevo-proyecto",
+    "description": "Un proyecto increíble",
+    "repo_url": "https://github.com/acme/nuevo"
+  }'
+```
+</RequestExample>
+
+<Warning>
+  El plan **free** permite máximo 3 proyectos. Si se excede el límite, retorna `400 Bad Request`:
+  ```json
+  {"detail": "Plan 'free' limit reached: 3 projects max. Upgrade to create more."}
+  ```
+</Warning>

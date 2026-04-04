@@ -1,0 +1,40 @@
+---
+title: "List Projects"
+api: "GET /api/v1/projects/"
+description: "Listar todos los proyectos activos del usuario."
+auth: "bearer"
+---
+
+<ResponseExample>
+```json 200
+[
+  {
+    "id": "proj-1",
+    "name": "SaaS Platform",
+    "slug": "saas-platform",
+    "description": "Plataforma SaaS principal",
+    "repo_url": "https://github.com/acme/saas",
+    "is_active": true,
+    "environments": [
+      {
+        "id": "env-1",
+        "name": "development",
+        "environment": "development",
+        "git_branch": "develop",
+        "env_var_count": 2,
+        "cli_profiles": [
+          {"tool": "gh", "account": "dev-personal", "status": "connected"},
+          {"tool": "aws", "account": "acme-dev", "region": "us-east-1", "status": "connected"}
+        ]
+      }
+    ],
+    "skills": [
+      {"id": "sk-1", "name": "Context Injection", "category": "context-injection", "is_enabled": true}
+    ],
+    "switch_count": 5,
+    "last_switch": "2026-04-04T05:15:29",
+    "created_at": "2026-04-04T07:15:29"
+  }
+]
+```
+</ResponseExample>

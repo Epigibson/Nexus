@@ -1,0 +1,95 @@
+---
+title: "Introducción"
+sidebarTitle: "Introducción"
+description: "Antigravity es un Centro de Control de Entornos de Desarrollo que elimina la fricción del context switching."
+---
+
+## ¿Qué es Antigravity?
+
+Antigravity es una plataforma que automatiza completamente el **cambio de contexto entre proyectos** para desarrolladores. Con un solo comando, cambia todas tus sesiones CLI, cuentas de nube, variables de entorno, y ramas de Git.
+
+<CardGroup cols={2}>
+  <Card title="🚀 Quick Start" icon="rocket" href="/quickstart">
+    Levanta el sistema completo en 5 minutos
+  </Card>
+  <Card title="📐 Arquitectura" icon="diagram-project" href="/architecture">
+    Entiende cómo funciona el sistema
+  </Card>
+  <Card title="⚡ API Reference" icon="bolt" href="/api-reference/auth/login">
+    Explora los 20+ endpoints REST
+  </Card>
+  <Card title="🔧 CLI" icon="terminal" href="/cli/installation">
+    Instala y usa el CLI de Go
+  </Card>
+</CardGroup>
+
+## El Problema
+
+Los desarrolladores que trabajan en **múltiples proyectos** pierden horas por semana iniciando y cerrando sesión:
+
+```bash
+# Proyecto A → Proyecto B: 5-10 min de fricción
+gh auth switch
+aws sso login --profile otro-perfil
+supabase link --project-ref otro-ref
+vercel switch
+mongosh --host otro-host
+export NODE_ENV=development
+git checkout develop
+```
+
+Cada proyecto tiene **diferentes cuentas** de GitHub, **diferentes perfiles** de AWS, **diferentes orgs** de Supabase, y **diferentes credenciales** de bases de datos.
+
+## La Solución
+
+```bash
+# Un comando. Todos los CLIs. Todas las credenciales. Listo.
+antigravity switch my-saas-app --env development
+```
+
+<Steps>
+  <Step title="Inyección de Variables">
+    Genera y ejecuta un script que inyecta todas las variables de entorno encriptadas en la sesión activa.
+  </Step>
+  <Step title="Git State">
+    Asegura que el repositorio esté en la rama correcta (`develop`, `staging`, `main`).
+  </Step>
+  <Step title="CLI Switching">
+    Cambia los perfiles de autenticación en las 5 herramientas CLI soportadas.
+  </Step>
+  <Step title="Audit Log">
+    Registra cada acción en un log inmutable (JSON Lines append-only).
+  </Step>
+</Steps>
+
+## Stack Tecnológico
+
+| Componente | Tecnología | Estado |
+|-----------|-----------|--------|
+| Core CLI | Go 1.26 (Cobra) | ✅ Fase 1 |
+| Dashboard | Next.js 16 + Tailwind v4 + shadcn/ui | ✅ Fase 2 |
+| Backend API | FastAPI + Pydantic v2 + SQLAlchemy 2.0 | ✅ Fase 3 |
+| Integración | JWT Auth + REST Client | ✅ Fase 4 |
+| Base de Datos | SQLite → Supabase (PostgreSQL) | 🔄 |
+| Encriptación | AES-256-GCM + Argon2id | 📐 Diseñado |
+| Documentación | Mintlify | ✅ |
+
+## CLI Tools Soportados
+
+<CardGroup cols={5}>
+  <Card title="GitHub" icon="github">
+    `gh auth switch`
+  </Card>
+  <Card title="AWS" icon="aws">
+    `aws sso login`
+  </Card>
+  <Card title="Supabase" icon="database">
+    `supabase link`
+  </Card>
+  <Card title="Vercel" icon="triangle">
+    `vercel switch`
+  </Card>
+  <Card title="MongoDB" icon="leaf">
+    `mongosh config`
+  </Card>
+</CardGroup>

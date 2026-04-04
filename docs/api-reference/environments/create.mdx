@@ -1,0 +1,47 @@
+---
+title: "Create Environment"
+api: "POST /api/v1/projects/{slug}/environments"
+description: "Crear un nuevo entorno con CLI profiles para un proyecto."
+auth: "bearer"
+---
+
+<ParamField path="slug" type="string" required>
+  Slug del proyecto.
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Nombre del entorno (ej: `development`, `staging`, `production`).
+</ParamField>
+
+<ParamField body="environment" type="string" default="development">
+  Tipo: `development`, `staging`, `production`, `custom`.
+</ParamField>
+
+<ParamField body="git_branch" type="string">
+  Rama de Git asociada.
+</ParamField>
+
+<ParamField body="env_vars" type="object">
+  Variables de entorno (key-value).
+</ParamField>
+
+<ParamField body="cli_profiles" type="array">
+  Lista de perfiles CLI.
+</ParamField>
+
+<RequestExample>
+```bash
+curl -X POST http://localhost:8000/api/v1/projects/saas-platform/environments \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "testing",
+    "environment": "custom",
+    "git_branch": "testing",
+    "env_vars": {"NODE_ENV": "test"},
+    "cli_profiles": [
+      {"tool": "gh", "account": "test-bot", "status": "connected"}
+    ]
+  }'
+```
+</RequestExample>

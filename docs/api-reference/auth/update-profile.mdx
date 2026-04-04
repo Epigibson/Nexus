@@ -1,0 +1,36 @@
+---
+title: "Update Profile"
+api: "PUT /api/v1/auth/me"
+description: "Actualizar el perfil del usuario autenticado."
+auth: "bearer"
+---
+
+<ParamField body="display_name" type="string">
+  Nuevo nombre para mostrar. Máximo 100 caracteres.
+</ParamField>
+
+<ParamField body="avatar_url" type="string">
+  URL del avatar. Máximo 500 caracteres.
+</ParamField>
+
+<RequestExample>
+```bash
+curl -X PUT http://localhost:8000/api/v1/auth/me \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{"display_name": "Carlos Developer"}'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "id": "user-1",
+  "email": "dev@acme-corp.com",
+  "display_name": "Carlos Developer",
+  "avatar_url": null,
+  "plan": "free",
+  "created_at": "2026-04-04T07:15:29"
+}
+```
+</ResponseExample>

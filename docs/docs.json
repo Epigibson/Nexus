@@ -1,0 +1,108 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Antigravity",
+  "description": "Centro de Control de Entornos de Desarrollo. Elimina la fricción del context switching para desarrolladores.",
+  "theme": "palm",
+  "colors": {
+    "primary": "#8B5CF6",
+    "light": "#A78BFA",
+    "dark": "#7C3AED"
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Getting Started",
+        "groups": [
+          {
+            "group": "Inicio",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Auth",
+            "pages": [
+              "api-reference/auth/register",
+              "api-reference/auth/login",
+              "api-reference/auth/get-profile",
+              "api-reference/auth/update-profile"
+            ]
+          },
+          {
+            "group": "Projects",
+            "pages": [
+              "api-reference/projects/list",
+              "api-reference/projects/create",
+              "api-reference/projects/get",
+              "api-reference/projects/update",
+              "api-reference/projects/delete"
+            ]
+          },
+          {
+            "group": "Environments",
+            "pages": [
+              "api-reference/environments/list",
+              "api-reference/environments/create",
+              "api-reference/environments/update"
+            ]
+          },
+          {
+            "group": "Skills",
+            "pages": [
+              "api-reference/skills/catalog",
+              "api-reference/skills/project-skills",
+              "api-reference/skills/toggle"
+            ]
+          },
+          {
+            "group": "Audit",
+            "pages": [
+              "api-reference/audit/list"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "pages": [
+              "api-reference/dashboard/stats",
+              "api-reference/dashboard/activity",
+              "api-reference/dashboard/recent"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI",
+        "groups": [
+          {
+            "group": "CLI Reference",
+            "pages": [
+              "cli/installation",
+              "cli/init",
+              "cli/switch",
+              "cli/list",
+              "cli/profiles",
+              "cli/configuration"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/acme-corp/antigravity"
+    }
+  }
+}

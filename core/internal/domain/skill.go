@@ -1,0 +1,84 @@
+package domain
+
+import (
+	"fmt"
+	"time"
+)
+
+// SkillCategory represents the type of automation a skill performs.
+type SkillCategory string
+
+const (
+	SkillCategoryContext  SkillCategory = "context-injection"
+	SkillCategoryGit      SkillCategory = "git-state"
+	SkillCategoryCLI      SkillCategory = "cli-switching"
+	SkillCategoryDocs     SkillCategory = "documentation"
+	SkillCategorySandbox  SkillCategory = "sandbox"
+)
+
+// SkillStatus represents the execution result of a skill.
+type SkillStatus string
+
+const (
+	SkillStatusPending  SkillStatus = "pending"
+	SkillStatusRunning  SkillStatus = "running"
+	SkillStatusSuccess  SkillStatus = "success"
+	SkillStatusFailed   SkillStatus = "failed"
+	SkillStatusSkipped  SkillStatus = "skipped"
+)
+
+// Skill represents a unit of automation in the Antigravity system.
+// Each skill is responsible for one aspect of context switching
+// (e.g., injecting env vars, switching Git branches, switching CLI profiles).
+type Skill struct {
+	Name     string            `yaml:"name" json:"name"`
+	Category SkillCategory     `yaml:"category" json:"category"`
+	Enabled  bool              `yaml:"enabled" json:"enabled"`
+	Priority int               `yaml:"priority" json:"priority"`
+	Config   map[string]any    `yaml:"config,omitempty" json:"config,omitempty"`
+}
+
+// SkillResult captures the outcome of executing a single skill.
+type SkillResult struct {
+	SkillName   string        `json:"skill_name"`
+	Status      SkillStatus   `json:"status"`
+	Message     string        `json:"message"`
+	Duration    time.Duration `json:"duration_ms"`
+	Actions     []string      `json:"actions,omitempty"`
+	Error       error         `json:"-"`
+}
+
+// Validate checks that a Skill has the minimum required fields.
+func (s *Skill) Validate() error {
+	if s.Name == "" {
+		return fmt.Errorf("skill name is required")
+	}
+	if s.Category == "" {
+		return fmt.Errorf("skill category is required for '%s'", s.Name)
+	}
+	if s.Priority < 0 {
+		return fmt.Errorf("skill priority must be >= 0 for '%s'", s.Name)
+	}
+	return nil
+}
+
+// IsSuccess returns true if the skill executed successfully.
+func (r *SkillResult) IsSuccess() bool {
+	return r.Status == SkillStatusSuccess
+}
+
+// Summary returns a human-readable one-line summary of the result.
+func (r *SkillResult) Summary() string {
+	icon := "❌"
+	switch r.Status {
+	case SkillStatusSuccess:
+		icon = "✅"
+	case SkillStatusSkipped:
+		icon = "⏭️"
+	case SkillStatusRunning:
+		icon = "⏳"
+	case SkillStatusPending:
+		icon = "🔲"
+	}
+	return fmt.Sprintf("%s %s — %s (%dms)", icon, r.SkillName, r.Message, r.Duration.Milliseconds())
+}

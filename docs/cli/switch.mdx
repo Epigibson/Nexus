@@ -1,0 +1,60 @@
+---
+title: "antigravity switch"
+sidebarTitle: "switch"
+description: "Cambiar toda tu identidad de desarrollo a un proyecto y entorno específico."
+---
+
+```bash
+antigravity switch <project-name> --env <environment>
+```
+
+## Parámetros
+
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `project-name` | string | ✅ | Nombre del proyecto (del YAML) |
+| `--env` | string | ✅ | Entorno objetivo |
+
+## Lo que hace
+
+<Steps>
+  <Step title="1. Context Injection">
+    Genera un script (PowerShell/Bash) con todas las variables de entorno y lo ejecuta.
+  </Step>
+  <Step title="2. Git State">
+    Ejecuta `git checkout {branch}` para la rama configurada del entorno.
+  </Step>
+  <Step title="3. CLI Switching">
+    Cambia los perfiles en cada herramienta CLI configurada:
+    - `gh auth switch --user {account}`
+    - `aws sso login --profile {account}`
+    - `supabase link --project-ref {account}`
+    - `vercel switch {account}`
+    - MongoDB connection string
+  </Step>
+  <Step title="4. Audit Log">
+    Registra el resultado en `~/.antigravity/audit.jsonl`.
+  </Step>
+</Steps>
+
+## Ejemplo
+
+```bash
+$ antigravity switch saas-platform --env development
+
+🚀 Antigravity — Context Switch
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 Project: saas-platform
+🌍 Environment: development
+
+✅ Context Injection: 12 variables inyectadas
+✅ Git State: Rama cambiada → develop
+✅ CLI Switch: GitHub → dev-personal
+✅ CLI Switch: AWS → acme-dev (us-east-1)
+✅ CLI Switch: Supabase → saas-dev-ref
+✅ CLI Switch: Vercel → saas-dev
+✅ CLI Switch: MongoDB → local-dev
+
+⏱️ Completado en 1.24s
+```

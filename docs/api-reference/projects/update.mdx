@@ -1,0 +1,22 @@
+---
+title: "Update Project"
+api: "PUT /api/v1/projects/{slug}"
+description: "Actualizar nombre, descripción o estado de un proyecto."
+auth: "bearer"
+---
+
+<ParamField path="slug" type="string" required>
+  Slug del proyecto.
+</ParamField>
+
+<ParamField body="name" type="string">
+  Nuevo nombre.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Nueva descripción.
+</ParamField>
+
+<ParamField body="is_active" type="boolean">
+  Activar/desactivar el proyecto.
+</ParamField>

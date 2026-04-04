@@ -1,0 +1,26 @@
+---
+title: "Recent Switches"
+api: "GET /api/v1/dashboard/recent"
+description: "Últimos context switches ejecutados."
+auth: "bearer"
+---
+
+<ParamField query="limit" type="integer" default="10">
+  Número máximo de resultados.
+</ParamField>
+
+<ResponseExample>
+```json 200
+[
+  {
+    "id": "abc-123",
+    "project_name": "SaaS Platform",
+    "environment": "development",
+    "message": "Context switch completado exitosamente",
+    "success": true,
+    "duration_ms": 1240,
+    "created_at": "2026-04-04T05:15:29"
+  }
+]
+```
+</ResponseExample>

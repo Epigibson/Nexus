@@ -1,0 +1,24 @@
+---
+title: "Activity"
+api: "GET /api/v1/dashboard/activity"
+description: "Switches por día para la gráfica de actividad semanal."
+auth: "bearer"
+---
+
+<ParamField query="days" type="integer" default="7">
+  Número de días a consultar.
+</ParamField>
+
+<ResponseExample>
+```json 200
+[
+  {"day": "Lun", "switches": 0},
+  {"day": "Mar", "switches": 0},
+  {"day": "Mié", "switches": 0},
+  {"day": "Jue", "switches": 1},
+  {"day": "Vie", "switches": 1},
+  {"day": "Sáb", "switches": 1},
+  {"day": "Dom", "switches": 2}
+]
+```
+</ResponseExample>

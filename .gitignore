@@ -1,0 +1,59 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/core/bin/
+
+# Go
+/core/vendor/
+
+# Node.js
+node_modules/
+.next/
+.vercel/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment & Secrets — NEVER COMMIT
+.env
+.env.local
+.env.*.local
+.env.production
+*.pem
+*.key
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Antigravity vault (encrypted secrets stored locally)
+.antigravity/vault/
+
+# Supabase
+supabase/.temp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+audit.jsonl
+
+# Mintlify
+.mintlify/
+

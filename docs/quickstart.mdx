@@ -1,0 +1,134 @@
+---
+title: "Quick Start"
+sidebarTitle: "Quick Start"
+description: "Levanta Antigravity completo en tu máquina en 5 minutos."
+---
+
+## Prerrequisitos
+
+<AccordionGroup>
+  <Accordion title="Node.js 24+" icon="node-js">
+    ```bash
+    node --version  # v24+
+    npm --version   # v10+
+    ```
+  </Accordion>
+  <Accordion title="Python 3.12+" icon="python">
+    ```bash
+    python --version  # 3.12+
+    pip --version     # 24+
+    ```
+  </Accordion>
+  <Accordion title="Go 1.26+" icon="golang">
+    ```bash
+    go version  # 1.26+
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Paso 1: Backend API
+
+<Steps>
+  <Step title="Instalar dependencias">
+    ```bash
+    cd api/
+    pip install -r requirements.txt
+    ```
+  </Step>
+  <Step title="Configurar variables de entorno">
+    ```bash
+    cp .env.example .env
+    ```
+    <Warning>
+      En producción, cambia `SECRET_KEY` a un string random de 64 caracteres.
+    </Warning>
+  </Step>
+  <Step title="Crear base de datos con datos de demo">
+    ```bash
+    python -m seed
+    ```
+    ```
+    ✅ Seed completado: 1 user, 1 org, 3 projects, 5 skills, 7 environments, 10 audit entries
+    📧 Login: dev@acme-corp.com / password123
+    ```
+  </Step>
+  <Step title="Iniciar el servidor">
+    ```bash
+    uvicorn app.main:app --reload --port 8000
+    ```
+    ```
+    🚀 Antigravity API v0.1.0 — Database ready
+    INFO:     Application startup complete.
+    ```
+  </Step>
+</Steps>
+
+<Check>
+  Verifica: [http://localhost:8000/docs](http://localhost:8000/docs) — Swagger UI
+</Check>
+
+## Paso 2: Dashboard
+
+<Steps>
+  <Step title="Instalar dependencias">
+    ```bash
+    cd dashboard/
+    npm install
+    ```
+  </Step>
+  <Step title="Iniciar dev server">
+    ```bash
+    npm run dev
+    ```
+  </Step>
+  <Step title="Abrir en el navegador">
+    Ir a [http://localhost:3000](http://localhost:3000) — te redirige a la página de login.
+  </Step>
+  <Step title="Iniciar sesión">
+    ```
+    Email:    dev@acme-corp.com
+    Password: password123
+    ```
+  </Step>
+</Steps>
+
+<Check>
+  Verifica: Deberías ver el dashboard Overview con 3 proyectos, switches recientes, y la gráfica de actividad.
+</Check>
+
+## Paso 3: CLI (Opcional)
+
+```bash
+cd core/
+
+# Compilar
+go build -o antigravity ./cmd/main.go
+
+# Probar
+./antigravity version
+./antigravity list
+./antigravity switch saas-platform --env development
+```
+
+## Puertos
+
+| Servicio | URL |
+|----------|-----|
+| Dashboard | [http://localhost:3000](http://localhost:3000) |
+| API Backend | [http://localhost:8000](http://localhost:8000) |
+| Swagger UI | [http://localhost:8000/docs](http://localhost:8000/docs) |
+| ReDoc | [http://localhost:8000/redoc](http://localhost:8000/redoc) |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="CORS error en el dashboard">
+    Asegúrate de que el API está corriendo en `:8000` y que `CORS_ORIGINS` en `.env` incluye `http://localhost:3000`.
+  </Accordion>
+  <Accordion title="Token inválido después de reiniciar el API">
+    Si cambias `SECRET_KEY`, los tokens existentes se invalidan. Haz logout en el dashboard y vuelve a iniciar sesión.
+  </Accordion>
+  <Accordion title="pip install falla">
+    Prueba sin versiones fijas: `pip install fastapi uvicorn pydantic pydantic-settings sqlalchemy aiosqlite python-jose bcrypt python-multipart httpx`
+  </Accordion>
+</AccordionGroup>

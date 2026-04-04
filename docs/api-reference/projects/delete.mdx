@@ -1,0 +1,15 @@
+---
+title: "Delete Project"
+api: "DELETE /api/v1/projects/{slug}"
+description: "Soft delete de un proyecto (marca is_active=false)."
+auth: "bearer"
+---
+
+<ParamField path="slug" type="string" required>
+  Slug del proyecto a eliminar.
+</ParamField>
+
+<Note>
+  El delete es un **soft delete** — el proyecto se desactiva pero no se borra de la base de datos.
+  Esto preserva el historial de audit log.
+</Note>

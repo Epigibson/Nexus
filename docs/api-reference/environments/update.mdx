@@ -1,0 +1,26 @@
+---
+title: "Update Environment"
+api: "PUT /api/v1/projects/{slug}/environments/{env_name}"
+description: "Actualizar CLI profiles, variables o rama de un entorno."
+auth: "bearer"
+---
+
+<ParamField path="slug" type="string" required>
+  Slug del proyecto.
+</ParamField>
+
+<ParamField path="env_name" type="string" required>
+  Nombre del entorno.
+</ParamField>
+
+<ParamField body="git_branch" type="string">
+  Nueva rama de Git.
+</ParamField>
+
+<ParamField body="env_vars" type="object">
+  Nuevas variables (reemplaza todas).
+</ParamField>
+
+<ParamField body="cli_profiles" type="array">
+  Nuevos CLI profiles (reemplaza todos).
+</ParamField>

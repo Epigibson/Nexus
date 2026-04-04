@@ -1,0 +1,133 @@
+# Antigravity Project Configuration
+# This is a realistic example showing how Antigravity manages
+# 10 projects with different accounts across all CLI tools.
+#
+# Usage: antigravity switch --env development
+
+version: "1"
+
+project:
+  name: "my-saas-app"
+  slug: "my-saas-app"
+  repo: "https://github.com/acme-corp/my-saas-app"
+
+# ──────────────────────────────────────────────────────────────────
+# Environments — each has its own:
+#   • Git branch
+#   • Environment variables  
+#   • CLI profiles (GitHub, AWS, Supabase, Vercel, MongoDB accounts)
+#
+# When you run `antigravity switch --env staging`,
+# ALL of these switch automatically. No more logout/login cycles.
+# ──────────────────────────────────────────────────────────────────
+
+environments:
+  development:
+    branch: "develop"
+    env:
+      NODE_ENV: "development"
+      DATABASE_URL: "postgresql://localhost:5432/myapp_dev"
+      SUPABASE_URL: "https://dev-project.supabase.co"
+      SUPABASE_ANON_KEY: "eyJ..."
+      MONGODB_URI: "mongodb://localhost:27017/myapp_dev"
+      REDIS_URL: "redis://localhost:6379/0"
+      API_BASE_URL: "http://localhost:3000"
+      STRIPE_SECRET_KEY: "sk_test_..."
+    cli_profiles:
+      - tool: "gh"
+        account: "my-personal-github"
+      - tool: "aws"
+        account: "dev-profile"
+        region: "us-east-1"
+      - tool: "supabase"
+        account: "dev-project-ref-xxxxx"
+      - tool: "vercel"
+        account: "my-saas-dev"
+        org: "acme-dev"
+      - tool: "mongosh"
+        account: "local-dev"
+        extra:
+          connection_string: "mongodb://localhost:27017"
+
+  staging:
+    branch: "staging"
+    env:
+      NODE_ENV: "staging"
+      DATABASE_URL: "postgresql://staging-db.acme.io:5432/myapp"
+      SUPABASE_URL: "https://stg-project.supabase.co"
+      SUPABASE_ANON_KEY: "eyJ..."
+      MONGODB_URI: "mongodb+srv://staging.cluster.mongodb.net/myapp"
+      REDIS_URL: "redis://staging-redis.acme.io:6379/0"
+      API_BASE_URL: "https://staging-api.acme.io"
+      STRIPE_SECRET_KEY: "sk_test_staging_..."
+    cli_profiles:
+      - tool: "gh"
+        account: "acme-corp-bot"
+      - tool: "aws"
+        account: "acme-staging"
+        region: "us-east-1"
+      - tool: "supabase"
+        account: "stg-project-ref-xxxxx"
+      - tool: "vercel"
+        account: "my-saas-staging"
+        org: "acme-corp"
+
+  production:
+    branch: "main"
+    env:
+      NODE_ENV: "production"
+      DATABASE_URL: "postgresql://prod-db.acme.io:5432/myapp"
+      SUPABASE_URL: "https://prod-project.supabase.co"
+      SUPABASE_ANON_KEY: "eyJ..."
+      MONGODB_URI: "mongodb+srv://prod.cluster.mongodb.net/myapp"
+      REDIS_URL: "redis://prod-redis.acme.io:6379/0"
+      API_BASE_URL: "https://api.acme.io"
+      STRIPE_SECRET_KEY: "sk_live_..."
+    cli_profiles:
+      - tool: "gh"
+        account: "acme-corp-bot"
+      - tool: "aws"
+        account: "acme-production"
+        region: "us-east-1"
+      - tool: "supabase"
+        account: "prod-project-ref-xxxxx"
+      - tool: "vercel"
+        account: "my-saas-prod"
+        org: "acme-corp"
+      - tool: "mongosh"
+        account: "prod-atlas"
+        extra:
+          connection_string: "mongodb+srv://prod.cluster.mongodb.net"
+
+# ──────────────────────────────────────────────────────────────────
+# Skills — control which automations run during context switch
+# Priority: lower number = executes first
+# ──────────────────────────────────────────────────────────────────
+
+skills:
+  - name: "context-injection"
+    category: "context-injection"
+    enabled: true
+    priority: 1
+    config:
+      auto_source: true
+
+  - name: "git-state"
+    category: "git-state"
+    enabled: true
+    priority: 2
+    config:
+      stash_changes: true
+      pull_after_checkout: false
+
+  - name: "cli-switching"
+    category: "cli-switching"
+    enabled: true
+    priority: 3
+    config:
+      tools:
+        - "gh"
+        - "aws"
+        - "supabase"
+        - "vercel"
+        - "mongosh"

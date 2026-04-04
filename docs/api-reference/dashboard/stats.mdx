@@ -1,0 +1,33 @@
+---
+title: "Dashboard Stats"
+api: "GET /api/v1/dashboard/stats"
+description: "Estadísticas globales para el dashboard overview."
+auth: "bearer"
+---
+
+<ResponseExample>
+```json 200
+{
+  "total_projects": 3,
+  "switches_today": 2,
+  "skills_executed": 5,
+  "tools_connected": 1
+}
+```
+</ResponseExample>
+
+<ResponseField name="total_projects" type="integer">
+  Total de proyectos activos en la organización.
+</ResponseField>
+
+<ResponseField name="switches_today" type="integer">
+  Context switches ejecutados hoy (desde medianoche UTC).
+</ResponseField>
+
+<ResponseField name="skills_executed" type="integer">
+  Skills individuales ejecutados en los últimos 7 días.
+</ResponseField>
+
+<ResponseField name="tools_connected" type="integer">
+  Herramientas CLI únicas con conexión exitosa.
+</ResponseField>

@@ -1,0 +1,37 @@
+---
+title: "antigravity init"
+sidebarTitle: "init"
+description: "Inicializar un nuevo proyecto con configuración interactiva."
+---
+
+```bash
+antigravity init
+```
+
+Genera un archivo `antigravity.yaml` con configuración interactiva:
+
+1. Nombre del proyecto
+2. Descripción
+3. URL del repositorio
+4. Entornos (development, staging, production)
+5. CLI profiles por entorno
+
+## Ejemplo de salida
+
+```yaml
+name: my-saas-app
+description: Plataforma SaaS principal
+repo_url: https://github.com/acme/saas
+
+environments:
+  - name: development
+    branch: develop
+    env_vars:
+      NODE_ENV: development
+    cli_profiles:
+      - tool: gh
+        account: dev-personal
+      - tool: aws
+        account: acme-dev
+        region: us-east-1
+```

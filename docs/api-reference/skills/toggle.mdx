@@ -1,0 +1,22 @@
+---
+title: "Toggle Skill"
+api: "PUT /api/v1/skills/projects/{slug}/{skill_id}"
+description: "Habilitar/deshabilitar un skill en un proyecto."
+auth: "bearer"
+---
+
+<ParamField path="slug" type="string" required>
+  Slug del proyecto.
+</ParamField>
+
+<ParamField path="skill_id" type="string" required>
+  ID del skill a toggle.
+</ParamField>
+
+<ParamField query="enabled" type="boolean" default="true">
+  Habilitar o deshabilitar.
+</ParamField>
+
+<ParamField query="priority" type="integer" default="10">
+  Prioridad de ejecución (1 = primero).
+</ParamField>

@@ -1,0 +1,37 @@
+---
+title: "Installation"
+sidebarTitle: "Installation"
+description: "Instalar el CLI de Antigravity en tu sistema."
+---
+
+## Compilar desde código fuente
+
+```bash
+cd core/
+go build -o antigravity ./cmd/main.go
+```
+
+## Agregar al PATH
+
+<Tabs>
+  <Tab title="macOS / Linux">
+    ```bash
+    sudo mv antigravity /usr/local/bin/
+    antigravity version
+    ```
+  </Tab>
+  <Tab title="Windows">
+    ```powershell
+    Copy-Item antigravity.exe C:\bin\
+    # Agregar C:\bin a la variable PATH del sistema
+    antigravity version
+    ```
+  </Tab>
+</Tabs>
+
+## Verificar
+
+```bash
+antigravity version
+# Antigravity v0.1.0
+```

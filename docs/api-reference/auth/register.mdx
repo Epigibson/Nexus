@@ -1,0 +1,49 @@
+---
+title: "Register"
+api: "POST /api/v1/auth/register"
+description: "Crear una nueva cuenta de usuario. Automáticamente crea una organización personal."
+---
+
+<ParamField body="email" type="string" required>
+  Email del usuario. Debe ser único.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Contraseña. Mínimo 8 caracteres, máximo 128.
+</ParamField>
+
+<ParamField body="display_name" type="string">
+  Nombre para mostrar. Si no se provee, usa la parte local del email.
+</ParamField>
+
+<RequestExample>
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "dev@acme-corp.com",
+    "password": "password123",
+    "display_name": "Carlos Dev"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "user_id": "abc-123-def",
+  "email": "dev@acme-corp.com",
+  "display_name": "Carlos Dev"
+}
+```
+</ResponseExample>
+
+<ResponseField name="access_token" type="string">
+  JWT token para autenticación. Expira en 24 horas.
+</ResponseField>
+
+<ResponseField name="user_id" type="string">
+  UUID del usuario creado.
+</ResponseField>

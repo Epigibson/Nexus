@@ -2,16 +2,18 @@
 
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { Zap, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { Zap, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
-  const { login } = useAuth();
-  const [email, setEmail] = useState("dev@acme-corp.com");
-  const [password, setPassword] = useState("password123");
+  const { login, register } = useAuth();
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -20,12 +22,21 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
+      if (mode === "register") {
+        await register(email, password, displayName || undefined);
+      } else {
+        await login(email, password);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error de autenticación");
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleMode = () => {
+    setMode(mode === "login" ? "register" : "login");
+    setError("");
   };
 
   return (
@@ -44,17 +55,59 @@ export default function LoginPage() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Antigravity</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Control Center — Inicia sesión para continuar
+            Control Center — {mode === "login" ? "Inicia sesión" : "Crea tu cuenta"}
           </p>
         </div>
 
-        {/* Login Card */}
+        {/* Auth Card */}
         <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
           <CardHeader className="pb-4">
-            <h2 className="text-lg font-semibold">Iniciar Sesión</h2>
+            {/* Tabs */}
+            <div className="flex rounded-lg bg-muted/50 p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => { setMode("login"); setError(""); }}
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                  mode === "login"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Iniciar Sesión
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode("register"); setError(""); }}
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                  mode === "register"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Crear Cuenta
+              </button>
+            </div>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {mode === "register" && (
+                <div className="space-y-2">
+                  <Label htmlFor="displayName" className="flex items-center gap-1.5 text-sm">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    Nombre
+                  </Label>
+                  <Input
+                    id="displayName"
+                    type="text"
+                    placeholder="Tu nombre"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-1.5 text-sm">
                   <Mail className="h-3.5 w-3.5 text-muted-foreground" />
@@ -67,7 +120,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  autoFocus
+                  autoFocus={mode === "login"}
                 />
               </div>
 
@@ -83,6 +136,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  minLength={6}
                 />
               </div>
 
@@ -102,19 +156,29 @@ export default function LoginPage() {
                 ) : (
                   <ArrowRight className="h-4 w-4" />
                 )}
-                {loading ? "Ingresando..." : "Ingresar"}
+                {loading
+                  ? (mode === "login" ? "Ingresando..." : "Creando cuenta...")
+                  : (mode === "login" ? "Ingresar" : "Crear Cuenta")}
               </Button>
             </form>
 
-            {/* Demo hint */}
-            <div className="mt-6 rounded-lg border border-border bg-muted/50 p-3">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                Demo Credentials
-              </div>
-              <div className="flex items-center justify-between text-xs font-mono text-primary">
-                <span>dev@acme-corp.com</span>
-                <span className="text-muted-foreground">password123</span>
-              </div>
+            {/* Toggle link */}
+            <div className="mt-6 text-center text-sm text-muted-foreground">
+              {mode === "login" ? (
+                <>
+                  ¿No tienes cuenta?{" "}
+                  <button type="button" onClick={toggleMode} className="text-primary hover:underline font-medium">
+                    Crear una
+                  </button>
+                </>
+              ) : (
+                <>
+                  ¿Ya tienes cuenta?{" "}
+                  <button type="button" onClick={toggleMode} className="text-primary hover:underline font-medium">
+                    Iniciar sesión
+                  </button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

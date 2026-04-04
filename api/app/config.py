@@ -3,7 +3,7 @@
 import json
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
-from typing import List
+from typing import List, Optional
 
 
 class Settings(BaseSettings):
@@ -12,8 +12,13 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     debug: bool = True
 
-    # Database
+    # Database — supports both SQLite (local) and PostgreSQL (Supabase)
     database_url: str = "sqlite+aiosqlite:///./antigravity.db"
+
+    # Supabase (optional — for production)
+    supabase_url: Optional[str] = None
+    supabase_anon_key: Optional[str] = None
+    supabase_service_role_key: Optional[str] = None
 
     # JWT
     secret_key: str = "dev-secret-key-change-in-production"
@@ -33,6 +38,11 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return json.loads(v)
         return v
+
+    @property
+    def is_postgres(self) -> bool:
+        """Check if we're using PostgreSQL (Supabase) vs SQLite."""
+        return "postgresql" in self.database_url
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

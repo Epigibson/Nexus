@@ -1,16 +1,30 @@
-"""Antigravity API — Database engine and session factory (SQLAlchemy 2.0 async)."""
+"""Antigravity API — Database engine and session factory (SQLAlchemy 2.0 async).
+
+Supports both SQLite (local development) and PostgreSQL (Supabase production).
+Switch by changing DATABASE_URL in .env.
+"""
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 
 from app.config import settings
 
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
-    # SQLite needs this for async; PostgreSQL ignores it
-    connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
-)
+# ─── Engine configuration ───
+engine_kwargs = {
+    "echo": settings.debug,
+}
+
+if settings.is_postgres:
+    # PostgreSQL (Supabase) — use NullPool for serverless-friendly connections
+    engine_kwargs["poolclass"] = NullPool
+    # SSL required for Supabase
+    engine_kwargs["connect_args"] = {"ssl": "prefer"}
+else:
+    # SQLite — needs check_same_thread=False for async
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_async_engine(settings.database_url, **engine_kwargs)
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -35,7 +49,7 @@ async def get_db():
 
 
 async def init_db():
-    """Create all tables (dev only — use Alembic in production)."""
+    """Create all tables (dev only — use migrations in production)."""
     # Import all models so they register with Base.metadata
     import app.models.user  # noqa: F401
     import app.models.organization  # noqa: F401
@@ -48,4 +62,3 @@ async def init_db():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-

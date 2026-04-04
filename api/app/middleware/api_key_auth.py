@@ -37,7 +37,7 @@ async def get_user_from_api_key(
         await db.execute(
             update(ApiKey)
             .where(ApiKey.id == api_key_obj.id)
-            .values(last_used_at=datetime.now(timezone.utc))
+            .values(last_used_at=datetime.utcnow())
         )
         await db.commit()
 

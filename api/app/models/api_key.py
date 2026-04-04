@@ -19,7 +19,7 @@ class ApiKey(Base):
     is_active = Column(Boolean, default=True)
     last_used_at = Column(DateTime, nullable=True)
     created_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc)
+        DateTime, default=datetime.utcnow
     )
 
     @staticmethod

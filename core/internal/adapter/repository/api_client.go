@@ -33,9 +33,12 @@ type ProjectDTO struct {
 
 // EnvironmentDTO represents an environment from the API.
 type EnvironmentDTO struct {
-	ID         string        `json:"id"`
-	Name       string        `json:"name"`
-	GitBranch  string        `json:"git_branch"`
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	Environment string          `json:"environment"`
+	GitBranch   string          `json:"git_branch"`
+	EnvVarCount int             `json:"env_var_count"`
+	EnvVars     map[string]string `json:"env_vars"`
 	CLIProfiles []CLIProfileDTO `json:"cli_profiles"`
 }
 
@@ -175,6 +178,11 @@ func (c *APIClient) doRequest(req *http.Request, result interface{}) error {
 	}
 
 	return nil
+}
+
+// PushAudit sends an audit log entry to the API.
+func (c *APIClient) PushAudit(entry AuditEntryDTO) error {
+	return c.post("/audit/", entry, nil)
 }
 
 // ─── Credentials file management ───

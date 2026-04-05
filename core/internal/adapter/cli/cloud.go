@@ -11,7 +11,14 @@ import (
 	"github.com/antigravity-dev/antigravity/internal/adapter/repository"
 )
 
-const defaultAPIURL = "http://localhost:8000"
+const defaultAPIURL = "https://compassionate-youth-production-e13c.up.railway.app"
+
+func getAPIURL() string {
+	if url := os.Getenv("ANTIGRAVITY_API_URL"); url != "" {
+		return url
+	}
+	return defaultAPIURL
+}
 
 // newLoginCmd creates the `antigravity login` command.
 func newLoginCmd() *cobra.Command {
@@ -44,7 +51,7 @@ The key is stored securely in ~/.antigravity/credentials.`,
 			}
 
 			// Validate the key against the API
-			client := repository.NewAPIClientWithKey(defaultAPIURL, apiKey)
+			client := repository.NewAPIClientWithKey(getAPIURL(), apiKey)
 			user, err := client.GetProfile()
 			if err != nil {
 				return fmt.Errorf("authentication failed: %w", err)
@@ -77,7 +84,7 @@ This command:
   • Pushes local audit log entries to the cloud
   • Shows a summary of what changed`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := repository.NewAPIClient(defaultAPIURL)
+			client := repository.NewAPIClient(getAPIURL())
 			if !client.IsAuthenticated() {
 				return fmt.Errorf("not authenticated — run 'antigravity login' first")
 			}
@@ -133,7 +140,7 @@ func newStatusCmd() *cobra.Command {
 		Short: "Show CLI connection status",
 		Long:  "Show the current authentication status and connection to the Antigravity cloud.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := repository.NewAPIClient(defaultAPIURL)
+			client := repository.NewAPIClient(getAPIURL())
 
 			fmt.Println("📊 Antigravity Status")
 			fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")

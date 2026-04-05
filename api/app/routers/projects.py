@@ -71,9 +71,12 @@ async def create(body: ProjectCreate, user: User = Depends(get_current_user), db
     """Crear un nuevo proyecto (con enforcement de freemium)."""
     try:
         project = await create_project(db, user.id, body.name, body.slug, body.description, body.repo_url)
-        await db.flush()
-        return await _project_response(db, project)
+        await db.commit()
+        # Reload with relationships for response
+        reloaded = await get_project_by_slug(db, user.id, body.slug)
+        return await _project_response(db, reloaded)
     except ValueError as e:
+        await db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 

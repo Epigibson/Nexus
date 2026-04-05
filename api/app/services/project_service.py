@@ -4,6 +4,8 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.skill import SkillConfiguration, Skill
+
 from app.models.project import Project
 from app.models.organization import Organization, OrganizationMember
 from app.models.audit import AuditLog
@@ -30,6 +32,10 @@ async def list_projects(db: AsyncSession, user_id: str) -> list[Project]:
     result = await db.execute(
         select(Project)
         .where(Project.org_id == org_id, Project.is_active == True)
+        .options(
+            selectinload(Project.environments),
+            selectinload(Project.skill_configs).selectinload(SkillConfiguration.skill),
+        )
         .order_by(Project.updated_at.desc())
     )
     return list(result.scalars().all())
@@ -42,7 +48,12 @@ async def get_project_by_slug(db: AsyncSession, user_id: str, slug: str) -> Proj
         return None
 
     result = await db.execute(
-        select(Project).where(Project.org_id == org_id, Project.slug == slug)
+        select(Project)
+        .where(Project.org_id == org_id, Project.slug == slug)
+        .options(
+            selectinload(Project.environments),
+            selectinload(Project.skill_configs).selectinload(SkillConfiguration.skill),
+        )
     )
     return result.scalar_one_or_none()
 

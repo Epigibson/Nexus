@@ -36,18 +36,26 @@ class Settings(BaseSettings):
     @classmethod
     def parse_cors(cls, v):
         if isinstance(v, list):
-            return v
-        if isinstance(v, str):
+            origins = v
+        elif isinstance(v, str):
             v = v.strip()
             # Try JSON first: ["url1","url2"]
             if v.startswith("["):
                 try:
-                    return json.loads(v)
+                    origins = json.loads(v)
                 except json.JSONDecodeError:
-                    pass
-            # Comma-separated: url1,url2
-            return [u.strip().strip('"').strip("'") for u in v.split(",") if u.strip()]
-        return v
+                    origins = [u.strip().strip('"').strip("'") for u in v.split(",") if u.strip()]
+            else:
+                # Comma-separated: url1,url2
+                origins = [u.strip().strip('"').strip("'") for u in v.split(",") if u.strip()]
+        else:
+            origins = v if isinstance(v, list) else []
+
+        # Always allow localhost for development
+        for local in ["http://localhost:3000", "http://127.0.0.1:3000"]:
+            if local not in origins:
+                origins.append(local)
+        return origins
 
     @property
     def is_postgres(self) -> bool:

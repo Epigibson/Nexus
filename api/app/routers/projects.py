@@ -1,6 +1,6 @@
 """Projects router — CRUD with environments."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -44,11 +44,53 @@ def _env_to_schema(env: EnvironmentProfile) -> EnvironmentSchema:
     )
 
 
+def _env_to_schema_unmasked(env: EnvironmentProfile) -> EnvironmentSchema:
+    """Return env vars WITHOUT masking — used by CLI endpoint only."""
+    profiles = [CLIProfileSchema(**p) for p in (env.cli_profiles or [])]
+    raw_vars = env.env_vars or {}
+    return EnvironmentSchema(
+        id=env.id,
+        name=env.name,
+        environment=env.environment,
+        git_branch=env.git_branch,
+        env_var_count=len(raw_vars),
+        env_var_keys=list(raw_vars.keys()),
+        env_vars=raw_vars,  # UNMASKED values for CLI
+        cli_profiles=profiles,
+    )
+
+
 async def _project_response(db, project) -> ProjectResponse:
     switch_count = await get_project_switch_count(db, project.id)
     last_switch = await get_project_last_switch(db, project.id)
 
     envs = [_env_to_schema(e) for e in project.environments]
+    skills = []
+    for sc in project.skill_configs:
+        s = sc.skill
+        if s:
+            skills.append(SkillSchema(
+                id=s.id, name=s.name, description=s.description,
+                category=s.category, icon=s.icon,
+                is_enabled=sc.is_enabled, priority=sc.priority,
+                is_premium=s.is_premium,
+            ))
+
+    return ProjectResponse(
+        id=project.id, name=project.name, slug=project.slug,
+        description=project.description, repo_url=project.repo_url,
+        is_active=project.is_active, environments=envs, skills=skills,
+        switch_count=switch_count, last_switch=last_switch,
+        created_at=project.created_at.isoformat() if project.created_at else "",
+    )
+
+
+async def _project_response_unmasked(db, project) -> ProjectResponse:
+    """Same as _project_response but env vars are NOT masked. For CLI only."""
+    switch_count = await get_project_switch_count(db, project.id)
+    last_switch = await get_project_last_switch(db, project.id)
+
+    envs = [_env_to_schema_unmasked(e) for e in project.environments]
     skills = []
     for sc in project.skill_configs:
         s = sc.skill
@@ -92,11 +134,32 @@ async def create(body: ProjectCreate, user: User = Depends(get_current_user), db
 
 @router.get("/{slug}", response_model=ProjectResponse)
 async def get_one(slug: str, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    """Obtener detalle de un proyecto por slug."""
+    """Obtener detalle de un proyecto por slug (env vars enmascarados)."""
     project = await get_project_by_slug(db, user.id, slug)
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado")
     return await _project_response(db, project)
+
+
+@router.get("/{slug}/cli-context", response_model=ProjectResponse)
+async def get_cli_context(
+    slug: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Obtener contexto completo para el CLI — env vars SIN enmascarar.
+    Solo accesible con X-API-Key (no JWT del dashboard)."""
+    # Verify this is CLI auth (X-API-Key), not dashboard JWT
+    if not request.headers.get("X-API-Key"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is only accessible via CLI (X-API-Key)",
+        )
+    project = await get_project_by_slug(db, user.id, slug)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado")
+    return await _project_response_unmasked(db, project)
 
 
 @router.put("/{slug}", response_model=ProjectResponse)

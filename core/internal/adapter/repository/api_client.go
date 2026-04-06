@@ -116,10 +116,10 @@ func (c *APIClient) ListProjects() ([]ProjectDTO, error) {
 	return projects, nil
 }
 
-// GetProject fetches a single project by slug.
+// GetProject fetches a single project by slug with unmasked env vars for CLI use.
 func (c *APIClient) GetProject(slug string) (*ProjectDTO, error) {
 	var project ProjectDTO
-	if err := c.get(fmt.Sprintf("/projects/%s", slug), &project); err != nil {
+	if err := c.get(fmt.Sprintf("/projects/%s/cli-context", slug), &project); err != nil {
 		return nil, err
 	}
 	return &project, nil

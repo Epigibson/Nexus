@@ -254,29 +254,49 @@ func (v *VercelProfiler) CurrentProfile() (string, error) {
 }
 
 func (v *VercelProfiler) Switch(profile domain.CLIProfile) error {
-	// Step 1: If there's a token, use it
+	// Get token from Extra or env var
+	token := ""
 	if profile.Extra != nil {
-		if token, ok := profile.Extra["token"]; ok && token != "" {
-			os.Setenv("VERCEL_TOKEN", token)
+		if t, ok := profile.Extra["token"]; ok && t != "" {
+			token = t
 		}
 	}
+	if token == "" {
+		token = os.Getenv("VERCEL_TOKEN")
+	}
 
-	// Step 2: Switch team/scope
+	if token != "" {
+		os.Setenv("VERCEL_TOKEN", token)
+	}
+
+	// Switch team/scope (pass --token if available)
 	if profile.Org != "" {
-		cmd := exec.Command("vercel", "switch", profile.Org)
+		args := []string{"switch", profile.Org}
+		if token != "" {
+			args = append(args, "--token", token)
+		}
+		cmd := exec.Command("vercel", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("vercel switch failed: %s", strings.TrimSpace(string(output)))
 		}
 	}
 
-	// Step 3: Link project
+	// Link project (pass --token if available)
 	if profile.Account != "" {
-		cmd := exec.Command("vercel", "link", "--project", profile.Account, "--yes")
+		args := []string{"link", "--project", profile.Account, "--yes"}
+		if token != "" {
+			args = append(args, "--token", token)
+		}
+		cmd := exec.Command("vercel", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("vercel link failed: %s", strings.TrimSpace(string(output)))
 		}
+	}
+
+	if token == "" {
+		return fmt.Errorf("vercel: no token found. Add a Vercel Token in your dashboard profile credentials")
 	}
 	return nil
 }

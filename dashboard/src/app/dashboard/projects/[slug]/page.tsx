@@ -42,18 +42,45 @@ import type { ProjectResponse, AuditEntry, SkillResponse } from "@/lib/api";
 
 /* ─── Tool definitions ─── */
 const TOOL_CATALOG = [
-  { id: "gh", label: "GitHub", icon: "🐙", fields: ["account", "org"] },
-  { id: "aws", label: "AWS", icon: "☁️", fields: ["account", "region"] },
-  { id: "supabase", label: "Supabase", icon: "⚡", fields: ["account", "region"] },
-  { id: "vercel", label: "Vercel", icon: "▲", fields: ["account", "org"] },
-  { id: "railway", label: "Railway", icon: "🚂", fields: ["account"] },
-  { id: "docker", label: "Docker", icon: "🐳", fields: ["account"] },
-  { id: "gcloud", label: "Google Cloud", icon: "🌐", fields: ["account", "region"] },
-  { id: "az", label: "Azure", icon: "🔷", fields: ["account", "region"] },
-  { id: "kubectl", label: "Kubernetes", icon: "☸️", fields: ["account", "region"] },
-  { id: "mongosh", label: "MongoDB", icon: "🍃", fields: ["account", "region"] },
-  { id: "firebase", label: "Firebase", icon: "🔥", fields: ["account"] },
-  { id: "fly", label: "Fly.io", icon: "✈️", fields: ["account", "org"] },
+  {
+    id: "gh", label: "GitHub", icon: "🐙", fields: ["account", "org"],
+    credentials: [{ key: "token", label: "Personal Access Token (GH_TOKEN)", placeholder: "ghp_xxxxxxxxxxxx", help: "Genera uno en github.com/settings/tokens con permisos: repo, read:org" }]
+  },
+  {
+    id: "aws", label: "AWS", icon: "☁️", fields: ["account", "region"],
+    credentials: [
+      { key: "access_key_id", label: "Access Key ID", placeholder: "AKIAIOSFODNN7EXAMPLE" },
+      { key: "secret_access_key", label: "Secret Access Key", placeholder: "wJalrXUtnFEMI/K7MDENG/bPxR...", help: "Se guarda encriptado. Nunca se muestra en el dashboard." },
+    ]
+  },
+  {
+    id: "supabase", label: "Supabase", icon: "⚡", fields: ["account", "region"],
+    credentials: [
+      { key: "token", label: "Access Token", placeholder: "sbp_xxxxxxxxxxxx", help: "Genera uno en supabase.com/dashboard/account/tokens" },
+      { key: "db_password", label: "DB Password (opcional)", placeholder: "tu-password-de-bd" },
+    ]
+  },
+  {
+    id: "vercel", label: "Vercel", icon: "▲", fields: ["account", "org"],
+    credentials: [{ key: "token", label: "Vercel Token", placeholder: "xxxxxxxxxxxxxxxx", help: "Genera uno en vercel.com/account/tokens" }]
+  },
+  {
+    id: "railway", label: "Railway", icon: "🚂", fields: ["account"],
+    credentials: [{ key: "token", label: "Railway Token", placeholder: "xxxxxxxx" }]
+  },
+  { id: "docker", label: "Docker", icon: "🐳", fields: ["account"], credentials: [] },
+  { id: "gcloud", label: "Google Cloud", icon: "🌐", fields: ["account", "region"], credentials: [] },
+  { id: "az", label: "Azure", icon: "🔷", fields: ["account", "region"], credentials: [] },
+  { id: "kubectl", label: "Kubernetes", icon: "☸️", fields: ["account", "region"], credentials: [] },
+  {
+    id: "mongosh", label: "MongoDB", icon: "🍃", fields: ["account", "region"],
+    credentials: [{ key: "uri", label: "Connection URI", placeholder: "mongodb+srv://user:pass@cluster.mongodb.net/db" }]
+  },
+  { id: "firebase", label: "Firebase", icon: "🔥", fields: ["account"], credentials: [] },
+  {
+    id: "fly", label: "Fly.io", icon: "✈️", fields: ["account", "org"],
+    credentials: [{ key: "token", label: "Fly Token", placeholder: "fo1_xxxx" }]
+  },
 ];
 
 const toolMeta: Record<string, { label: string; icon: string }> = {};
@@ -72,7 +99,7 @@ const ENV_PRESETS = [
 ];
 
 type ModalMode = "create" | "edit";
-type CLIProfile = { tool: string; account: string; org?: string; region?: string; status?: string };
+type CLIProfile = { tool: string; account: string; org?: string; region?: string; status?: string, extra?: Record<string, string> };
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -101,6 +128,7 @@ export default function ProjectDetailPage() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [profileEditIndex, setProfileEditIndex] = useState<number | null>(null);
+  const [profileCredentials, setProfileCredentials] = useState<Record<string, string>>({});
 
   // Skills
   const [skillCatalog, setSkillCatalog] = useState<SkillResponse[]>([]);
@@ -188,6 +216,7 @@ export default function ProjectDetailPage() {
     setProfileAccount("");
     setProfileOrg("");
     setProfileRegion("");
+    setProfileCredentials({});
     setProfileEditIndex(null);
     setProfileError("");
     setShowProfileModal(true);
@@ -199,6 +228,7 @@ export default function ProjectDetailPage() {
     setProfileAccount(profile.account);
     setProfileOrg(profile.org || "");
     setProfileRegion(profile.region || "");
+    setProfileCredentials(profile.extra || {});
     setProfileEditIndex(index);
     setProfileError("");
     setShowProfileModal(true);
@@ -213,11 +243,18 @@ export default function ProjectDetailPage() {
       const env = project?.environments.find((e) => e.name === profileEnvName);
       if (!env) throw new Error("Entorno no encontrado");
 
+      // Build extra credentials (filter out empty values)
+      const extra: Record<string, string> = {};
+      Object.entries(profileCredentials).forEach(([k, v]) => {
+        if (v && v.trim()) extra[k] = v.trim();
+      });
+
       const newProfile: CLIProfile = {
         tool: profileTool,
         account: profileAccount,
         ...(profileOrg && { org: profileOrg }),
         ...(profileRegion && { region: profileRegion }),
+        ...(Object.keys(extra).length > 0 && { extra }),
         status: "connected",
       };
 
@@ -298,7 +335,7 @@ export default function ProjectDetailPage() {
         <div className="flex items-center gap-2">
           {project.repo_url && (
             <a href={project.repo_url} target="_blank" rel="noopener"
-               className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent transition-colors">
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent transition-colors">
               <ExternalLink className="h-3.5 w-3.5" /> Repositorio
             </a>
           )}
@@ -319,7 +356,7 @@ export default function ProjectDetailPage() {
         <TabsContent value="environments" className="space-y-6">
           <div className="flex justify-end">
             <Button size="sm" className="gap-2 gradient-violet text-white border-0 hover:opacity-90"
-                    onClick={() => openCreateEnvModal()}>
+              onClick={() => openCreateEnvModal()}>
               <Plus className="h-4 w-4" /> Agregar Entorno
             </Button>
           </div>
@@ -338,7 +375,7 @@ export default function ProjectDetailPage() {
                 <div className="flex flex-wrap gap-2 justify-center">
                   {ENV_PRESETS.map((p) => (
                     <Button key={p.value} variant="outline" size="sm" className="gap-2"
-                            onClick={() => openCreateEnvModal(p)}>
+                      onClick={() => openCreateEnvModal(p)}>
                       <Plus className="h-3 w-3" /> {p.label}
                     </Button>
                   ))}
@@ -354,7 +391,7 @@ export default function ProjectDetailPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Badge variant="outline"
-                           className={`${envColors[env.environment] || ""} text-xs font-mono uppercase tracking-wider`}>
+                      className={`${envColors[env.environment] || ""} text-xs font-mono uppercase tracking-wider`}>
                       {env.name}
                     </Badge>
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -364,20 +401,20 @@ export default function ProjectDetailPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs"
-                            onClick={() => openEditEnvModal(env)}>
+                      onClick={() => openEditEnvModal(env)}>
                       <Pencil className="h-3 w-3" /> Editar
                     </Button>
                     {deletingEnv === env.name ? (
                       <div className="flex items-center gap-1">
                         <Button variant="destructive" size="sm" className="h-7 text-xs"
-                                onClick={() => handleDeleteEnv(env.name)}>Sí, eliminar</Button>
+                          onClick={() => handleDeleteEnv(env.name)}>Sí, eliminar</Button>
                         <Button variant="ghost" size="sm" className="h-7 text-xs"
-                                onClick={() => setDeletingEnv(null)}>No</Button>
+                          onClick={() => setDeletingEnv(null)}>No</Button>
                       </div>
                     ) : (
                       <Button variant="ghost" size="sm"
-                              className="h-7 text-xs text-destructive hover:text-destructive"
-                              onClick={() => setDeletingEnv(env.name)}>
+                        className="h-7 text-xs text-destructive hover:text-destructive"
+                        onClick={() => setDeletingEnv(env.name)}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     )}
@@ -392,7 +429,7 @@ export default function ProjectDetailPage() {
                     Perfiles CLI ({env.cli_profiles.length})
                   </div>
                   <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs"
-                          onClick={() => openAddProfile(env.name)}>
+                    onClick={() => openAddProfile(env.name)}>
                     <Plus className="h-3 w-3" /> Agregar Herramienta
                   </Button>
                 </div>
@@ -406,8 +443,8 @@ export default function ProjectDetailPage() {
                     <div className="flex flex-wrap gap-1.5 justify-center">
                       {TOOL_CATALOG.slice(0, 6).map((tool) => (
                         <button key={tool.id}
-                                onClick={() => { openAddProfile(env.name); setProfileTool(tool.id); }}
-                                className="rounded-lg border border-border px-2.5 py-1 text-xs hover:bg-muted transition-colors flex items-center gap-1.5">
+                          onClick={() => { openAddProfile(env.name); setProfileTool(tool.id); }}
+                          className="rounded-lg border border-border px-2.5 py-1 text-xs hover:bg-muted transition-colors flex items-center gap-1.5">
                           <span>{tool.icon}</span> {tool.label}
                         </button>
                       ))}
@@ -419,7 +456,7 @@ export default function ProjectDetailPage() {
                       const meta = toolMeta[profile.tool] || { label: profile.tool, icon: "🔧" };
                       return (
                         <div key={`${env.name}-${profile.tool}`}
-                             className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors group/profile">
+                          className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors group/profile">
                           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-lg">
                             {meta.icon}
                           </div>
@@ -438,11 +475,11 @@ export default function ProjectDetailPage() {
                           </div>
                           <div className="flex items-center gap-0.5 opacity-0 group-hover/profile:opacity-100 transition-opacity">
                             <button onClick={() => openEditProfile(env.name, profile, idx)}
-                                    className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                              className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                               <Pencil className="h-3 w-3" />
                             </button>
                             <button onClick={() => handleDeleteProfile(env.name, idx)}
-                                    className="rounded p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                              className="rounded p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                               <Trash2 className="h-3 w-3" />
                             </button>
                           </div>
@@ -460,14 +497,14 @@ export default function ProjectDetailPage() {
                       Variables de Entorno ({env.env_var_count})
                     </div>
                     <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs"
-                            onClick={() => {
-                              setVarsEnvName(env.name);
-                              const entries = Object.entries(env.env_vars || {}).map(([key, value]) => ({ key, value: "", isNew: false }));
-                              setVarsEntries(entries.length > 0 ? entries : [{ key: "", value: "", isNew: true }]);
-                              setShowValues(false);
-                              setVarsError("");
-                              setShowVarsModal(true);
-                            }}>
+                      onClick={() => {
+                        setVarsEnvName(env.name);
+                        const entries = Object.entries(env.env_vars || {}).map(([key, value]) => ({ key, value: "", isNew: false }));
+                        setVarsEntries(entries.length > 0 ? entries : [{ key: "", value: "", isNew: true }]);
+                        setShowValues(false);
+                        setVarsError("");
+                        setShowVarsModal(true);
+                      }}>
                       <Plus className="h-3 w-3" /> Variables
                     </Button>
                   </div>
@@ -495,7 +532,7 @@ export default function ProjectDetailPage() {
                     antigravity switch {project.slug} --env {env.name}
                   </code>
                   <button onClick={() => copyToClipboard(`antigravity switch ${project.slug} --env ${env.name}`, env.name)}
-                          className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                    className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
                     {copied === env.name
                       ? <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                       : <Copy className="h-3.5 w-3.5" />}
@@ -526,7 +563,7 @@ export default function ProjectDetailPage() {
             <div className="grid gap-4 md:grid-cols-2">
               {mergedSkills.map((skill) => (
                 <Card key={skill.id}
-                      className={`transition-all duration-200 ${skill.is_enabled ? "border-primary/20 shadow-sm shadow-primary/5" : "opacity-70"}`}>
+                  className={`transition-all duration-200 ${skill.is_enabled ? "border-primary/20 shadow-sm shadow-primary/5" : "opacity-70"}`}>
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -539,7 +576,7 @@ export default function ProjectDetailPage() {
                       <div className="flex items-center gap-2">
                         {skill.is_premium && <Badge className="gradient-violet text-white border-0 text-[9px]">PRO</Badge>}
                         <Switch checked={skill.is_enabled} disabled={togglingSkill === skill.id}
-                                onCheckedChange={() => handleToggleSkill(skill.id, skill.is_enabled)} />
+                          onCheckedChange={() => handleToggleSkill(skill.id, skill.is_enabled)} />
                       </div>
                     </div>
                   </CardHeader>
@@ -572,7 +609,7 @@ export default function ProjectDetailPage() {
                 audit.map((entry) => (
                   <div key={entry.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
                     {entry.success ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                                   : <XCircle className="h-4 w-4 shrink-0 text-destructive" />}
+                      : <XCircle className="h-4 w-4 shrink-0 text-destructive" />}
                     <div className="flex-1">
                       <div className="text-sm font-medium">{entry.message}</div>
                       <div className="text-xs text-muted-foreground">
@@ -596,7 +633,7 @@ export default function ProjectDetailPage() {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowEnvModal(false)} />
           <div className="relative w-full max-w-lg mx-4 rounded-xl border border-border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <button onClick={() => setShowEnvModal(false)}
-                    className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
               <X className="h-4 w-4" />
             </button>
             <div className="flex items-center gap-3 mb-6">
@@ -615,10 +652,9 @@ export default function ProjectDetailPage() {
               <div className="flex flex-wrap gap-2 mb-4">
                 {ENV_PRESETS.map((p) => (
                   <button key={p.value} type="button"
-                          onClick={() => { setEnvName(p.value); setEnvType(p.value); setGitBranch(p.branch); }}
-                          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                            envType === p.value ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"
-                          }`}>
+                    onClick={() => { setEnvName(p.value); setEnvType(p.value); setGitBranch(p.branch); }}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${envType === p.value ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"
+                      }`}>
                     {p.label}
                   </button>
                 ))}
@@ -631,12 +667,12 @@ export default function ProjectDetailPage() {
                   <div className="space-y-2">
                     <Label htmlFor="env-name">Nombre *</Label>
                     <Input id="env-name" placeholder="development" value={envName}
-                           onChange={(e) => setEnvName(e.target.value)} required className="font-mono text-sm" />
+                      onChange={(e) => setEnvName(e.target.value)} required className="font-mono text-sm" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="env-type">Tipo</Label>
                     <select id="env-type" value={envType} onChange={(e) => setEnvType(e.target.value)}
-                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                       <option value="development">Development</option>
                       <option value="staging">Staging</option>
                       <option value="production">Production</option>
@@ -647,7 +683,7 @@ export default function ProjectDetailPage() {
               <div className="space-y-2">
                 <Label htmlFor="env-branch">Branch de Git</Label>
                 <Input id="env-branch" placeholder="develop, main" value={gitBranch}
-                       onChange={(e) => setGitBranch(e.target.value)} className="font-mono text-sm" />
+                  onChange={(e) => setGitBranch(e.target.value)} className="font-mono text-sm" />
               </div>
               {envError && (
                 <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
@@ -657,7 +693,7 @@ export default function ProjectDetailPage() {
               <div className="flex justify-end gap-3 pt-2">
                 <Button type="button" variant="outline" onClick={() => setShowEnvModal(false)}>Cancelar</Button>
                 <Button type="submit" disabled={envSaving || (envModalMode === "create" && !envName.trim())}
-                        className="gap-2 gradient-violet text-white hover:opacity-90 border-0">
+                  className="gap-2 gradient-violet text-white hover:opacity-90 border-0">
                   {envSaving ? <Loader2 className="h-4 w-4 animate-spin" /> :
                     envModalMode === "create" ? <Plus className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                   {envSaving ? "Guardando..." : envModalMode === "create" ? "Crear Entorno" : "Guardar"}
@@ -674,7 +710,7 @@ export default function ProjectDetailPage() {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowProfileModal(false)} />
           <div className="relative w-full max-w-lg mx-4 rounded-xl border border-border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <button onClick={() => setShowProfileModal(false)}
-                    className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
               <X className="h-4 w-4" />
             </button>
 
@@ -699,12 +735,11 @@ export default function ProjectDetailPage() {
                 <div className="grid grid-cols-4 gap-1.5">
                   {TOOL_CATALOG.map((tool) => (
                     <button key={tool.id} type="button"
-                            onClick={() => setProfileTool(tool.id)}
-                            className={`rounded-lg border p-2 text-center transition-all ${
-                              profileTool === tool.id
-                                ? "border-primary bg-primary/10 ring-1 ring-primary/30 scale-[1.02]"
-                                : "border-border hover:bg-muted"
-                            }`}>
+                      onClick={() => setProfileTool(tool.id)}
+                      className={`rounded-lg border p-2 text-center transition-all ${profileTool === tool.id
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/30 scale-[1.02]"
+                          : "border-border hover:bg-muted"
+                        }`}>
                       <div className="text-lg mb-0.5">{tool.icon}</div>
                       <div className="text-[10px] font-medium leading-tight">{tool.label}</div>
                     </button>
@@ -718,29 +753,29 @@ export default function ProjectDetailPage() {
                 <div className="space-y-2">
                   <Label htmlFor="profile-account">
                     {profileTool === "gh" ? "Usuario / Organización de GitHub" :
-                     profileTool === "aws" ? "AWS Profile Name" :
-                     profileTool === "supabase" ? "Project Reference" :
-                     "Cuenta / Identificador"} *
+                      profileTool === "aws" ? "AWS Profile Name" :
+                        profileTool === "supabase" ? "Project Reference" :
+                          "Cuenta / Identificador"} *
                   </Label>
                   <Input id="profile-account"
-                         placeholder={
-                           profileTool === "gh" ? "epigibson" :
-                           profileTool === "aws" ? "luxor-prod" :
-                           profileTool === "supabase" ? "abcdefghijk" :
-                           profileTool === "vercel" ? "my-team" :
-                           "account-name"
-                         }
-                         value={profileAccount}
-                         onChange={(e) => setProfileAccount(e.target.value)}
-                         required className="font-mono text-sm" />
+                    placeholder={
+                      profileTool === "gh" ? "epigibson" :
+                        profileTool === "aws" ? "luxor-prod" :
+                          profileTool === "supabase" ? "abcdefghijk" :
+                            profileTool === "vercel" ? "my-team" :
+                              "account-name"
+                    }
+                    value={profileAccount}
+                    onChange={(e) => setProfileAccount(e.target.value)}
+                    required className="font-mono text-sm" />
                 </div>
 
                 {selectedToolDef?.fields.includes("org") && (
                   <div className="space-y-2">
                     <Label htmlFor="profile-org">Organización</Label>
                     <Input id="profile-org" placeholder="mi-empresa"
-                           value={profileOrg} onChange={(e) => setProfileOrg(e.target.value)}
-                           className="font-mono text-sm" />
+                      value={profileOrg} onChange={(e) => setProfileOrg(e.target.value)}
+                      className="font-mono text-sm" />
                   </div>
                 )}
 
@@ -748,19 +783,46 @@ export default function ProjectDetailPage() {
                   <div className="space-y-2">
                     <Label htmlFor="profile-region">Región</Label>
                     <Input id="profile-region"
-                           placeholder={
-                             profileTool === "aws" ? "us-east-1" :
-                             profileTool === "gcloud" ? "us-central1" :
-                             "region"
-                           }
-                           value={profileRegion} onChange={(e) => setProfileRegion(e.target.value)}
-                           className="font-mono text-sm" />
+                      placeholder={
+                        profileTool === "aws" ? "us-east-1" :
+                          profileTool === "gcloud" ? "us-central1" :
+                            "region"
+                      }
+                      value={profileRegion} onChange={(e) => setProfileRegion(e.target.value)}
+                      className="font-mono text-sm" />
+                  </div>
+                )}
+
+                {/* ── Credential fields per tool ── */}
+                {selectedToolDef?.credentials && selectedToolDef.credentials.length > 0 && (
+                  <div className="space-y-3 pt-2 border-t border-border/40">
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                      🔐 Credenciales para autenticación automática
+                    </p>
+                    {selectedToolDef.credentials.map((cred) => (
+                      <div key={cred.key} className="space-y-1">
+                        <Label htmlFor={`cred-${cred.key}`} className="text-xs">
+                          {cred.label}
+                        </Label>
+                        <Input
+                          id={`cred-${cred.key}`}
+                          type="password"
+                          placeholder={cred.placeholder}
+                          value={profileCredentials[cred.key] || ""}
+                          onChange={(e) => setProfileCredentials(prev => ({ ...prev, [cred.key]: e.target.value }))}
+                          className="font-mono text-sm"
+                        />
+                        {cred.help && (
+                          <p className="text-[10px] text-muted-foreground">{cred.help}</p>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 <div className="rounded-lg bg-muted/50 px-3 py-2 space-y-1">
                   <p className="text-[11px] text-muted-foreground">
-                    ⚡ Esto le dice a <strong>antigravity switch</strong> qué perfil activar para{" "}
+                    ⚡ Esto le dice a <strong>pswitcher switch</strong> qué perfil activar para{" "}
                     <strong>{toolMeta[profileTool]?.label}</strong> cuando cambies a este entorno.
                   </p>
                   {profileTool === "gh" && (
@@ -784,7 +846,7 @@ export default function ProjectDetailPage() {
                 <div className="flex justify-end gap-3 pt-2">
                   <Button type="button" variant="outline" onClick={() => setShowProfileModal(false)}>Cancelar</Button>
                   <Button type="submit" disabled={profileSaving || !profileAccount.trim()}
-                          className="gap-2 gradient-violet text-white hover:opacity-90 border-0">
+                    className="gap-2 gradient-violet text-white hover:opacity-90 border-0">
                     {profileSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                     {profileSaving ? "Guardando..." : profileEditIndex !== null ? "Guardar Cambios" : "Agregar"}
                   </Button>
@@ -800,7 +862,7 @@ export default function ProjectDetailPage() {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowVarsModal(false)} />
           <div className="relative w-full max-w-2xl mx-4 rounded-xl border border-border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[80vh] overflow-y-auto">
             <button onClick={() => setShowVarsModal(false)}
-                    className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
               <X className="h-4 w-4" />
             </button>
 
@@ -865,7 +927,7 @@ export default function ProjectDetailPage() {
             </div>
 
             <Button variant="outline" size="sm" className="gap-1.5 text-xs mb-4"
-                    onClick={() => setVarsEntries([...varsEntries, { key: "", value: "", isNew: true }])}>
+              onClick={() => setVarsEntries([...varsEntries, { key: "", value: "", isNew: true }])}>
               <Plus className="h-3 w-3" /> Agregar Variable
             </Button>
 
@@ -876,7 +938,7 @@ export default function ProjectDetailPage() {
                 if (exists) return null;
                 return (
                   <button key={key} onClick={() => setVarsEntries([...varsEntries, { key, value: "", isNew: true }])}
-                          className="rounded border border-border/60 px-2 py-0.5 text-[10px] font-mono text-muted-foreground hover:bg-muted transition-colors">
+                    className="rounded border border-border/60 px-2 py-0.5 text-[10px] font-mono text-muted-foreground hover:bg-muted transition-colors">
                     + {key}
                   </button>
                 );
@@ -892,38 +954,38 @@ export default function ProjectDetailPage() {
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setShowVarsModal(false)}>Cancelar</Button>
               <Button disabled={varsSaving}
-                      className="gap-2 gradient-violet text-white hover:opacity-90 border-0"
-                      onClick={async () => {
-                        setVarsError("");
-                        setVarsSaving(true);
-                        try {
-                          // Build env_vars dict: only include entries with non-empty keys
-                          const newVars: Record<string, string> = {};
-                          for (const entry of varsEntries) {
-                            if (!entry.key.trim()) continue;
-                            if (entry.value) {
-                              newVars[entry.key] = entry.value;
-                            }
-                            // If value is empty and not new, we keep the old value
-                            // by not including it (the API replaces all vars)
-                            // So for existing vars with empty value, we need to NOT send them
-                            // unless user explicitly wants to keep them
-                            // For simplicity: if value is empty AND not new, skip (keep old)
-                            // This means user must re-enter all values when changing any var
-                            // TODO: implement partial update
-                          }
-                          if (Object.keys(newVars).length === 0 && varsEntries.some(e => e.key.trim())) {
-                            throw new Error("Ingresa al menos un valor para guardar las variables.");
-                          }
-                          await api.updateEnvironment(slug, varsEnvName, { env_vars: newVars });
-                          setShowVarsModal(false);
-                          await loadProject();
-                        } catch (err: unknown) {
-                          setVarsError(err instanceof Error ? err.message : "Error");
-                        } finally {
-                          setVarsSaving(false);
-                        }
-                      }}>
+                className="gap-2 gradient-violet text-white hover:opacity-90 border-0"
+                onClick={async () => {
+                  setVarsError("");
+                  setVarsSaving(true);
+                  try {
+                    // Build env_vars dict: only include entries with non-empty keys
+                    const newVars: Record<string, string> = {};
+                    for (const entry of varsEntries) {
+                      if (!entry.key.trim()) continue;
+                      if (entry.value) {
+                        newVars[entry.key] = entry.value;
+                      }
+                      // If value is empty and not new, we keep the old value
+                      // by not including it (the API replaces all vars)
+                      // So for existing vars with empty value, we need to NOT send them
+                      // unless user explicitly wants to keep them
+                      // For simplicity: if value is empty AND not new, skip (keep old)
+                      // This means user must re-enter all values when changing any var
+                      // TODO: implement partial update
+                    }
+                    if (Object.keys(newVars).length === 0 && varsEntries.some(e => e.key.trim())) {
+                      throw new Error("Ingresa al menos un valor para guardar las variables.");
+                    }
+                    await api.updateEnvironment(slug, varsEnvName, { env_vars: newVars });
+                    setShowVarsModal(false);
+                    await loadProject();
+                  } catch (err: unknown) {
+                    setVarsError(err instanceof Error ? err.message : "Error");
+                  } finally {
+                    setVarsSaving(false);
+                  }
+                }}>
                 {varsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                 {varsSaving ? "Guardando..." : "Guardar Variables"}
               </Button>

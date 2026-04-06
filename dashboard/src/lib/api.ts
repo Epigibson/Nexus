@@ -70,6 +70,7 @@ export interface CLIProfile {
   account: string;
   org?: string;
   region?: string;
+  extra?: Record<string, string>;
   status: string;
 }
 

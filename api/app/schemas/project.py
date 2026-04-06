@@ -8,6 +8,7 @@ class CLIProfileSchema(BaseModel):
     account: str = Field(..., examples=["dev-personal"])
     org: str | None = None
     region: str | None = None
+    extra: dict[str, str] | None = None
     status: str = Field(default="connected", examples=["connected"])
 
 

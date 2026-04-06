@@ -1,0 +1,138 @@
+---
+title: "Instalación"
+sidebarTitle: "Instalación"
+description: "Cómo instalar el CLI de Antigravity en tu sistema operativo."
+---
+
+## Requisitos del sistema
+
+| Requisito | Mínimo | Recomendado |
+|-----------|--------|-------------|
+| **OS** | Windows 10, macOS 12, Ubuntu 20.04 | Última versión |
+| **Go** | 1.22 | 1.26+ |
+| **Git** | 2.30 | Última versión |
+| **Disco** | 10 MB | 10 MB |
+
+<Info>
+Go solo es necesario para compilar. El binario resultante no tiene dependencias externas.
+</Info>
+
+## Instalación rápida
+
+<Tabs>
+  <Tab title="Windows">
+    ```powershell
+    # 1. Clonar y compilar
+    git clone https://github.com/Epigibson/antigravity.git
+    cd antigravity/core
+    go build -o antigravity.exe ./cmd/antigravity
+
+    # 2. Instalar en ~/.antigravity/bin
+    $dir = "$env:USERPROFILE\.antigravity\bin"
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    Move-Item antigravity.exe "$dir\antigravity.exe" -Force
+
+    # 3. Agregar al PATH (solo la primera vez)
+    $path = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    if ($path -notlike "*\.antigravity\bin*") {
+        [System.Environment]::SetEnvironmentVariable("Path", "$path;$dir", "User")
+        Write-Host "✅ Agregado al PATH. Reinicia tu terminal."
+    }
+    ```
+  </Tab>
+  <Tab title="macOS (Homebrew)">
+    ```bash
+    # Por ahora, compilar desde fuente (Homebrew tap en desarrollo)
+    git clone https://github.com/Epigibson/antigravity.git
+    cd antigravity/core
+    go build -o antigravity ./cmd/antigravity
+
+    # Instalar
+    mkdir -p ~/.antigravity/bin
+    mv antigravity ~/.antigravity/bin/
+    echo 'export PATH="$HOME/.antigravity/bin:$PATH"' >> ~/.zshrc
+    source ~/.zshrc
+    ```
+  </Tab>
+  <Tab title="Linux">
+    ```bash
+    git clone https://github.com/Epigibson/antigravity.git
+    cd antigravity/core
+    go build -o antigravity ./cmd/antigravity
+
+    # Opción A: Instalar en home (sin sudo)
+    mkdir -p ~/.antigravity/bin
+    mv antigravity ~/.antigravity/bin/
+    echo 'export PATH="$HOME/.antigravity/bin:$PATH"' >> ~/.bashrc
+    source ~/.bashrc
+
+    # Opción B: Instalar global (con sudo)
+    sudo mv antigravity /usr/local/bin/
+    ```
+  </Tab>
+</Tabs>
+
+## Verificar instalación
+
+```bash
+antigravity version
+```
+
+```
+Antigravity v0.1.0
+```
+
+## Actualizar
+
+Para actualizar a la última versión:
+
+```bash
+cd antigravity  # directorio donde clonaste
+git pull
+cd core
+go build -o antigravity ./cmd/antigravity
+
+# Windows:
+Copy-Item antigravity.exe "$env:USERPROFILE\.antigravity\bin\antigravity.exe" -Force
+
+# macOS/Linux:
+cp antigravity ~/.antigravity/bin/
+```
+
+## Desinstalar
+
+<Tabs>
+  <Tab title="Windows">
+    ```powershell
+    # Eliminar binario y configuración
+    Remove-Item -Recurse "$env:USERPROFILE\.antigravity" -Force
+
+    # Quitar del PATH
+    $path = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    $newPath = ($path -split ";" | Where-Object { $_ -notlike "*\.antigravity*" }) -join ";"
+    [System.Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+    ```
+  </Tab>
+  <Tab title="macOS / Linux">
+    ```bash
+    rm -rf ~/.antigravity
+    # Quitar la línea de PATH de ~/.zshrc o ~/.bashrc
+    ```
+  </Tab>
+</Tabs>
+
+## Estructura de archivos
+
+Después de instalar y hacer login, Antigravity crea esta estructura:
+
+```
+~/.antigravity/
+├── bin/
+│   └── antigravity(.exe)    # El binario del CLI
+├── credentials              # API key encriptada (generada por 'antigravity login')
+└── last_switch.ps1          # Script de env vars del último switch
+```
+
+<Warning>
+  El archivo `credentials` contiene tu API key. No lo compartas ni lo subas a repositorios.
+</Warning>

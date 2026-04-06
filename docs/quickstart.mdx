@@ -1,134 +1,217 @@
 ---
 title: "Quick Start"
 sidebarTitle: "Quick Start"
-description: "Levanta Antigravity completo en tu máquina en 5 minutos."
+description: "Instala el CLI de Antigravity y haz tu primer switch en 5 minutos."
 ---
 
 ## Prerrequisitos
 
 <AccordionGroup>
-  <Accordion title="Node.js 24+" icon="node-js">
+  <Accordion title="Go 1.22+" icon="golang">
+    Necesario para compilar el CLI.
     ```bash
-    node --version  # v24+
-    npm --version   # v10+
+    go version  # 1.22+
     ```
+    Descarga: [go.dev/dl](https://go.dev/dl/)
   </Accordion>
-  <Accordion title="Python 3.12+" icon="python">
+  <Accordion title="Git" icon="git-alt">
     ```bash
-    python --version  # 3.12+
-    pip --version     # 24+
-    ```
-  </Accordion>
-  <Accordion title="Go 1.26+" icon="golang">
-    ```bash
-    go version  # 1.26+
+    git --version
     ```
   </Accordion>
 </AccordionGroup>
 
-## Paso 1: Backend API
+## Paso 1: Instalar el CLI
 
-<Steps>
-  <Step title="Instalar dependencias">
-    ```bash
-    cd api/
-    pip install -r requirements.txt
+<Tabs>
+  <Tab title="Windows (PowerShell)">
+    ```powershell
+    # Descargar y compilar
+    git clone https://github.com/Epigibson/antigravity.git
+    cd antigravity/core
+    go build -o antigravity.exe ./cmd/antigravity
+
+    # Instalar globalmente
+    $installDir = "$env:USERPROFILE\.antigravity\bin"
+    New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+    Copy-Item antigravity.exe "$installDir\antigravity.exe" -Force
+
+    # Agregar al PATH (permanente, solo la primera vez)
+    $currentPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    if ($currentPath -notlike "*\.antigravity\bin*") {
+        [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$installDir", "User")
+    }
     ```
-  </Step>
-  <Step title="Configurar variables de entorno">
-    ```bash
-    cp .env.example .env
-    ```
+
     <Warning>
-      En producción, cambia `SECRET_KEY` a un string random de 64 caracteres.
+      Reinicia tu terminal después de agregar al PATH para que tome efecto.
     </Warning>
-  </Step>
-  <Step title="Crear base de datos con datos de demo">
+  </Tab>
+  <Tab title="macOS / Linux">
     ```bash
-    python -m seed
-    ```
-    ```
-    ✅ Seed completado: 1 user, 1 org, 3 projects, 5 skills, 7 environments, 10 audit entries
-    📧 Login: dev@acme-corp.com / password123
-    ```
-  </Step>
-  <Step title="Iniciar el servidor">
-    ```bash
-    uvicorn app.main:app --reload --port 8000
-    ```
-    ```
-    🚀 Antigravity API v0.1.0 — Database ready
-    INFO:     Application startup complete.
-    ```
-  </Step>
-</Steps>
+    # Descargar y compilar
+    git clone https://github.com/Epigibson/antigravity.git
+    cd antigravity/core
+    go build -o antigravity ./cmd/antigravity
 
-<Check>
-  Verifica: [http://localhost:8000/docs](http://localhost:8000/docs) — Swagger UI
-</Check>
+    # Instalar globalmente
+    mkdir -p ~/.antigravity/bin
+    cp antigravity ~/.antigravity/bin/
+    chmod +x ~/.antigravity/bin/antigravity
 
-## Paso 2: Dashboard
+    # Agregar al PATH (añadir a ~/.bashrc o ~/.zshrc)
+    echo 'export PATH="$HOME/.antigravity/bin:$PATH"' >> ~/.zshrc
+    source ~/.zshrc
+    ```
+  </Tab>
+</Tabs>
 
-<Steps>
-  <Step title="Instalar dependencias">
-    ```bash
-    cd dashboard/
-    npm install
-    ```
-  </Step>
-  <Step title="Iniciar dev server">
-    ```bash
-    npm run dev
-    ```
-  </Step>
-  <Step title="Abrir en el navegador">
-    Ir a [http://localhost:3000](http://localhost:3000) — te redirige a la página de login.
-  </Step>
-  <Step title="Iniciar sesión">
-    ```
-    Email:    dev@acme-corp.com
-    Password: password123
-    ```
-  </Step>
-</Steps>
-
-<Check>
-  Verifica: Deberías ver el dashboard Overview con 3 proyectos, switches recientes, y la gráfica de actividad.
-</Check>
-
-## Paso 3: CLI (Opcional)
+Verifica la instalación:
 
 ```bash
-cd core/
-
-# Compilar
-go build -o antigravity ./cmd/main.go
-
-# Probar
-./antigravity version
-./antigravity list
-./antigravity switch saas-platform --env development
+antigravity version
+# → Antigravity v0.1.0
 ```
 
-## Puertos
+<Check>
+  Si ves `Antigravity v0.1.0`, la instalación fue exitosa.
+</Check>
 
-| Servicio | URL |
-|----------|-----|
-| Dashboard | [http://localhost:3000](http://localhost:3000) |
-| API Backend | [http://localhost:8000](http://localhost:8000) |
-| Swagger UI | [http://localhost:8000/docs](http://localhost:8000/docs) |
-| ReDoc | [http://localhost:8000/redoc](http://localhost:8000/redoc) |
+## Paso 2: Crear cuenta y API Key
+
+<Steps>
+  <Step title="Registrarte en el Dashboard">
+    Ve a [antigravity-production-a677.up.railway.app](https://antigravity-production-a677.up.railway.app) y crea tu cuenta.
+  </Step>
+  <Step title="Crear un proyecto">
+    En el dashboard, crea un proyecto y agrega entornos (development, staging, production). Configura los CLI profiles (GitHub, AWS, etc.) y variables de entorno (API keys, secrets).
+  </Step>
+  <Step title="Generar una API Key">
+    Ve a **Configuración → API Keys → Generar Nueva Key**.
+
+    <Warning>
+      La key completa (`ag_live_...`) solo se muestra **una vez**. Cópiala antes de cerrar el modal.
+    </Warning>
+  </Step>
+</Steps>
+
+## Paso 3: Conectar el CLI
+
+```bash
+# Autenticarte con tu API key
+antigravity login
+```
+
+```
+🔐 Antigravity CLI — Login
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generate an API key from your Dashboard:
+  → Settings → API Keys → Generate New Key
+
+Paste your API key: ag_live_xxxxxxxxxx...
+
+✅ Authenticated as Ricardo (hackminor@live.com.mx)
+📋 Plan: free
+
+Run 'antigravity sync' to pull your projects from the cloud.
+```
+
+## Paso 4: Sincronizar proyectos
+
+```bash
+antigravity sync
+```
+
+```
+🔄 Antigravity Sync
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Authenticating... ✅ hackminor@live.com.mx
+  Pulling projects... ✅ 2 projects found
+
+📦 Cloud Projects:
+  ✅ Auto Hotel Luxor (auto-hotel-luxor)
+      └─ production (branch: main, 3 tools)
+      └─ development (branch: develop, 2 tools)
+  ✅ Natura Inventory (natura-inventory)
+      └─ production (branch: main, 2 tools)
+
+✅ Sync complete!
+```
+
+## Paso 5: ¡Hacer switch!
+
+```bash
+# Desde CUALQUIER directorio
+antigravity switch auto-hotel-luxor --env production
+```
+
+```
+   ___         __  _                       _ __       
+  / _ | ___   / /_(_)__ _______ __  _____ (_) /___ __ 
+ / __ |/ _ \ / __/ / _ '/ __/ _ '/ |/ / -_) / __/ // /
+/_/ |_/_//_/ \__/_/\_, /_/  \_,_/|___/\__/_/\__/\_, / 
+                  /___/                         /___/  
+
+  ☁️  Cloud mode — fetching project 'auto-hotel-luxor'
+  🚀 Switching context → Auto Hotel Luxor / production
+
+  ─────────────────────────────────────────
+  ✅ gh → epigibson
+  ✅ aws → luxor-prod
+  ✅ supabase → linked
+  ✅ env vars → 4 variables set
+  📌 git branch — main
+  ─────────────────────────────────────────
+
+  ✅ Context switch complete!
+```
+
+<Check>
+  Ahora tu GitHub CLI, AWS, Supabase y todas las variables de entorno están configuradas para el proyecto correcto. Listo para desarrollar.
+</Check>
+
+## Comandos disponibles
+
+| Comando | Descripción |
+|---------|-------------|
+| `antigravity login` | Autenticarte con tu API key |
+| `antigravity sync` | Sincronizar proyectos del cloud |
+| `antigravity status` | Ver estado de conexión |
+| `antigravity switch <proyecto> --env <env>` | Cambiar contexto completo |
+| `antigravity list` | Listar proyectos locales |
+| `antigravity init` | Crear antigravity.yaml local |
+| `antigravity logout` | Desconectar del cloud |
+| `antigravity version` | Ver versión |
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="CORS error en el dashboard">
-    Asegúrate de que el API está corriendo en `:8000` y que `CORS_ORIGINS` en `.env` incluye `http://localhost:3000`.
+  <Accordion title="'antigravity' no se reconoce como comando">
+    Asegúrate de que `~/.antigravity/bin` está en tu PATH y que reiniciaste la terminal después de instalarlo.
+
+    **Windows**: Verifica con `$env:Path -split ";" | Where-Object { $_ -like "*antigravity*" }`
+
+    **macOS/Linux**: Verifica con `echo $PATH | tr ':' '\n' | grep antigravity`
   </Accordion>
-  <Accordion title="Token inválido después de reiniciar el API">
-    Si cambias `SECRET_KEY`, los tokens existentes se invalidan. Haz logout en el dashboard y vuelve a iniciar sesión.
+  <Accordion title="Authentication failed al hacer login">
+    - Verifica que copiaste la API key completa (empieza con `ag_live_`)
+    - Genera una nueva key desde el dashboard si la anterior expiró
+    - Verifica conexión a internet
   </Accordion>
-  <Accordion title="pip install falla">
-    Prueba sin versiones fijas: `pip install fastapi uvicorn pydantic pydantic-settings sqlalchemy aiosqlite python-jose bcrypt python-multipart httpx`
+  <Accordion title="'go' no se reconoce (conflicto con alias)">
+    Si tienes un alias de PowerShell que reemplaza `go` (por ejemplo, para `git checkout`):
+
+    ```powershell
+    # Renombra tu alias en $PROFILE
+    # Cambia: function go { ... }
+    # A:      function ggo { ... }
+    ```
+
+    O usa el path completo: `& "C:\Program Files\Go\bin\go.exe" build ...`
+  </Accordion>
+  <Accordion title="Error 500 al generar API Key">
+    Si ves un error interno al crear la key, espera 2 minutos para que Railway redeployee tras un push reciente.
   </Accordion>
 </AccordionGroup>

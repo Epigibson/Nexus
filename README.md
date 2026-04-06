@@ -59,52 +59,96 @@ Este comando:
 └────────────────────┘    └─────────────────────────┘
 ```
 
+## Instalación del CLI
+
+### Windows (PowerShell)
+
+```powershell
+# 1. Descargar y compilar
+git clone https://github.com/Epigibson/antigravity.git
+cd antigravity/core
+go build -o antigravity.exe ./cmd/antigravity
+
+# 2. Instalar globalmente
+$installDir = "$env:USERPROFILE\.antigravity\bin"
+New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+Copy-Item antigravity.exe "$installDir\antigravity.exe" -Force
+
+# 3. Agregar al PATH (permanente)
+$currentPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+if ($currentPath -notlike "*\.antigravity\bin*") {
+    [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$installDir", "User")
+}
+
+# 4. Reiniciar terminal y verificar
+antigravity version
+# → Antigravity v0.1.0
+```
+
+### macOS / Linux
+
+```bash
+# 1. Descargar y compilar
+git clone https://github.com/Epigibson/antigravity.git
+cd antigravity/core
+go build -o antigravity ./cmd/antigravity
+
+# 2. Instalar globalmente
+mkdir -p ~/.antigravity/bin
+cp antigravity ~/.antigravity/bin/
+chmod +x ~/.antigravity/bin/antigravity
+
+# 3. Agregar al PATH (añadir a ~/.bashrc o ~/.zshrc)
+echo 'export PATH="$HOME/.antigravity/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# 4. Verificar
+antigravity version
+# → Antigravity v0.1.0
+```
+
 ## Quick Start
 
-### CLI (Go)
+### 1. Crear cuenta en el Dashboard
+
+Regístrate en [antigravity-production-a677.up.railway.app](https://antigravity-production-a677.up.railway.app) y crea un proyecto con sus entornos (development, staging, production).
+
+### 2. Generar API Key
+
+Ve a **Configuración → API Keys → Generar Nueva Key** y copia la key (empieza con `ag_live_...`).
+
+### 3. Conectar el CLI
+
 ```bash
-# Inicializar un nuevo proyecto
-antigravity init
+# Autenticarte con tu API key
+antigravity login
+# → Paste your API key: ag_live_xxxxxxxxxx...
+# → ✅ Authenticated as tu-nombre (tu@email.com)
 
-# Editar tu antigravity.yaml con los detalles del proyecto
+# Ver tus proyectos
+antigravity sync
 
-# Cambiar a un entorno de proyecto
-antigravity switch my-project --env development
-
-# Listar proyectos configurados
-antigravity list
-
-# Ver CLI profiles de un proyecto
-antigravity profiles my-project
+# Ver estado de conexión
+antigravity status
 ```
 
-### Dashboard (Next.js)
+### 4. ¡Hacer switch!
+
 ```bash
-cd dashboard
-npm install
-npm run dev
-# → http://localhost:3000
+# Cambiar todo tu contexto de desarrollo
+antigravity switch mi-proyecto --env production
+
+# → ✅ gh → epigibson
+# → ✅ aws → prod-profile  
+# → ✅ supabase → linked
+# → ✅ env vars → 4 variables set
+# → ✅ Context switch complete!
 ```
 
-### Backend API (FastAPI)
+### 5. Desconectar (opcional)
+
 ```bash
-cd api
-pip install -r requirements.txt
-cp .env.example .env
-
-# Poblar base de datos con datos de demo
-python -m seed
-
-# Iniciar servidor
-uvicorn app.main:app --reload
-# → http://localhost:8000
-# → Swagger UI: http://localhost:8000/docs
-```
-
-**Credenciales de demo:**
-```
-Email:    dev@acme-corp.com
-Password: password123
+antigravity logout
 ```
 
 ## Stack Tecnológico

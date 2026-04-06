@@ -23,6 +23,7 @@
             "pages": [
               "what-is-antigravity",
               "introduction",
+              "installation",
               "quickstart",
               "architecture"
             ]
@@ -90,8 +91,11 @@
             "group": "CLI Reference",
             "pages": [
               "cli/installation",
-              "cli/init",
+              "cli/login",
               "cli/switch",
+              "cli/sync",
+              "cli/status",
+              "cli/init",
               "cli/list",
               "cli/profiles",
               "cli/configuration"
@@ -103,7 +107,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/acme-corp/antigravity"
+      "github": "https://github.com/Epigibson/antigravity"
     }
   }
 }

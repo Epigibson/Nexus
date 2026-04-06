@@ -287,7 +287,15 @@ func (v *VercelProfiler) Switch(profile domain.CLIProfile) error {
 		}
 		linkCmd := exec.Command("vercel", linkArgs...)
 		linkOutput, linkErr := linkCmd.CombinedOutput()
-		if linkErr != nil {
+		if linkErr != nil && profile.Org != "" {
+			// Retry without --scope
+			retryArgs := []string{"link", "--project", profile.Account, "--yes", "--token", token}
+			retryCmd := exec.Command("vercel", retryArgs...)
+			retryOutput, retryErr := retryCmd.CombinedOutput()
+			if retryErr != nil {
+				return fmt.Errorf("vercel link failed: %s", strings.TrimSpace(string(retryOutput)))
+			}
+		} else if linkErr != nil {
 			return fmt.Errorf("vercel link failed: %s", strings.TrimSpace(string(linkOutput)))
 		}
 	}

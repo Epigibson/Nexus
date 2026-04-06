@@ -44,11 +44,12 @@ type EnvironmentDTO struct {
 
 // CLIProfileDTO represents a CLI profile from the API.
 type CLIProfileDTO struct {
-	Tool    string `json:"tool"`
-	Account string `json:"account"`
-	Region  string `json:"region,omitempty"`
-	Org     string `json:"org,omitempty"`
-	Status  string `json:"status"`
+	Tool    string            `json:"tool"`
+	Account string            `json:"account"`
+	Region  string            `json:"region,omitempty"`
+	Org     string            `json:"org,omitempty"`
+	Status  string            `json:"status"`
+	Extra   map[string]string `json:"extra,omitempty"`
 }
 
 // UserDTO represents the current user.

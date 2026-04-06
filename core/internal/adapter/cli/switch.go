@@ -96,11 +96,18 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 
 	results := make([]string, 0)
 
+	// ── Inject env vars FIRST (tokens needed by profilers) ──
+	if len(targetEnv.EnvVars) > 0 {
+		for key, value := range targetEnv.EnvVars {
+			os.Setenv(key, value)
+		}
+	}
+
 	// ── Switch CLI profiles ──
 	for _, profile := range targetEnv.CLIProfiles {
 		profiler, ok := profilerMap[profile.Tool]
 		if !ok {
-			results = append(results, fmt.Sprintf("  ⏭️  %s — no profiler installed", profile.Tool))
+			results = append(results, fmt.Sprintf("  ⏭️  %s — no profiler registered", profile.Tool))
 			continue
 		}
 
@@ -114,6 +121,7 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 			Account: profile.Account,
 			Org:     profile.Org,
 			Region:  profile.Region,
+			Extra:   profile.Extra,
 		}
 
 		err := profiler.Switch(domainProfile)

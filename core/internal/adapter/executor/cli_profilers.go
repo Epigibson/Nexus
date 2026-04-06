@@ -2,6 +2,7 @@ package executor
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -13,7 +14,8 @@ import (
 // ============================================================================
 
 // GitHubProfiler manages GitHub CLI (gh) account switching.
-// Supports switching between multiple authenticated GitHub accounts.
+// If the account isn't already logged in, it uses GH_TOKEN from
+// env vars or the Extra field to authenticate automatically.
 type GitHubProfiler struct{}
 
 func NewGitHubProfiler() *GitHubProfiler { return &GitHubProfiler{} }
@@ -31,7 +33,6 @@ func (g *GitHubProfiler) CurrentProfile() (string, error) {
 	if err != nil {
 		return "none", nil
 	}
-	// Parse "Logged in to github.com account <username>"
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "account") {
@@ -50,19 +51,41 @@ func (g *GitHubProfiler) CurrentProfile() (string, error) {
 }
 
 func (g *GitHubProfiler) Switch(profile domain.CLIProfile) error {
-	// gh auth switch --user <username>
+	// Step 1: Try switching to an existing session
 	cmd := exec.Command("gh", "auth", "switch", "--user", profile.Account)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("gh auth switch failed: %s", strings.TrimSpace(string(output)))
+	_, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil // Switch succeeded, already logged in
 	}
-	return nil
+
+	// Step 2: Try auto-login with token from Extra["token"] or env GH_TOKEN
+	token := ""
+	if profile.Extra != nil {
+		if t, ok := profile.Extra["token"]; ok && t != "" {
+			token = t
+		}
+	}
+	if token == "" {
+		token = os.Getenv("GH_TOKEN")
+	}
+
+	if token != "" {
+		// Login with token via stdin: echo TOKEN | gh auth login --with-token
+		loginCmd := exec.Command("gh", "auth", "login", "--with-token")
+		loginCmd.Stdin = strings.NewReader(token)
+		output, loginErr := loginCmd.CombinedOutput()
+		if loginErr != nil {
+			return fmt.Errorf("gh auto-login failed: %s", strings.TrimSpace(string(output)))
+		}
+		return nil
+	}
+
+	return fmt.Errorf("gh: account '%s' not found. Add a GH_TOKEN in your environment variables or authenticate manually with 'gh auth login'", profile.Account)
 }
 
 func (g *GitHubProfiler) ListProfiles() ([]string, error) {
 	cmd := exec.Command("gh", "auth", "status")
 	output, _ := cmd.CombinedOutput()
-	// Parse all accounts from gh auth status output
 	var profiles []string
 	for _, line := range strings.Split(string(output), "\n") {
 		if strings.Contains(line, "account") || strings.Contains(line, "Logged in") {
@@ -77,8 +100,8 @@ func (g *GitHubProfiler) ListProfiles() ([]string, error) {
 // ============================================================================
 
 // AWSProfiler manages AWS CLI profile switching.
-// Works by setting the AWS_PROFILE environment variable and optionally
-// running `aws sso login` for SSO-based profiles.
+// Can authenticate using AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY
+// from the environment's env_vars, or switch between named profiles.
 type AWSProfiler struct{}
 
 func NewAWSProfiler() *AWSProfiler { return &AWSProfiler{} }
@@ -91,34 +114,47 @@ func (a *AWSProfiler) IsInstalled() bool {
 }
 
 func (a *AWSProfiler) CurrentProfile() (string, error) {
-	cmd := exec.Command("aws", "configure", "list")
+	// Check AWS_PROFILE env var first
+	if p := os.Getenv("AWS_PROFILE"); p != "" {
+		return p, nil
+	}
+	cmd := exec.Command("aws", "sts", "get-caller-identity", "--query", "Account", "--output", "text")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "default", nil
+		return "none", nil
 	}
-	for _, line := range strings.Split(string(output), "\n") {
-		if strings.Contains(line, "profile") {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				return parts[1], nil
-			}
-		}
-	}
-	return "default", nil
+	return strings.TrimSpace(string(output)), nil
 }
 
 func (a *AWSProfiler) Switch(profile domain.CLIProfile) error {
-	// AWS profile switching is done via environment variable
-	// The shell emitter will handle $env:AWS_PROFILE = "profile-name"
-	// For SSO profiles, we may also need to trigger a login
-	cmd := exec.Command("aws", "sts", "get-caller-identity", "--profile", profile.Account)
+	// Step 1: Set AWS_PROFILE for named profile switching
+	os.Setenv("AWS_PROFILE", profile.Account)
+
+	// Step 2: If Extra has access keys, configure them directly
+	if profile.Extra != nil {
+		if key, ok := profile.Extra["access_key_id"]; ok && key != "" {
+			os.Setenv("AWS_ACCESS_KEY_ID", key)
+		}
+		if secret, ok := profile.Extra["secret_access_key"]; ok && secret != "" {
+			os.Setenv("AWS_SECRET_ACCESS_KEY", secret)
+		}
+	}
+
+	// Step 3: Set region if provided
+	if profile.Region != "" {
+		os.Setenv("AWS_DEFAULT_REGION", profile.Region)
+		os.Setenv("AWS_REGION", profile.Region)
+	}
+
+	// Step 4: Verify authentication works
+	cmd := exec.Command("aws", "sts", "get-caller-identity")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		// Token might be expired, try SSO login
+		// Try SSO login as last resort
 		loginCmd := exec.Command("aws", "sso", "login", "--profile", profile.Account)
 		loginOutput, loginErr := loginCmd.CombinedOutput()
 		if loginErr != nil {
-			return fmt.Errorf("aws profile switch failed: %s | SSO login: %s",
+			return fmt.Errorf("aws: could not authenticate. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in your environment variables. Error: %s | SSO: %s",
 				strings.TrimSpace(string(output)), strings.TrimSpace(string(loginOutput)))
 		}
 	}
@@ -140,6 +176,7 @@ func (a *AWSProfiler) ListProfiles() ([]string, error) {
 // ============================================================================
 
 // SupabaseProfiler manages Supabase CLI project linking.
+// Uses access token from Extra["token"] or SUPABASE_ACCESS_TOKEN env var.
 type SupabaseProfiler struct{}
 
 func NewSupabaseProfiler() *SupabaseProfiler { return &SupabaseProfiler{} }
@@ -152,11 +189,21 @@ func (s *SupabaseProfiler) IsInstalled() bool {
 }
 
 func (s *SupabaseProfiler) CurrentProfile() (string, error) {
-	return "unknown", nil // Supabase CLI doesn't have a simple "current project" command
+	return "unknown", nil
 }
 
 func (s *SupabaseProfiler) Switch(profile domain.CLIProfile) error {
-	// Link to the specified Supabase project
+	// Step 1: If there's an access token, set it for the CLI
+	if profile.Extra != nil {
+		if token, ok := profile.Extra["token"]; ok && token != "" {
+			os.Setenv("SUPABASE_ACCESS_TOKEN", token)
+		}
+		if dbPass, ok := profile.Extra["db_password"]; ok && dbPass != "" {
+			os.Setenv("SUPABASE_DB_PASSWORD", dbPass)
+		}
+	}
+
+	// Step 2: Link to the specified project
 	args := []string{"link", "--project-ref", profile.Account}
 	if profile.Extra != nil {
 		if password, ok := profile.Extra["db_password"]; ok {
@@ -185,6 +232,7 @@ func (s *SupabaseProfiler) ListProfiles() ([]string, error) {
 // ============================================================================
 
 // VercelProfiler manages Vercel CLI scope/team switching.
+// Can authenticate using a token from Extra["token"] or VERCEL_TOKEN.
 type VercelProfiler struct{}
 
 func NewVercelProfiler() *VercelProfiler { return &VercelProfiler{} }
@@ -206,7 +254,14 @@ func (v *VercelProfiler) CurrentProfile() (string, error) {
 }
 
 func (v *VercelProfiler) Switch(profile domain.CLIProfile) error {
-	// Vercel uses --scope for team switching
+	// Step 1: If there's a token, use it
+	if profile.Extra != nil {
+		if token, ok := profile.Extra["token"]; ok && token != "" {
+			os.Setenv("VERCEL_TOKEN", token)
+		}
+	}
+
+	// Step 2: Switch team/scope
 	if profile.Org != "" {
 		cmd := exec.Command("vercel", "switch", profile.Org)
 		output, err := cmd.CombinedOutput()
@@ -214,7 +269,8 @@ func (v *VercelProfiler) Switch(profile domain.CLIProfile) error {
 			return fmt.Errorf("vercel switch failed: %s", strings.TrimSpace(string(output)))
 		}
 	}
-	// Link to the specific project
+
+	// Step 3: Link project
 	if profile.Account != "" {
 		cmd := exec.Command("vercel", "link", "--project", profile.Account, "--yes")
 		output, err := cmd.CombinedOutput()
@@ -236,8 +292,7 @@ func (v *VercelProfiler) ListProfiles() ([]string, error) {
 // ============================================================================
 
 // MongoProfiler manages MongoDB connection switching.
-// Unlike other tools, MongoDB switching is primarily done via connection strings
-// in environment variables rather than CLI profile commands.
+// Uses MONGODB_URI from env vars for connection string switching.
 type MongoProfiler struct{}
 
 func NewMongoProfiler() *MongoProfiler { return &MongoProfiler{} }
@@ -247,7 +302,6 @@ func (m *MongoProfiler) ToolName() string { return "mongosh" }
 func (m *MongoProfiler) IsInstalled() bool {
 	_, err := exec.LookPath("mongosh")
 	if err != nil {
-		// Also check for atlas CLI
 		_, err = exec.LookPath("atlas")
 		return err == nil
 	}
@@ -255,7 +309,6 @@ func (m *MongoProfiler) IsInstalled() bool {
 }
 
 func (m *MongoProfiler) CurrentProfile() (string, error) {
-	// Check if atlas CLI is available for profile management
 	cmd := exec.Command("atlas", "config", "describe")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -265,7 +318,14 @@ func (m *MongoProfiler) CurrentProfile() (string, error) {
 }
 
 func (m *MongoProfiler) Switch(profile domain.CLIProfile) error {
-	// Try Atlas CLI profile switching first
+	// Step 1: Set connection string from Extra
+	if profile.Extra != nil {
+		if uri, ok := profile.Extra["uri"]; ok && uri != "" {
+			os.Setenv("MONGODB_URI", uri)
+		}
+	}
+
+	// Step 2: Try Atlas CLI profile switching
 	if _, err := exec.LookPath("atlas"); err == nil && profile.Account != "" {
 		cmd := exec.Command("atlas", "config", "set", "-P", profile.Account)
 		output, err := cmd.CombinedOutput()
@@ -273,7 +333,6 @@ func (m *MongoProfiler) Switch(profile domain.CLIProfile) error {
 			return fmt.Errorf("atlas config set failed: %s", strings.TrimSpace(string(output)))
 		}
 	}
-	// MongoDB connection strings are handled via env var injection (MONGODB_URI)
 	return nil
 }
 

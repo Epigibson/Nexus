@@ -24,7 +24,7 @@ var (
 // NewRootCmd creates the root CLI command for Antigravity.
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "antigravity",
+		Use:   "pswitcher",
 		Short: "⚡ Development Environment Control Center",
 		Long: banner + `
   Antigravity eliminates context switching friction for developers.
@@ -32,10 +32,10 @@ func NewRootCmd() *cobra.Command {
   GitHub, AWS, Supabase, Vercel, MongoDB, and every CLI session.
 
   Usage:
-    antigravity switch <project> [--env environment]
-    antigravity init
-    antigravity list
-    antigravity profiles <project>`,
+    pswitcher switch <project> [--env environment]
+    pswitcher init
+    pswitcher list
+    pswitcher profiles <project>`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

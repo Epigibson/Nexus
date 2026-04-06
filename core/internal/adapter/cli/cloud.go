@@ -66,7 +66,7 @@ The key is stored securely in ~/.antigravity/credentials.`,
 			fmt.Printf("✅ Authenticated as %s (%s)\n", user.DisplayName, user.Email)
 			fmt.Printf("📋 Plan: %s\n", user.Plan)
 			fmt.Println()
-			fmt.Println("Run 'antigravity sync' to pull your projects from the cloud.")
+			fmt.Println("Run 'pswitcher sync' to pull your projects from the cloud.")
 			return nil
 		},
 	}
@@ -149,7 +149,7 @@ func newStatusCmd() *cobra.Command {
 			if !client.IsAuthenticated() {
 				fmt.Println("  🔴 Not authenticated")
 				fmt.Println()
-				fmt.Println("  Run 'antigravity login' to connect to the cloud.")
+				fmt.Println("  Run 'pswitcher login' to connect to the cloud.")
 				return nil
 			}
 

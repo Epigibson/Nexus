@@ -26,20 +26,22 @@ async def get_current_user(
     api_key = request.headers.get("X-API-Key")
     if api_key:
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-        result = await db.execute(
-            select(ApiKey).where(ApiKey.key_hash == key_hash, ApiKey.is_active == True)
-        )
-        api_key_record = result.scalar_one_or_none()
+        try:
+            result = await db.execute(
+                select(ApiKey).where(ApiKey.key_hash == key_hash, ApiKey.is_active.is_(True))
+            )
+            api_key_record = result.scalar_one_or_none()
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error validating API key",
+            )
+
         if not api_key_record:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="API key inválida o desactivada",
             )
-
-        # Update last_used_at
-        from datetime import datetime, timezone
-        api_key_record.last_used_at = datetime.now(timezone.utc)
-        await db.commit()
 
         user = await get_user_by_id(db, api_key_record.user_id)
         if not user:

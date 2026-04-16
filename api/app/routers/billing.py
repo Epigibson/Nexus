@@ -87,9 +87,8 @@ async def create_embedded_subscription(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create an incomplete subscription for embedded payment via Stripe Elements."""
+    """Create an embedded Stripe Checkout session for upgrading to Premium."""
     import stripe as stripe_lib
-    import traceback
     stripe_lib.api_key = settings.stripe_secret_key
 
     if not settings.stripe_secret_key:
@@ -99,108 +98,45 @@ async def create_embedded_subscription(
         raise HTTPException(status_code=400, detail="Ya tienes el plan Premium")
 
     try:
-        print(f"💳 Step 1: Getting org for user {user.id}")
         org_id = await _get_user_org_id(user, db)
-        print(f"💳 Step 2: org_id = {org_id}")
 
+        # Get existing customer ID
         result = await db.execute(
             select(Subscription).where(Subscription.org_id == org_id)
         )
         sub = result.scalar_one_or_none()
-        print(f"💳 Step 3: existing sub = {sub.id if sub else 'None'}")
-
-        if sub and sub.stripe_customer_id:
-            customer_id = sub.stripe_customer_id
-        else:
-            customer = stripe_lib.Customer.create(
-                email=user.email,
-                name=user.display_name or user.email,
-                metadata={"nexus_user_id": user.id, "nexus_org_id": org_id},
-            )
-            customer_id = customer.id
-        print(f"💳 Step 4: customer_id = {customer_id}")
+        customer_id = sub.stripe_customer_id if sub and sub.stripe_customer_id else None
 
         price_id = stripe_service.get_premium_price_id()
-        print(f"💳 Step 5: price_id = {price_id}")
 
-        # Cancel stale incomplete subs
-        if sub and sub.stripe_subscription_id:
-            try:
-                old_sub = stripe_lib.Subscription.retrieve(sub.stripe_subscription_id)
-                if old_sub.status in ("incomplete", "incomplete_expired"):
-                    stripe_lib.Subscription.cancel(sub.stripe_subscription_id)
-                    print(f"💳 Cancelled stale sub {sub.stripe_subscription_id}")
-            except Exception as ce:
-                print(f"💳 Could not cancel old sub: {ce}")
+        # Build session params
+        session_params = {
+            "ui_mode": "embedded",
+            "mode": "subscription",
+            "line_items": [{"price": price_id, "quantity": 1}],
+            "return_url": f"{settings.frontend_url}/dashboard/billing?status=success",
+            "metadata": {"nexus_user_id": user.id, "nexus_org_id": org_id},
+            "subscription_data": {
+                "metadata": {"nexus_user_id": user.id, "nexus_org_id": org_id},
+            },
+        }
 
-        print(f"💳 Step 6: Creating Stripe subscription...")
-        subscription = stripe_lib.Subscription.create(
-            customer=customer_id,
-            items=[{"price": price_id}],
-            payment_behavior="default_incomplete",
-            payment_settings={"save_default_payment_method": "on_subscription"},
-            metadata={"nexus_user_id": user.id, "nexus_org_id": org_id},
-        )
-        print(f"💳 Step 7: sub={subscription.id} status={subscription.status}")
-
-        # Retrieve invoice separately with payment_intent expanded
-        invoice_id = subscription.latest_invoice
-        if hasattr(invoice_id, 'id'):
-            invoice_id = invoice_id.id
-        print(f"💳 Step 7b: Retrieving invoice {invoice_id}...")
-        invoice = stripe_lib.Invoice.retrieve(invoice_id, expand=["payment_intent"])
-
-        # Debug: print all available keys
-        invoice_data = dict(invoice)
-        print(f"💳 Invoice keys: {list(invoice_data.keys())}")
-        
-        # Try multiple ways to get the payment_intent
-        pi = None
-        cs = None
-        
-        # Method 1: dict access
-        if 'payment_intent' in invoice_data:
-            pi_raw = invoice_data['payment_intent']
-            print(f"💳 pi_raw type={type(pi_raw)} val={str(pi_raw)[:80]}")
-            if isinstance(pi_raw, str):
-                # It's a PI ID, need to retrieve it
-                pi = stripe_lib.PaymentIntent.retrieve(pi_raw)
-            elif pi_raw and hasattr(pi_raw, 'client_secret'):
-                pi = pi_raw
-            cs = getattr(pi, 'client_secret', None) if pi else None
-
-        # Method 2: Look for it in the raw data
-        if not cs and hasattr(invoice, '_last_response'):
-            print(f"💳 Trying raw response...")
-        
-        print(f"💳 Step 8: pi={getattr(pi, 'id', None)} cs={'yes' if cs else 'NO'}")
-
-        if not cs:
-            raise ValueError(f"No client_secret. Available keys: {list(invoice_data.keys())}")
-
-        if not sub:
-            sub = Subscription(
-                org_id=org_id,
-                stripe_customer_id=customer_id,
-                stripe_subscription_id=subscription.id,
-                plan="free",
-                status=SubscriptionStatus.incomplete,
-            )
-            db.add(sub)
+        if customer_id:
+            session_params["customer"] = customer_id
         else:
-            sub.stripe_customer_id = customer_id
-            sub.stripe_subscription_id = subscription.id
-        await db.commit()
-        print(f"💳 Step 9: DB saved ✅")
+            session_params["customer_email"] = user.email
+
+        session = stripe_lib.checkout.Session.create(**session_params)
 
         return EmbeddedCheckoutResponse(
-            client_secret=cs,
-            subscription_id=subscription.id,
-            customer_id=customer_id,
+            client_secret=session.client_secret,
+            subscription_id=session.id,
+            customer_id=customer_id or "",
         )
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
         print(f"💳 ❌ ERROR: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error creando suscripción: {str(e)}")
 

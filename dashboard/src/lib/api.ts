@@ -338,5 +338,34 @@ export const api = {
     const res = await fetch(`${API_BASE}/dashboard/recent?limit=${limit}`, { headers: authHeaders() });
     return handleResponse<RecentSwitch[]>(res);
   },
+
+  // Billing
+  async createCheckout(successUrl: string, cancelUrl: string): Promise<{ checkout_url: string }> {
+    const res = await fetch(`${API_BASE}/billing/checkout`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ success_url: successUrl, cancel_url: cancelUrl }),
+    });
+    return handleResponse<{ checkout_url: string }>(res);
+  },
+
+  async createPortal(): Promise<{ portal_url: string }> {
+    const res = await fetch(`${API_BASE}/billing/portal`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    return handleResponse<{ portal_url: string }>(res);
+  },
+
+  async getSubscription(): Promise<{
+    plan: string;
+    status: string;
+    stripe_customer_id: string | null;
+    stripe_subscription_id: string | null;
+    current_period_end: string | null;
+  }> {
+    const res = await fetch(`${API_BASE}/billing/subscription`, { headers: authHeaders() });
+    return handleResponse(res);
+  },
 };
 

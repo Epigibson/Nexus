@@ -156,7 +156,7 @@ export default function ProjectsPage() {
               key={project.id}
               href={`/dashboard/projects/${project.slug}`}
             >
-              <Card className="group h-full cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20">
+              <Card className="glass group h-full cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-violet-900/20 hover:border-primary/40 bg-card/40">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -187,7 +187,7 @@ export default function ProjectsPage() {
                       <Badge
                         key={env.name}
                         variant="secondary"
-                        className="text-[10px] font-mono"
+                        className="text-[10px] font-mono bg-background/50 border-border/50"
                       >
                         <GitBranch className="mr-1 h-3 w-3" />
                         {env.name}
@@ -195,7 +195,7 @@ export default function ProjectsPage() {
                     ))}
                   </div>
 
-                  <Separator />
+                  <Separator className="bg-border/40" />
 
                   {/* Stats Row */}
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -215,7 +215,7 @@ export default function ProjectsPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="inline-block h-2 w-2 rounded-full bg-success" />
+                      <span className="inline-block h-2 w-2 rounded-full bg-success glow-teal" />
                       <span>
                         {connectedProfiles}/{totalProfiles} tools
                       </span>
@@ -233,7 +233,7 @@ export default function ProjectsPage() {
                     ).map((tool) => (
                       <span
                         key={tool}
-                        className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                        className="rounded-md bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground border border-border/30"
                       >
                         {toolIcons[tool] || tool}
                       </span>
@@ -251,12 +251,12 @@ export default function ProjectsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-background/80 backdrop-blur-md"
             onClick={() => setShowModal(false)}
           />
 
           {/* Modal */}
-          <div className="relative w-full max-w-lg mx-4 rounded-xl border border-border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-lg mx-4 rounded-xl border border-border/50 glass bg-card/80 p-6 shadow-2xl shadow-violet-900/10 animate-in fade-in zoom-in-95 duration-200">
             {/* Close */}
             <button
               onClick={() => setShowModal(false)}

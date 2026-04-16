@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, projects, skills, audit, dashboard
+from app.routers import auth, projects, skills, audit, dashboard, billing
 
 
 @asynccontextmanager
@@ -19,6 +19,8 @@ async def lifespan(app: FastAPI):
     await init_db()
     print(f"🚀 {settings.app_name} v{settings.app_version} — Database ready")
     print(f"🌐 CORS origins: {settings.cors_origins}")
+    if settings.stripe_secret_key:
+        print(f"💳 Stripe configured (test mode)")
     yield
     print("👋 Shutting down...")
 
@@ -48,6 +50,7 @@ app.include_router(projects.router, prefix=API_PREFIX)
 app.include_router(skills.router, prefix=API_PREFIX)
 app.include_router(audit.router, prefix=API_PREFIX)
 app.include_router(dashboard.router, prefix=API_PREFIX)
+app.include_router(billing.router, prefix=API_PREFIX)
 
 
 @app.get("/", tags=["Health"])

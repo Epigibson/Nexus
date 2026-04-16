@@ -264,6 +264,7 @@ func buildOrchestrator() (*service.Orchestrator, error) {
 
 	envInjector := executor.NewEnvInjector()
 	gitSwitcher := executor.NewGitSwitcher()
+	scriptRunner := executor.NewScriptRunner()
 
 	allProfilers := executor.AllProfilers()
 	cliProfilers := make([]port.CLIProfiler, 0, len(allProfilers))
@@ -280,7 +281,7 @@ func buildOrchestrator() (*service.Orchestrator, error) {
 
 	orch := service.NewOrchestrator(service.OrchestratorConfig{
 		ConfigReader:  reader,
-		Executors:     []port.SkillExecutor{envInjector, gitSwitcher},
+		Executors:     []port.SkillExecutor{envInjector, gitSwitcher, scriptRunner},
 		CLIProfilers:  cliProfilers,
 		AuditLogger:   auditLogger,
 		ShellEmitter:  shellEmitter,

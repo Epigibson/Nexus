@@ -14,6 +14,7 @@ const (
 	SkillCategoryCLI      SkillCategory = "cli-switching"
 	SkillCategoryDocs     SkillCategory = "documentation"
 	SkillCategorySandbox  SkillCategory = "sandbox"
+	SkillCategoryScripts  SkillCategory = "scripts"
 )
 
 // SkillStatus represents the execution result of a skill.

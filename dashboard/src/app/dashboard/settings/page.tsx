@@ -43,48 +43,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const plans = [
-  {
-    name: "Free",
-    price: "$0",
-    features: [
-      "3 proyectos máximo",
-      "Skills manuales y secuenciales",
-      "Audit log local",
-      "5 CLI tools soportados",
-    ],
-    limits: ["Sin sandboxes", "Sin documentación auto", "Sin gestión de equipos"],
-  },
-  {
-    name: "Premium",
-    price: "$12/mes",
-    popular: true,
-    features: [
-      "Proyectos ilimitados",
-      "Skills automatizados y paralelos",
-      "Sandboxes ilimitados",
-      "Documentación automática",
-      "Gestión de equipos",
-      "Audit log en la nube",
-      "Soporte prioritario",
-    ],
-    limits: [],
-  },
-  {
-    name: "Enterprise",
-    price: "Contactar",
-    features: [
-      "Todo de Premium",
-      "SSO / SAML",
-      "Compliance & auditoría avanzada",
-      "SLA garantizado",
-      "Soporte dedicado",
-      "On-premise disponible",
-    ],
-    limits: [],
-  },
-];
-
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { user, refreshProfile } = useAuth();
@@ -397,71 +355,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* ─── Plan Section ─── */}
-      <div>
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <CreditCard className="h-5 w-5" />
-          Plan y Facturación
-        </h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          {plans.map((plan) => {
-            const isCurrent = (user?.plan || "free").toLowerCase() === plan.name.toLowerCase();
-            return (
-              <Card
-                key={plan.name}
-                className={`relative transition-all duration-200 ${
-                  isCurrent
-                    ? "border-primary shadow-lg shadow-primary/10"
-                    : "hover:border-primary/20"
-                } ${plan.popular ? "ring-1 ring-primary/30" : ""}`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="gradient-violet text-white border-0 text-[10px] px-3">
-                      POPULAR
-                    </Badge>
-                  </div>
-                )}
-                <CardHeader>
-                  <CardTitle className="text-lg">{plan.name}</CardTitle>
-                  <div className="text-3xl font-bold">{plan.price}</div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {plan.features.map((f) => (
-                    <div key={f} className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 shrink-0 text-success" />
-                      {f}
-                    </div>
-                  ))}
-                  {plan.limits.map((l) => (
-                    <div
-                      key={l}
-                      className="flex items-center gap-2 text-sm text-muted-foreground line-through"
-                    >
-                      <span className="h-4 w-4 shrink-0" />
-                      {l}
-                    </div>
-                  ))}
-                  <Separator />
-                  <Button
-                    className={`w-full ${
-                      isCurrent
-                        ? ""
-                        : plan.popular
-                        ? "gradient-violet text-white border-0 hover:opacity-90"
-                        : ""
-                    }`}
-                    variant={isCurrent ? "outline" : "default"}
-                    disabled={isCurrent}
-                  >
-                    {isCurrent ? "Plan Actual" : "Upgrade"}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }

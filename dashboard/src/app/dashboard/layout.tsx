@@ -9,6 +9,7 @@ import {
   FolderKanban,
   ScrollText,
   Settings,
+  CreditCard,
   Zap,
   Moon,
   Sun,
@@ -27,7 +28,8 @@ import { useEffect, useState } from "react";
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/projects", label: "Proyectos", icon: FolderKanban },
-  { href: "/dashboard/audit", label: "Audit Log", icon: ScrollText },
+  { href: "/dashboard/audit", label: "Registro (Audit)", icon: ScrollText },
+  { href: "/dashboard/billing", label: "Suscripción y Pagos", icon: CreditCard },
   { href: "/dashboard/settings", label: "Configuración", icon: Settings },
 ];
 
@@ -67,7 +69,7 @@ export default function DashboardLayout({
       {/* ─── Sidebar ─── */}
       <aside
         className={cn(
-          "flex flex-col border-r border-border bg-sidebar transition-all duration-300 ease-in-out",
+          "flex flex-col border-r border-border bg-sidebar z-20 transition-all duration-300 ease-in-out shadow-[4px_0_24px_rgba(0,0,0,0.02)] dark:shadow-violet-900/10",
           collapsed ? "w-[68px]" : "w-[260px]"
         )}
       >

@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     free_max_projects: int = 3
     premium_max_projects: int = 100
 
+    # Stripe
+    stripe_secret_key: Optional[str] = None
+    stripe_publishable_key: Optional[str] = None
+    stripe_webhook_secret: Optional[str] = None
+    stripe_premium_price_id: Optional[str] = None  # "auto" = create on boot
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors(cls, v):

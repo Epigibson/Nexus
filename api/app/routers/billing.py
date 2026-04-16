@@ -82,6 +82,39 @@ async def get_stripe_config():
     return StripeConfigResponse(publishable_key=settings.stripe_publishable_key)
 
 
+@router.get("/plan-limits")
+async def get_plan_limits_endpoint(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return detailed plan limits and current usage for the frontend."""
+    from app.services.plan_enforcement import get_plan_limits, get_org_plan
+    from app.models.organization import Organization, OrganizationMember
+    from app.models.project import Project
+    from sqlalchemy import func
+
+    org_id = await _get_user_org_id(user, db)
+    plan = await get_org_plan(db, org_id)
+    limits = get_plan_limits(plan)
+
+    # Current usage
+    proj_count = await db.execute(
+        select(func.count(Project.id)).where(Project.org_id == org_id, Project.is_active == True)
+    )
+    member_count = await db.execute(
+        select(func.count()).where(OrganizationMember.org_id == org_id)
+    )
+
+    return {
+        "plan": plan,
+        "limits": limits,
+        "usage": {
+            "projects": proj_count.scalar() or 0,
+            "members": (member_count.scalar() or 0) + 1,  # +1 for owner
+        },
+    }
+
+
 @router.post("/create-subscription", response_model=EmbeddedCheckoutResponse)
 async def create_embedded_subscription(
     user: User = Depends(get_current_user),
@@ -215,14 +248,17 @@ async def confirm_subscription(
             )
             db.add(sub)
 
-        # Update user plan
+        # Update user plan AND org plan
+        from app.services.plan_enforcement import upgrade_org_to_premium
+        await upgrade_org_to_premium(db, org_id)
+
         result = await db.execute(select(User).where(User.id == user.id))
         u = result.scalar_one_or_none()
         if u:
             u.plan = "premium"
 
         await db.commit()
-        print(f"💳 ✅ User {user.id} upgraded to Premium via embedded checkout!")
+        print(f"💳 ✅ User {user.id} + Org {org_id} upgraded to Premium!")
 
         return {"status": "active", "subscription_id": subscription.id}
     except Exception as e:

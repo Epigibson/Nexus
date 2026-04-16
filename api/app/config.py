@@ -28,9 +28,13 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: List[str] = ["http://localhost:3000"]
 
-    # Freemium
+    # Freemium limits
     free_max_projects: int = 3
+    free_max_cli_tools: int = 5
+    free_max_members: int = 1
     premium_max_projects: int = 100
+    premium_max_cli_tools: int = 999  # virtually unlimited
+    premium_max_members: int = 50
 
     # Stripe
     stripe_secret_key: Optional[str] = None

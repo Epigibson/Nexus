@@ -17,6 +17,7 @@ from app.services.project_service import (
     update_project, delete_project, get_project_switch_count,
     get_project_last_switch,
 )
+from app.services.plan_enforcement import check_cli_tools_limit
 from app.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
@@ -200,6 +201,14 @@ async def create_env(slug: str, body: EnvironmentCreate, user: User = Depends(ge
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado")
 
+    # Enforce CLI tools limit
+    new_profiles = body.cli_profiles or []
+    if new_profiles:
+        try:
+            await check_cli_tools_limit(db, project.org_id, project.id, len(new_profiles))
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
     env = EnvironmentProfile(
         project_id=project.id,
         name=body.name,
@@ -230,6 +239,10 @@ async def update_env(slug: str, env_name: str, body: EnvironmentUpdate,
     if body.env_vars is not None:
         env.env_vars = body.env_vars
     if body.cli_profiles is not None:
+        try:
+            await check_cli_tools_limit(db, project.org_id, project.id, len(body.cli_profiles))
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
         env.cli_profiles = [p.model_dump() for p in body.cli_profiles]
 
     await db.commit()

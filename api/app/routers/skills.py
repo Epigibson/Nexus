@@ -63,9 +63,26 @@ async def toggle_skill(
     db: AsyncSession = Depends(get_db),
 ):
     """Habilitar/deshabilitar un skill en un proyecto."""
+    from app.services.plan_enforcement import check_premium_skill
+
     project = await get_project_by_slug(db, user.id, slug)
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado")
+
+    # Check if skill exists and if it's premium
+    skill_result = await db.execute(
+        select(SkillDefinition).where(SkillDefinition.id == skill_id)
+    )
+    skill_def = skill_result.scalar_one_or_none()
+    if not skill_def:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Skill no encontrado")
+
+    # Enforce premium skill restriction
+    if enabled and skill_def.is_premium:
+        try:
+            await check_premium_skill(db, project.org_id, skill_def.is_premium)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
     # Find existing config
     result = await db.execute(

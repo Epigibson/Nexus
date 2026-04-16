@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/nexus-dev/nexus/internal/adapter/audit"
 	"github.com/nexus-dev/nexus/internal/adapter/config"
@@ -137,15 +138,60 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 	shellEmitter := executor.DetectShellEmitter()
 	var shellLines []string
 
-	if len(targetEnv.EnvVars) > 0 {
+	// Collect env vars from profilers (Stripe keys, etc.)
+	profilerEnvVars := map[string]string{}
+	for _, profile := range targetEnv.CLIProfiles {
+		if profile.Extra != nil {
+			switch profile.Tool {
+			case "stripe":
+				if v, ok := profile.Extra["secret_key"]; ok && v != "" {
+					profilerEnvVars["STRIPE_SECRET_KEY"] = v
+					profilerEnvVars["STRIPE_API_KEY"] = v
+				}
+				if v, ok := profile.Extra["publishable_key"]; ok && v != "" {
+					profilerEnvVars["STRIPE_PUBLISHABLE_KEY"] = v
+				}
+				if profile.Account != "" {
+					profilerEnvVars["STRIPE_ACCOUNT"] = profile.Account
+				}
+			case "supabase":
+				if profile.Account != "" {
+					profilerEnvVars["SUPABASE_PROJECT_REF"] = profile.Account
+				}
+				if v, ok := profile.Extra["token"]; ok && v != "" {
+					profilerEnvVars["SUPABASE_ACCESS_TOKEN"] = v
+				}
+			case "aws":
+				if profile.Account != "" {
+					profilerEnvVars["AWS_PROFILE"] = profile.Account
+				}
+				if profile.Region != "" {
+					profilerEnvVars["AWS_REGION"] = profile.Region
+					profilerEnvVars["AWS_DEFAULT_REGION"] = profile.Region
+				}
+			}
+		}
+	}
+
+	allEnvVars := make(map[string]string)
+	for k, v := range targetEnv.EnvVars {
+		allEnvVars[k] = v
+	}
+	for k, v := range profilerEnvVars {
+		allEnvVars[k] = v
+	}
+
+	if len(allEnvVars) > 0 {
 		shellLines = append(shellLines, shellEmitter.EmitComment(
-			fmt.Sprintf("Nexus: %s → %s", projectDTO.Name, envName)))
+			fmt.Sprintf("Nexus Context Switch: %s → %s", projectDTO.Name, envName)))
+		shellLines = append(shellLines, shellEmitter.EmitComment(
+			fmt.Sprintf("Generated at: %s", time.Now().Format(time.RFC3339))))
 		shellLines = append(shellLines, "")
 
-		for key, value := range targetEnv.EnvVars {
+		for key, value := range allEnvVars {
 			shellLines = append(shellLines, shellEmitter.EmitSetEnv(key, value))
 		}
-		results = append(results, fmt.Sprintf("  ✅ env vars — %d variables set", len(targetEnv.EnvVars)))
+		results = append(results, fmt.Sprintf("  ✅ env vars — %d variables set", len(allEnvVars)))
 	}
 
 	// ── Git branch ──
@@ -166,17 +212,9 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 
 	fmt.Printf("\n  ✅ \033[1;32mContext switch complete!\033[0m\n")
 
-	// Output shell script
+	// Write shell script silently (the shell wrapper auto-sources it)
 	if len(shellLines) > 0 {
 		shellScript := strings.Join(shellLines, "\n")
-		fmt.Println("\n  📋 To apply environment variables, run:")
-		fmt.Println("  ─────────────────────────────────────────")
-		for _, line := range strings.Split(shellScript, "\n") {
-			if strings.TrimSpace(line) != "" {
-				fmt.Printf("  %s\n", line)
-			}
-		}
-		fmt.Println("  ─────────────────────────────────────────")
 
 		home, _ := os.UserHomeDir()
 		ext := ".sh"
@@ -186,8 +224,6 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 		scriptPath := home + "/.nexus/last_switch" + ext
 		os.MkdirAll(home+"/.nexus", 0700)
 		os.WriteFile(scriptPath, []byte(shellScript), 0600)
-		fmt.Printf("\n  💡 Or source it directly:\n")
-		fmt.Printf("     . %s\n", scriptPath)
 	}
 
 	// ── Push audit log to API ──

@@ -37,15 +37,15 @@ func (g *GitProfiler) CurrentProfile() (string, error) {
 
 func (g *GitProfiler) Switch(profile domain.CLIProfile) error {
 	if profile.Account != "" {
-		cmd := exec.Command("git", "config", "user.name", profile.Account)
+		cmd := exec.Command("git", "config", "--global", "user.name", profile.Account)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("git: failed to set user.name")
 		}
 	}
 	
 	if profile.Extra != nil {
-		if email, ok := profile.Extra["email"]; ok && email != "" {
-			cmd := exec.Command("git", "config", "user.email", email)
+		if email, ok := profile.Extra["user_email"]; ok && email != "" {
+			cmd := exec.Command("git", "config", "--global", "user.email", email)
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf("git: failed to set user.email")
 			}

@@ -139,18 +139,22 @@ async def create_embedded_subscription(
             items=[{"price": price_id}],
             payment_behavior="default_incomplete",
             payment_settings={"save_default_payment_method": "on_subscription"},
-            expand=["latest_invoice.payment_intent"],
             metadata={"nexus_user_id": user.id, "nexus_org_id": org_id},
         )
         print(f"💳 Step 7: sub={subscription.id} status={subscription.status}")
 
-        invoice = subscription.latest_invoice
-        pi = getattr(invoice, 'payment_intent', None) if invoice else None
+        # Retrieve invoice separately with payment_intent expanded
+        invoice_id = subscription.latest_invoice
+        if hasattr(invoice_id, 'id'):
+            invoice_id = invoice_id.id
+        print(f"💳 Step 7b: Retrieving invoice {invoice_id}...")
+        invoice = stripe_lib.Invoice.retrieve(invoice_id, expand=["payment_intent"])
+        pi = invoice.payment_intent
         cs = getattr(pi, 'client_secret', None) if pi else None
-        print(f"💳 Step 8: invoice={getattr(invoice, 'id', None)} pi={getattr(pi, 'id', None)} cs={'yes' if cs else 'NO'}")
+        print(f"💳 Step 8: invoice={invoice.id} pi={getattr(pi, 'id', None)} cs={'yes' if cs else 'NO'}")
 
         if not cs:
-            raise ValueError(f"No client_secret. pi={pi}, invoice_status={getattr(invoice, 'status', 'N/A')}")
+            raise ValueError(f"No client_secret. pi={pi}, invoice_status={invoice.status}")
 
         if not sub:
             sub = Subscription(

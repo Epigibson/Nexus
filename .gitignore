@@ -34,9 +34,14 @@ venv/
 *.sqlite
 *.sqlite3
 
-# Antigravity vault (encrypted secrets stored locally)
-.antigravity/vault/
+# Nexus configs and vault (contains sensitive tokens/passwords)
+.nexus/
+nexus.yaml
+.nexus.yaml
 
+# Generated binaries
+/core/nexus
+/core/nexus.exe
 # Supabase
 supabase/.temp/
 

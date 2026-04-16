@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/antigravity-dev/antigravity/internal/domain"
+	"github.com/nexus-dev/nexus/internal/domain"
 )
 
 // EnvInjector handles injecting environment variables into the current session.
@@ -36,7 +36,7 @@ func (e *EnvInjector) Execute(project *domain.Project, env *domain.EnvironmentCo
 
 	actions := make([]string, 0, len(env.EnvVars))
 	for key := range env.EnvVars {
-		actions = append(actions, fmt.Sprintf("SET %s", key))
+		actions = append(actions, fmt.Sprintf("Env: %s", key))
 	}
 
 	return &domain.SkillResult{

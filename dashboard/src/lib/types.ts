@@ -1,4 +1,4 @@
-// ─── Antigravity Domain Types ───
+// ─── Nexus Domain Types ───
 
 export type PlanTier = "free" | "premium" | "enterprise";
 export type Environment = "development" | "staging" | "production";

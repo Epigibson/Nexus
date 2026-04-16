@@ -1,4 +1,4 @@
-# Antigravity — Setup Completo
+# Nexus — Setup Completo
 
 Guía para levantar el sistema completo en tu máquina local.
 
@@ -16,8 +16,8 @@ Guía para levantar el sistema completo en tu máquina local.
 ## 1. Clonar el Repositorio
 
 ```bash
-git clone https://github.com/acme-corp/antigravity.git
-cd antigravity
+git clone https://github.com/acme-corp/nexus.git
+cd nexus
 ```
 
 ## 2. Backend API (FastAPI)
@@ -66,14 +66,14 @@ npm run dev
 cd core/
 
 # Compilar binario
-go build -o antigravity ./cmd/main.go
+go build -o nexus ./cmd/main.go
 
 # Mover a PATH (opcional)
-# mv antigravity /usr/local/bin/  (Linux/Mac)
-# copy antigravity.exe C:\bin\    (Windows)
+# mv nexus /usr/local/bin/  (Linux/Mac)
+# copy nexus.exe C:\bin\    (Windows)
 
 # Verificar
-./antigravity version
+./nexus version
 ```
 
 ## 5. Verificar Todo
@@ -110,7 +110,7 @@ Asegúrate de que el API está corriendo en `:8000` y que `CORS_ORIGINS` en `.en
 El `SECRET_KEY` debe ser el mismo entre reinicios. Si lo cambias, los tokens existentes se invalidan. Haz logout y login de nuevo.
 
 ### "No se puede conectar a la base de datos"
-Si es SQLite, la BD está en `api/antigravity.db`. Si el archivo no existe, corre `python -m seed` para crearla.
+Si es SQLite, la BD está en `api/nexus.db`. Si el archivo no existe, corre `python -m seed` para crearla.
 
 ### "pip install falla con pydantic"
 Python 3.14 puede tener problemas con ciertas versiones de pydantic-core. Usa `pip install --upgrade pip` primero, o prueba sin versiones fijas: `pip install fastapi uvicorn pydantic pydantic-settings sqlalchemy aiosqlite python-jose passlib python-multipart httpx bcrypt`.

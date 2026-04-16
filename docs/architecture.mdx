@@ -1,7 +1,7 @@
 ---
 title: "Arquitectura"
 sidebarTitle: "Arquitectura"
-description: "Cómo está diseñado Antigravity: componentes, flujos, y decisiones de diseño."
+description: "Cómo está diseñado Nexus: componentes, flujos, y decisiones de diseño."
 ---
 
 ## Vista General
@@ -16,7 +16,7 @@ graph TB
     DASH -->|REST + JWT| API
     API -->|SQLAlchemy| DB
     CLI -.->|Futuro: API Key| API
-    CLI -->|YAML Config| LOCAL[📁 antigravity.yaml]
+    CLI -->|YAML Config| LOCAL[📁 nexus.yaml]
     CLI -->|Append-only| AUDIT[📋 audit.jsonl]
 ```
 
@@ -74,8 +74,8 @@ sequenceDiagram
     participant Tools as 🔑 CLI Tools
     participant Audit as 📋 Audit
 
-    Dev->>CLI: antigravity switch saas --env dev
-    CLI->>Config: Lee antigravity.yaml
+    Dev->>CLI: nexus switch saas --env dev
+    CLI->>Config: Lee nexus.yaml
     Config-->>CLI: Environment "dev" config
 
     CLI->>Skills: 1. Context Injection

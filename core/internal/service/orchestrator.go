@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/antigravity-dev/antigravity/internal/domain"
-	"github.com/antigravity-dev/antigravity/internal/port"
+	"github.com/nexus-dev/nexus/internal/domain"
+	"github.com/nexus-dev/nexus/internal/port"
 )
 
 // Orchestrator is the central service that coordinates context switching.
@@ -61,7 +61,7 @@ func NewOrchestrator(cfg OrchestratorConfig) *Orchestrator {
 }
 
 // Switch performs a full context switch to the specified project and environment.
-// This is the main entry point of Antigravity's core functionality.
+// This is the main entry point of Nexus's core functionality.
 func (o *Orchestrator) Switch(projectPath, envName string) (*SwitchResult, error) {
 	startTime := time.Now()
 
@@ -94,7 +94,7 @@ func (o *Orchestrator) Switch(projectPath, envName string) (*SwitchResult, error
 
 	// Header for shell script
 	shellLines = append(shellLines, o.shellEmitter.EmitComment(
-		fmt.Sprintf("Antigravity Context Switch: %s → %s", project.Name, envName)))
+		fmt.Sprintf("Nexus Context Switch: %s → %s", project.Name, envName)))
 	shellLines = append(shellLines, o.shellEmitter.EmitComment(
 		fmt.Sprintf("Generated at: %s", time.Now().Format(time.RFC3339))))
 	shellLines = append(shellLines, "")

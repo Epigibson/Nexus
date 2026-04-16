@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/antigravity-dev/antigravity/internal/domain"
+	"github.com/nexus-dev/nexus/internal/domain"
 	"gopkg.in/yaml.v3"
 )
 
@@ -20,15 +20,17 @@ func NewYAMLReader(extraPaths ...string) *YAMLReader {
 	home, _ := os.UserHomeDir()
 
 	paths := []string{
-		"antigravity.yaml",
-		".antigravity.yaml",
-		".antigravity/config.yaml",
+		"nexus.yaml",
+		".nexus.yaml",
+		"nexus.yaml",
+		".nexus.yaml",
+		".nexus/config.yaml",
 	}
 
 	if home != "" {
 		paths = append(paths,
-			filepath.Join(home, ".antigravity", "config.yaml"),
-			filepath.Join(home, ".antigravity", "projects", "*.yaml"),
+			filepath.Join(home, ".nexus", "config.yaml"),
+			filepath.Join(home, ".nexus", "projects", "*.yaml"),
 		)
 	}
 
@@ -55,8 +57,8 @@ func (r *YAMLReader) ReadProject(path string) (*domain.Project, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("no antigravity.yaml found in any known location.\n" +
-		"Run 'antigravity init' to create one, or specify a path with --config")
+	return nil, fmt.Errorf("no nexus.yaml found in any known location.\n" +
+		"Run 'nexus init' to create one, or specify a path with --config")
 }
 
 // ListProjects discovers all project configurations from known paths.

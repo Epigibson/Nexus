@@ -529,9 +529,9 @@ export default function ProjectDetailPage() {
                 <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
                   <Terminal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <code className="text-xs font-mono text-primary flex-1">
-                    antigravity switch {project.slug} --env {env.name}
+                    nexus switch {project.slug} --env {env.name}
                   </code>
-                  <button onClick={() => copyToClipboard(`antigravity switch ${project.slug} --env ${env.name}`, env.name)}
+                  <button onClick={() => copyToClipboard(`nexus switch ${project.slug} --env ${env.name}`, env.name)}
                     className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
                     {copied === env.name
                       ? <CheckCircle2 className="h-3.5 w-3.5 text-success" />
@@ -822,7 +822,7 @@ export default function ProjectDetailPage() {
 
                 <div className="rounded-lg bg-muted/50 px-3 py-2 space-y-1">
                   <p className="text-[11px] text-muted-foreground">
-                    ⚡ Esto le dice a <strong>pswitcher switch</strong> qué perfil activar para{" "}
+                    ⚡ Esto le dice a <strong>nexus switch</strong> qué perfil activar para{" "}
                     <strong>{toolMeta[profileTool]?.label}</strong> cuando cambies a este entorno.
                   </p>
                   {profileTool === "gh" && (

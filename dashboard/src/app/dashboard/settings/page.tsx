@@ -273,7 +273,7 @@ export default function SettingsPage() {
             API Keys
           </CardTitle>
           <CardDescription>
-            Genera API keys para conectar el CLI de Antigravity con la nube.
+            Genera API keys para conectar el CLI de Nexus con la nube.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -340,7 +340,7 @@ export default function SettingsPage() {
               </div>
               <div className="text-xs text-muted-foreground">
                 <Terminal className="inline h-3 w-3 mr-1" />
-                Usa: <code className="text-primary">antigravity login</code> y pega esta key.
+                Usa: <code className="text-primary">nexus login</code> y pega esta key.
               </div>
             </div>
           )}

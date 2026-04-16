@@ -1,4 +1,4 @@
-# Antigravity Dashboard — Guía de Desarrollo
+# Nexus Dashboard — Guía de Desarrollo
 
 ## Setup Rápido
 
@@ -96,7 +96,7 @@ useEffect(() => {
 ### Project Detail
 - Tabs: Entornos, Skills, Actividad
 - CLI profiles con indicadores visuales (✅ connected, ❌ disconnected, ⚠️ expired)
-- Comando copy-paste: `antigravity switch {slug} --env {name}`
+- Comando copy-paste: `nexus switch {slug} --env {name}`
 
 ### Audit Table
 - Filtros server-side: acción, estado

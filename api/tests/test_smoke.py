@@ -47,13 +47,13 @@ def test_app_import():
     """The FastAPI app should be importable (uvicorn entrypoint)."""
     from app.main import app
     assert app
-    assert app.title == "Antigravity API"
+    assert app.title == "Nexus API"
 
 
 def test_config_import():
     """Config and settings should load."""
     from app.config import settings
-    assert settings.app_name == "Antigravity API"
+    assert settings.app_name == "Nexus API"
     assert settings.cors_origins  # should have at least one origin
 
 

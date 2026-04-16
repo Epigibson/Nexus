@@ -79,7 +79,7 @@ export default function DashboardLayout({
           {!collapsed && (
             <div className="flex flex-col overflow-hidden">
               <span className="text-sm font-bold tracking-tight text-foreground">
-                Antigravity
+                Nexus
               </span>
               <span className="text-[10px] font-medium text-muted-foreground">
                 Control Center
@@ -141,7 +141,7 @@ export default function DashboardLayout({
               CLI rápido
             </div>
             <code className="mt-1.5 block text-[11px] font-mono text-primary">
-              antigravity switch --env dev
+              nexus switch --env dev
             </code>
           </div>
         )}

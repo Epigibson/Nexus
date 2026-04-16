@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// APIClient handles communication with the Antigravity backend API.
+// APIClient handles communication with the Nexus backend API.
 type APIClient struct {
 	baseURL    string
 	apiKey     string
@@ -165,7 +165,7 @@ func (c *APIClient) doRequest(req *http.Request, result interface{}) error {
 	}
 
 	if resp.StatusCode == 401 {
-		return fmt.Errorf("authentication failed — run 'antigravity login' to set your API key")
+		return fmt.Errorf("authentication failed — run 'nexus login' to set your API key")
 	}
 
 	if resp.StatusCode >= 400 {
@@ -190,7 +190,7 @@ func (c *APIClient) PushAudit(entry AuditEntryDTO) error {
 
 const credentialsFile = "credentials"
 
-// SaveAPIKey persists the API key to ~/.antigravity/credentials.
+// SaveAPIKey persists the API key to ~/.nexus/credentials.
 func SaveAPIKey(apiKey string) error {
 	dir := getConfigDir()
 	if err := os.MkdirAll(dir, 0700); err != nil {
@@ -200,7 +200,7 @@ func SaveAPIKey(apiKey string) error {
 	return os.WriteFile(path, []byte(apiKey), 0600)
 }
 
-// loadAPIKey reads the API key from ~/.antigravity/credentials.
+// loadAPIKey reads the API key from ~/.nexus/credentials.
 func loadAPIKey() string {
 	path := filepath.Join(getConfigDir(), credentialsFile)
 	data, err := os.ReadFile(path)
@@ -218,5 +218,5 @@ func ClearAPIKey() error {
 
 func getConfigDir() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".antigravity")
+	return filepath.Join(home, ".nexus")
 }

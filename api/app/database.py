@@ -1,4 +1,4 @@
-"""Antigravity API — Database engine and session factory (SQLAlchemy 2.0 async).
+"""Nexus API — Database engine and session factory (SQLAlchemy 2.0 async).
 
 Supports both SQLite (local development) and PostgreSQL (Supabase production).
 Switch by changing DATABASE_URL in .env.

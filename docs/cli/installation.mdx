@@ -1,14 +1,14 @@
 ---
 title: "Installation"
 sidebarTitle: "Installation"
-description: "Instalar el CLI de Antigravity en tu sistema."
+description: "Instalar el CLI de Nexus en tu sistema."
 ---
 
 ## Compilar desde código fuente
 
 ```bash
 cd core/
-go build -o antigravity ./cmd/main.go
+go build -o nexus ./cmd/main.go
 ```
 
 ## Agregar al PATH
@@ -16,15 +16,15 @@ go build -o antigravity ./cmd/main.go
 <Tabs>
   <Tab title="macOS / Linux">
     ```bash
-    sudo mv antigravity /usr/local/bin/
-    antigravity version
+    sudo mv nexus /usr/local/bin/
+    nexus version
     ```
   </Tab>
   <Tab title="Windows">
     ```powershell
-    Copy-Item antigravity.exe C:\bin\
+    Copy-Item nexus.exe C:\bin\
     # Agregar C:\bin a la variable PATH del sistema
-    antigravity version
+    nexus version
     ```
   </Tab>
 </Tabs>
@@ -32,6 +32,6 @@ go build -o antigravity ./cmd/main.go
 ## Verificar
 
 ```bash
-antigravity version
-# Antigravity v0.1.0
+nexus version
+# Nexus v0.1.0
 ```

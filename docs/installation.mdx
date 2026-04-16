@@ -1,7 +1,7 @@
 ---
 title: "Instalación"
 sidebarTitle: "Instalación"
-description: "Cómo instalar el CLI de Antigravity en tu sistema operativo."
+description: "Cómo instalar el CLI de Nexus en tu sistema operativo."
 ---
 
 ## Requisitos del sistema
@@ -23,18 +23,18 @@ Go solo es necesario para compilar. El binario resultante no tiene dependencias 
   <Tab title="Windows">
     ```powershell
     # 1. Clonar y compilar
-    git clone https://github.com/Epigibson/antigravity.git
-    cd antigravity/core
-    go build -o antigravity.exe ./cmd/antigravity
+    git clone https://github.com/Epigibson/nexus.git
+    cd nexus/core
+    go build -o nexus.exe ./cmd/nexus
 
-    # 2. Instalar en ~/.antigravity/bin
-    $dir = "$env:USERPROFILE\.antigravity\bin"
+    # 2. Instalar en ~/.nexus/bin
+    $dir = "$env:USERPROFILE\.nexus\bin"
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
-    Move-Item antigravity.exe "$dir\antigravity.exe" -Force
+    Move-Item nexus.exe "$dir\nexus.exe" -Force
 
     # 3. Agregar al PATH (solo la primera vez)
     $path = [System.Environment]::GetEnvironmentVariable("Path", "User")
-    if ($path -notlike "*\.antigravity\bin*") {
+    if ($path -notlike "*\.nexus\bin*") {
         [System.Environment]::SetEnvironmentVariable("Path", "$path;$dir", "User")
         Write-Host "✅ Agregado al PATH. Reinicia tu terminal."
     }
@@ -43,31 +43,31 @@ Go solo es necesario para compilar. El binario resultante no tiene dependencias 
   <Tab title="macOS (Homebrew)">
     ```bash
     # Por ahora, compilar desde fuente (Homebrew tap en desarrollo)
-    git clone https://github.com/Epigibson/antigravity.git
-    cd antigravity/core
-    go build -o antigravity ./cmd/antigravity
+    git clone https://github.com/Epigibson/nexus.git
+    cd nexus/core
+    go build -o nexus ./cmd/nexus
 
     # Instalar
-    mkdir -p ~/.antigravity/bin
-    mv antigravity ~/.antigravity/bin/
-    echo 'export PATH="$HOME/.antigravity/bin:$PATH"' >> ~/.zshrc
+    mkdir -p ~/.nexus/bin
+    mv nexus ~/.nexus/bin/
+    echo 'export PATH="$HOME/.nexus/bin:$PATH"' >> ~/.zshrc
     source ~/.zshrc
     ```
   </Tab>
   <Tab title="Linux">
     ```bash
-    git clone https://github.com/Epigibson/antigravity.git
-    cd antigravity/core
-    go build -o antigravity ./cmd/antigravity
+    git clone https://github.com/Epigibson/nexus.git
+    cd nexus/core
+    go build -o nexus ./cmd/nexus
 
     # Opción A: Instalar en home (sin sudo)
-    mkdir -p ~/.antigravity/bin
-    mv antigravity ~/.antigravity/bin/
-    echo 'export PATH="$HOME/.antigravity/bin:$PATH"' >> ~/.bashrc
+    mkdir -p ~/.nexus/bin
+    mv nexus ~/.nexus/bin/
+    echo 'export PATH="$HOME/.nexus/bin:$PATH"' >> ~/.bashrc
     source ~/.bashrc
 
     # Opción B: Instalar global (con sudo)
-    sudo mv antigravity /usr/local/bin/
+    sudo mv nexus /usr/local/bin/
     ```
   </Tab>
 </Tabs>
@@ -75,11 +75,11 @@ Go solo es necesario para compilar. El binario resultante no tiene dependencias 
 ## Verificar instalación
 
 ```bash
-antigravity version
+nexus version
 ```
 
 ```
-Antigravity v0.1.0
+Nexus v0.1.0
 ```
 
 ## Actualizar
@@ -87,16 +87,16 @@ Antigravity v0.1.0
 Para actualizar a la última versión:
 
 ```bash
-cd antigravity  # directorio donde clonaste
+cd nexus  # directorio donde clonaste
 git pull
 cd core
-go build -o antigravity ./cmd/antigravity
+go build -o nexus ./cmd/nexus
 
 # Windows:
-Copy-Item antigravity.exe "$env:USERPROFILE\.antigravity\bin\antigravity.exe" -Force
+Copy-Item nexus.exe "$env:USERPROFILE\.nexus\bin\nexus.exe" -Force
 
 # macOS/Linux:
-cp antigravity ~/.antigravity/bin/
+cp nexus ~/.nexus/bin/
 ```
 
 ## Desinstalar
@@ -105,17 +105,17 @@ cp antigravity ~/.antigravity/bin/
   <Tab title="Windows">
     ```powershell
     # Eliminar binario y configuración
-    Remove-Item -Recurse "$env:USERPROFILE\.antigravity" -Force
+    Remove-Item -Recurse "$env:USERPROFILE\.nexus" -Force
 
     # Quitar del PATH
     $path = [System.Environment]::GetEnvironmentVariable("Path", "User")
-    $newPath = ($path -split ";" | Where-Object { $_ -notlike "*\.antigravity*" }) -join ";"
+    $newPath = ($path -split ";" | Where-Object { $_ -notlike "*\.nexus*" }) -join ";"
     [System.Environment]::SetEnvironmentVariable("Path", $newPath, "User")
     ```
   </Tab>
   <Tab title="macOS / Linux">
     ```bash
-    rm -rf ~/.antigravity
+    rm -rf ~/.nexus
     # Quitar la línea de PATH de ~/.zshrc o ~/.bashrc
     ```
   </Tab>
@@ -123,14 +123,14 @@ cp antigravity ~/.antigravity/bin/
 
 ## Estructura de archivos
 
-Después de instalar y hacer login, Antigravity crea esta estructura:
+Después de instalar y hacer login, Nexus crea esta estructura:
 
 ```
-~/.antigravity/
+~/.nexus/
 ├── bin/
-│   └── antigravity(.exe)    # El binario del CLI
-├── credentials              # API key encriptada (generada por 'antigravity login')
-└── last_switch.ps1          # Script de env vars del último switch
+│   └── nexus(.exe)    # El binario del CLI
+├── credentials              # API key encriptada (generada por 'nexus login')
+└── last_switch.sh (.ps1)    # Script de env vars del último switch
 ```
 
 <Warning>

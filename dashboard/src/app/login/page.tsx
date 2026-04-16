@@ -53,7 +53,7 @@ export default function LoginPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl gradient-violet shadow-lg shadow-primary/25 mb-4">
             <Zap className="h-7 w-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Antigravity</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Nexus</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Control Center — {mode === "login" ? "Inicia sesión" : "Crea tu cuenta"}
           </p>

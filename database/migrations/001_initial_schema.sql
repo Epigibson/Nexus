@@ -1,5 +1,5 @@
 -- ============================================================================
--- Antigravity Control Center — Database Schema
+-- Nexus Control Center — Database Schema
 -- Migration: 001_initial_schema
 -- Database: Supabase (PostgreSQL 15+)
 -- ============================================================================

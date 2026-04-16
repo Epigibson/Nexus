@@ -1,4 +1,4 @@
-# Antigravity API — Guía de Desarrollo
+# Nexus API — Guía de Desarrollo
 
 ## Setup Rápido
 
@@ -61,7 +61,7 @@ api/
 ├── seed.py                  # Script de datos de demo
 ├── requirements.txt
 ├── .env.example
-└── antigravity.db           # SQLite (auto-generada)
+└── nexus.db           # SQLite (auto-generada)
 ```
 
 ## Endpoints
@@ -129,7 +129,7 @@ curl http://localhost:8000/api/v1/projects/ \
 
 | Variable | Default | Descripción |
 |----------|---------|-------------|
-| `DATABASE_URL` | `sqlite+aiosqlite:///./antigravity.db` | Conexión BD |
+| `DATABASE_URL` | `sqlite+aiosqlite:///./nexus.db` | Conexión BD |
 | `SECRET_KEY` | `change-me...` | Clave para firmar JWT |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Duración del token (24h) |
 | `CORS_ORIGINS` | `["http://localhost:3000"]` | Orígenes permitidos |
@@ -142,10 +142,10 @@ Cambiar una línea en `.env`:
 
 ```env
 # De:
-DATABASE_URL=sqlite+aiosqlite:///./antigravity.db
+DATABASE_URL=sqlite+aiosqlite:///./nexus.db
 
 # A:
-DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/antigravity
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/nexus
 ```
 
 > **Nota:** Instalar `asyncpg` adicional: `pip install asyncpg`

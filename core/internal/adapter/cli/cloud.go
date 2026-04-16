@@ -8,29 +8,30 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/antigravity-dev/antigravity/internal/adapter/repository"
+	"github.com/nexus-dev/nexus/internal/adapter/config"
+	"github.com/nexus-dev/nexus/internal/adapter/repository"
 )
 
 const defaultAPIURL = "https://compassionate-youth-production-e13c.up.railway.app"
 
 func getAPIURL() string {
-	if url := os.Getenv("ANTIGRAVITY_API_URL"); url != "" {
+	if url := os.Getenv("NEXUS_API_URL"); url != "" {
 		return url
 	}
 	return defaultAPIURL
 }
 
-// newLoginCmd creates the `antigravity login` command.
+// newLoginCmd creates the `nexus login` command.
 func newLoginCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "login",
 		Short: "Authenticate the CLI with an API key",
-		Long: `Authenticate the Antigravity CLI with your API key.
+		Long: `Authenticate the Nexus CLI with your API key.
 
 Generate an API key from the Dashboard (Settings → API Keys), then paste it here.
-The key is stored securely in ~/.antigravity/credentials.`,
+The key is stored securely in ~/.nexus/credentials.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("🔐 Antigravity CLI — Login")
+			fmt.Println("🔐 Nexus CLI — Login")
 			fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 			fmt.Println()
 			fmt.Println("Generate an API key from your Dashboard:")
@@ -66,18 +67,18 @@ The key is stored securely in ~/.antigravity/credentials.`,
 			fmt.Printf("✅ Authenticated as %s (%s)\n", user.DisplayName, user.Email)
 			fmt.Printf("📋 Plan: %s\n", user.Plan)
 			fmt.Println()
-			fmt.Println("Run 'pswitcher sync' to pull your projects from the cloud.")
+			fmt.Println("Run 'nexus sync' to pull your projects from the cloud.")
 			return nil
 		},
 	}
 }
 
-// newSyncCmd creates the `antigravity sync` command.
+// newSyncCmd creates the `nexus sync` command.
 func newSyncCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync",
 		Short: "Sync projects and audit log with the cloud",
-		Long: `Synchronize your local project configurations with the Antigravity cloud.
+		Long: `Synchronize your local project configurations with the Nexus cloud.
 
 This command:
   • Pulls project configs from the API into your local YAML
@@ -86,10 +87,10 @@ This command:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := repository.NewAPIClient(getAPIURL())
 			if !client.IsAuthenticated() {
-				return fmt.Errorf("not authenticated — run 'antigravity login' first")
+				return fmt.Errorf("not authenticated — run 'nexus login' first")
 			}
 
-			fmt.Println("🔄 Antigravity Sync")
+			fmt.Println("🔄 Nexus Sync")
 			fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 			fmt.Println()
 
@@ -133,23 +134,23 @@ This command:
 	}
 }
 
-// newStatusCmd creates the `antigravity status` command.
+// newStatusCmd creates the `nexus status` command.
 func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show CLI connection status",
-		Long:  "Show the current authentication status and connection to the Antigravity cloud.",
+		Long:  "Show the current authentication status and connection to the Nexus cloud.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := repository.NewAPIClient(getAPIURL())
 
-			fmt.Println("📊 Antigravity Status")
+			fmt.Println("📊 Nexus Status")
 			fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 			fmt.Println()
 
 			if !client.IsAuthenticated() {
 				fmt.Println("  🔴 Not authenticated")
 				fmt.Println()
-				fmt.Println("  Run 'pswitcher login' to connect to the cloud.")
+				fmt.Println("  Run 'nexus login' to connect to the cloud.")
 				return nil
 			}
 
@@ -184,7 +185,7 @@ func newStatusCmd() *cobra.Command {
 	}
 }
 
-// newLogoutCmd creates the `antigravity logout` command.
+// newLogoutCmd creates the `nexus logout` command.
 func newLogoutCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "logout",
@@ -194,7 +195,44 @@ func newLogoutCmd() *cobra.Command {
 				fmt.Println("  No credentials stored.")
 				return nil
 			}
-			fmt.Println("✅ Credentials removed. Run 'antigravity login' to re-authenticate.")
+			fmt.Println("✅ Credentials removed. Run 'nexus login' to re-authenticate.")
+			return nil
+		},
+	}
+}
+
+// newPullCmd creates the `nexus pull` command.
+func newPullCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "pull <project-slug>",
+		Short: "Download project config from the cloud to nexus.yaml",
+		Long: `Download a specific project configuration from the Nexus cloud 
+and save it locally to your nexus.yaml file.
+
+This requires you to be authenticated via 'nexus login'.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client := repository.NewAPIClient(getAPIURL())
+			if !client.IsAuthenticated() {
+				return fmt.Errorf("not authenticated — run 'nexus login' first")
+			}
+
+			projectSlug := args[0]
+			fmt.Printf("☁️ Nexus Pull — Fetching '%s'\n", projectSlug)
+			fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+			
+			projectDTO, err := client.GetProject(projectSlug)
+			if err != nil {
+				return fmt.Errorf("failed to fetch project: %w", err)
+			}
+
+			// Save to nexus.yaml
+			destFile := "nexus.yaml"
+			if err := config.WriteProjectFromDTO(destFile, projectDTO); err != nil {
+				return fmt.Errorf("failed to write %s: %w", destFile, err)
+			}
+
+			fmt.Printf("✅ Successfully downloaded configuration to %s\n", destFile)
 			return nil
 		},
 	}

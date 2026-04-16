@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Antigravity — Control Center",
+  title: "Nexus — Control Center",
   description:
     "Centro de Control de Entornos de Desarrollo. Cambia toda tu identidad de desarrollo con un solo comando.",
 };

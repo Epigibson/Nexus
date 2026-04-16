@@ -1,4 +1,4 @@
-# 🚀 Antigravity Control Center
+# 🚀 Nexus Control Center
 
 > **Elimina la fricción del context switching.** Un solo comando para cambiar toda tu identidad de desarrollo — GitHub, AWS, Supabase, Vercel, MongoDB, y cada sesión CLI — instantáneamente.
 
@@ -10,13 +10,13 @@ Los desarrolladores que trabajan en múltiples proyectos pierden **horas por sem
 gh auth switch → aws sso login → supabase link → vercel switch → mongosh --host ...
 ```
 
-Cada proyecto tiene diferentes cuentas de GitHub, perfiles de AWS, orgs de Supabase, credenciales de bases de datos y API keys. **Antigravity lo arregla.**
+Cada proyecto tiene diferentes cuentas de GitHub, perfiles de AWS, orgs de Supabase, credenciales de bases de datos y API keys. **Nexus lo arregla.**
 
 ## La Solución
 
 ```bash
 # Un comando. Todos los CLIs. Todas las credenciales. Listo.
-antigravity switch my-saas-app --env production
+nexus switch my-saas-app --env production
 ```
 
 Este comando:
@@ -33,7 +33,7 @@ Este comando:
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│              Antigravity CLI (Go)                    │
+│              Nexus CLI (Go)                    │
 │  ┌──────────────────────────────────────────────┐    │
 │  │          Skills Orchestrator                 │    │
 │  │  ┌──────┐ ┌──────┐ ┌───────┐ ┌──────┐      │    │
@@ -65,53 +65,53 @@ Este comando:
 
 ```powershell
 # 1. Descargar y compilar
-git clone https://github.com/Epigibson/antigravity.git
-cd antigravity/core
-go build -o antigravity.exe ./cmd/antigravity
+git clone https://github.com/Epigibson/nexus.git
+cd nexus/core
+go build -o nexus.exe ./cmd/nexus
 
 # 2. Instalar globalmente
-$installDir = "$env:USERPROFILE\.antigravity\bin"
+$installDir = "$env:USERPROFILE\.nexus\bin"
 New-Item -ItemType Directory -Force -Path $installDir | Out-Null
-Copy-Item antigravity.exe "$installDir\antigravity.exe" -Force
+Copy-Item nexus.exe "$installDir\nexus.exe" -Force
 
 # 3. Agregar al PATH (permanente)
 $currentPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
-if ($currentPath -notlike "*\.antigravity\bin*") {
+if ($currentPath -notlike "*\.nexus\bin*") {
     [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$installDir", "User")
 }
 
 # 4. Reiniciar terminal y verificar
-antigravity version
-# → Antigravity v0.1.0
+nexus version
+# → Nexus v0.1.0
 ```
 
 ### macOS / Linux
 
 ```bash
 # 1. Descargar y compilar
-git clone https://github.com/Epigibson/antigravity.git
-cd antigravity/core
-go build -o antigravity ./cmd/antigravity
+git clone https://github.com/Epigibson/nexus.git
+cd nexus/core
+go build -o nexus ./cmd/nexus
 
 # 2. Instalar globalmente
-mkdir -p ~/.antigravity/bin
-cp antigravity ~/.antigravity/bin/
-chmod +x ~/.antigravity/bin/antigravity
+mkdir -p ~/.nexus/bin
+cp nexus ~/.nexus/bin/
+chmod +x ~/.nexus/bin/nexus
 
 # 3. Agregar al PATH (añadir a ~/.bashrc o ~/.zshrc)
-echo 'export PATH="$HOME/.antigravity/bin:$PATH"' >> ~/.zshrc
+echo 'export PATH="$HOME/.nexus/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 
 # 4. Verificar
-antigravity version
-# → Antigravity v0.1.0
+nexus version
+# → Nexus v0.1.0
 ```
 
 ## Quick Start
 
 ### 1. Crear cuenta en el Dashboard
 
-Regístrate en [antigravity-production-a677.up.railway.app](https://antigravity-production-a677.up.railway.app) y crea un proyecto con sus entornos (development, staging, production).
+Regístrate en [nexus-production-a677.up.railway.app](https://nexus-production-a677.up.railway.app) y crea un proyecto con sus entornos (development, staging, production).
 
 ### 2. Generar API Key
 
@@ -121,22 +121,22 @@ Ve a **Configuración → API Keys → Generar Nueva Key** y copia la key (empie
 
 ```bash
 # Autenticarte con tu API key
-antigravity login
+nexus login
 # → Paste your API key: ag_live_xxxxxxxxxx...
 # → ✅ Authenticated as tu-nombre (tu@email.com)
 
 # Ver tus proyectos
-antigravity sync
+nexus sync
 
 # Ver estado de conexión
-antigravity status
+nexus status
 ```
 
 ### 4. ¡Hacer switch!
 
 ```bash
 # Cambiar todo tu contexto de desarrollo
-antigravity switch mi-proyecto --env production
+nexus switch mi-proyecto --env production
 
 # → ✅ gh → epigibson
 # → ✅ aws → prod-profile  
@@ -148,7 +148,7 @@ antigravity switch mi-proyecto --env production
 ### 5. Desconectar (opcional)
 
 ```bash
-antigravity logout
+nexus logout
 ```
 
 ## Stack Tecnológico
@@ -173,7 +173,7 @@ npx mintlify@latest dev
 ## Estructura del Proyecto
 
 ```
-antigravity/
+nexus/
 ├── .agents/               # AI agent skills, workflows & context
 │   ├── context/           #   └── architecture.md (documentación técnica)
 │   └── workflows/         #   └── add-cli-profiler.md
@@ -218,7 +218,7 @@ antigravity/
 │
 ├── configs/               # Configuraciones de ejemplo
 ├── docs/                  # Documentación técnica
-└── antigravity.yaml       # Configuración de ejemplo raíz
+└── nexus.yaml       # Configuración de ejemplo raíz
 ```
 
 ## API Endpoints
@@ -236,4 +236,4 @@ Todos los endpoints están bajo `/api/v1/` y documentados en Swagger UI (`/docs`
 
 ## Licencia
 
-MIT © Antigravity Dev
+MIT © Nexus Dev

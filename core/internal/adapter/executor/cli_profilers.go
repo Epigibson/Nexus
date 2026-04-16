@@ -6,8 +6,57 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/antigravity-dev/antigravity/internal/domain"
+	"github.com/nexus-dev/nexus/internal/domain"
 )
+
+// ============================================================================
+// Git Profiler (git)
+// ============================================================================
+
+// GitProfiler manages git authorship switching.
+// Automatically sets git config user.name and user.email for the repo.
+type GitProfiler struct{}
+
+func NewGitProfiler() *GitProfiler { return &GitProfiler{} }
+
+func (g *GitProfiler) ToolName() string { return "git" }
+
+func (g *GitProfiler) IsInstalled() bool {
+	_, err := exec.LookPath("git")
+	return err == nil
+}
+
+func (g *GitProfiler) CurrentProfile() (string, error) {
+	cmd := exec.Command("git", "config", "user.email")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "none", nil
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func (g *GitProfiler) Switch(profile domain.CLIProfile) error {
+	if profile.Account != "" {
+		cmd := exec.Command("git", "config", "user.name", profile.Account)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("git: failed to set user.name")
+		}
+	}
+	
+	if profile.Extra != nil {
+		if email, ok := profile.Extra["email"]; ok && email != "" {
+			cmd := exec.Command("git", "config", "user.email", email)
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("git: failed to set user.email")
+			}
+		}
+	}
+	return nil
+}
+
+func (g *GitProfiler) ListProfiles() ([]string, error) {
+	return []string{"(managed via config)"}, nil
+}
 
 // ============================================================================
 // GitHub CLI Profiler (gh)
@@ -189,31 +238,69 @@ func (s *SupabaseProfiler) IsInstalled() bool {
 }
 
 func (s *SupabaseProfiler) CurrentProfile() (string, error) {
-	return "unknown", nil
+	// Try to detect the currently linked project
+	cmd := exec.Command("supabase", "projects", "list")
+	cmd.Env = append(os.Environ())
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "unknown", nil
+	}
+	out := strings.TrimSpace(string(output))
+	if out == "" {
+		return "none", nil
+	}
+	return "linked", nil
 }
 
 func (s *SupabaseProfiler) Switch(profile domain.CLIProfile) error {
-	// Step 1: If there's an access token, set it for the CLI
+	// Step 1: Resolve access token from Extra or environment
+	token := ""
 	if profile.Extra != nil {
-		if token, ok := profile.Extra["token"]; ok && token != "" {
-			os.Setenv("SUPABASE_ACCESS_TOKEN", token)
+		if t, ok := profile.Extra["token"]; ok && t != "" {
+			token = t
 		}
+	}
+	if token == "" {
+		token = os.Getenv("SUPABASE_ACCESS_TOKEN")
+	}
+
+	// Step 2: If there's a DB password, set it in env
+	if profile.Extra != nil {
 		if dbPass, ok := profile.Extra["db_password"]; ok && dbPass != "" {
 			os.Setenv("SUPABASE_DB_PASSWORD", dbPass)
 		}
 	}
 
-	// Step 2: Link to the specified project
-	args := []string{"link", "--project-ref", profile.Account}
+	// Step 3: Authenticate the Supabase CLI with the access token
+	if token != "" {
+		// Set the env var so all subsequent commands pick it up
+		os.Setenv("SUPABASE_ACCESS_TOKEN", token)
+
+		// Logout first to clear any stale/mismatched session
+		logoutCmd := exec.Command("supabase", "logout")
+		_ = logoutCmd.Run() // Best-effort, ignore errors
+
+		// Login with the token non-interactively
+		loginCmd := exec.Command("supabase", "login", "--token", token)
+		loginOutput, loginErr := loginCmd.CombinedOutput()
+		if loginErr != nil {
+			return fmt.Errorf("supabase login failed: %s", strings.TrimSpace(string(loginOutput)))
+		}
+	} else {
+		return fmt.Errorf("supabase: no access token found. Add a SUPABASE_ACCESS_TOKEN in your environment variables or set 'token' in cli_profiles extra fields")
+	}
+
+	// Step 4: Link to the specified project
+	linkArgs := []string{"link", "--project-ref", profile.Account}
 	if profile.Extra != nil {
-		if password, ok := profile.Extra["db_password"]; ok {
-			args = append(args, "--password", password)
+		if password, ok := profile.Extra["db_password"]; ok && password != "" {
+			linkArgs = append(linkArgs, "--password", password)
 		}
 	}
-	cmd := exec.Command("supabase", args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("supabase link failed: %s", strings.TrimSpace(string(output)))
+	linkCmd := exec.Command("supabase", linkArgs...)
+	linkOutput, linkErr := linkCmd.CombinedOutput()
+	if linkErr != nil {
+		return fmt.Errorf("supabase link failed: %s", strings.TrimSpace(string(linkOutput)))
 	}
 	return nil
 }
@@ -364,6 +451,7 @@ func AllProfilers() []interface {
 		Switch(profile domain.CLIProfile) error
 		ListProfiles() ([]string, error)
 	}{
+		NewGitProfiler(),
 		NewGitHubProfiler(),
 		NewAWSProfiler(),
 		NewSupabaseProfiler(),

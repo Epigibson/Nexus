@@ -1,5 +1,5 @@
 -- ============================================================================
--- Antigravity Control Center — Row Level Security Policies
+-- Nexus Control Center — Row Level Security Policies
 -- Migration: 002_rls_policies
 -- ============================================================================
 

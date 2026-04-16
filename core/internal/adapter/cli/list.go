@@ -3,8 +3,8 @@ package cli
 import (
 	"fmt"
 
-	"github.com/antigravity-dev/antigravity/internal/adapter/config"
-	"github.com/antigravity-dev/antigravity/internal/adapter/executor"
+	"github.com/nexus-dev/nexus/internal/adapter/config"
+	"github.com/nexus-dev/nexus/internal/adapter/executor"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,7 @@ func newListCmd() *cobra.Command {
 
 			if len(projects) == 0 {
 				fmt.Println("  No projects found.")
-				fmt.Println("  Run 'antigravity init' to create a configuration.")
+				fmt.Println("  Run 'nexus init' to create a configuration.")
 				return nil
 			}
 
@@ -110,9 +110,9 @@ and show which profiles are configured for each project environment.`,
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "📌 Print Antigravity version",
+		Short: "📌 Print Nexus version",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Antigravity v%s\n", version)
+			fmt.Printf("Nexus v%s\n", version)
 		},
 	}
 }

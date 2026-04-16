@@ -301,7 +301,7 @@ export default function ProjectsPage() {
                   className="font-mono text-sm"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Se usa en el CLI: <code className="text-primary">antigravity switch {slug || "mi-proyecto"}</code>
+                  Se usa en el CLI: <code className="text-primary">nexus switch {slug || "mi-proyecto"}</code>
                 </p>
               </div>
 

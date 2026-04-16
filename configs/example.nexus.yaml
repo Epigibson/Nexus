@@ -1,8 +1,8 @@
-# Antigravity Project Configuration
-# This is a realistic example showing how Antigravity manages
+# Nexus Project Configuration
+# This is a realistic example showing how Nexus manages
 # 10 projects with different accounts across all CLI tools.
 #
-# Usage: antigravity switch --env development
+# Usage: nexus switch --env development
 
 version: "1"
 
@@ -17,7 +17,7 @@ project:
 #   • Environment variables  
 #   • CLI profiles (GitHub, AWS, Supabase, Vercel, MongoDB accounts)
 #
-# When you run `antigravity switch --env staging`,
+# When you run `nexus switch --env staging`,
 # ALL of these switch automatically. No more logout/login cycles.
 # ──────────────────────────────────────────────────────────────────
 

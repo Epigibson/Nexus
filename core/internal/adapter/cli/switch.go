@@ -3,15 +3,16 @@ package cli
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
-	"github.com/antigravity-dev/antigravity/internal/adapter/audit"
-	"github.com/antigravity-dev/antigravity/internal/adapter/config"
-	"github.com/antigravity-dev/antigravity/internal/adapter/executor"
-	"github.com/antigravity-dev/antigravity/internal/adapter/repository"
-	"github.com/antigravity-dev/antigravity/internal/domain"
-	"github.com/antigravity-dev/antigravity/internal/port"
-	"github.com/antigravity-dev/antigravity/internal/service"
+	"github.com/nexus-dev/nexus/internal/adapter/audit"
+	"github.com/nexus-dev/nexus/internal/adapter/config"
+	"github.com/nexus-dev/nexus/internal/adapter/executor"
+	"github.com/nexus-dev/nexus/internal/adapter/repository"
+	"github.com/nexus-dev/nexus/internal/domain"
+	"github.com/nexus-dev/nexus/internal/port"
+	"github.com/nexus-dev/nexus/internal/service"
 	"github.com/spf13/cobra"
 )
 
@@ -22,16 +23,16 @@ func newSwitchCmd() *cobra.Command {
 		Use:   "switch <project-name>",
 		Short: "🔄 Switch your entire development context to a project",
 		Long: `Switch all CLI tools, environment variables, and Git state to match
-the specified project and environment. This is the core command of Antigravity.
+the specified project and environment. This is the core command of Nexus.
 
-If you are authenticated (run 'antigravity login' first), the project
+If you are authenticated (run 'nexus login' first), the project
 configuration is fetched from the cloud API. Otherwise, it reads from
-a local antigravity.yaml file.
+a local nexus.yaml file.
 
 Example:
-  antigravity switch my-saas-app --env production
-  antigravity switch client-dashboard --env staging
-  antigravity switch personal-blog`,
+  nexus switch my-saas-app --env production
+  nexus switch client-dashboard --env staging
+  nexus switch personal-blog`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if envName == "" {
@@ -66,7 +67,7 @@ Example:
 	return cmd
 }
 
-// switchFromAPI performs a switch using data fetched from the Antigravity API.
+// switchFromAPI performs a switch using data fetched from the Nexus API.
 func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 	// Find the target environment
 	var targetEnv *repository.EnvironmentDTO
@@ -138,7 +139,7 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 
 	if len(targetEnv.EnvVars) > 0 {
 		shellLines = append(shellLines, shellEmitter.EmitComment(
-			fmt.Sprintf("Antigravity: %s → %s", projectDTO.Name, envName)))
+			fmt.Sprintf("Nexus: %s → %s", projectDTO.Name, envName)))
 		shellLines = append(shellLines, "")
 
 		for key, value := range targetEnv.EnvVars {
@@ -178,8 +179,12 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 		fmt.Println("  ─────────────────────────────────────────")
 
 		home, _ := os.UserHomeDir()
-		scriptPath := home + "/.antigravity/last_switch.ps1"
-		os.MkdirAll(home+"/.antigravity", 0700)
+		ext := ".sh"
+		if runtime.GOOS == "windows" {
+			ext = ".ps1"
+		}
+		scriptPath := home + "/.nexus/last_switch" + ext
+		os.MkdirAll(home+"/.nexus", 0700)
 		os.WriteFile(scriptPath, []byte(shellScript), 0600)
 		fmt.Printf("\n  💡 Or source it directly:\n")
 		fmt.Printf("     . %s\n", scriptPath)
@@ -240,7 +245,11 @@ func switchLocal(args []string, envName string) error {
 		fmt.Println("  ─────────────────────────────────────────")
 
 		home, _ := os.UserHomeDir()
-		scriptPath := home + "/.antigravity/last_switch.ps1"
+		ext := ".sh"
+		if runtime.GOOS == "windows" {
+			ext = ".ps1"
+		}
+		scriptPath := home + "/.nexus/last_switch" + ext
 		os.WriteFile(scriptPath, []byte(result.ShellScript), 0600)
 		fmt.Printf("\n  💡 Or source it directly:\n")
 		fmt.Printf("     . %s\n", scriptPath)

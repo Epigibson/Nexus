@@ -1,14 +1,14 @@
 package port
 
 import (
-	"github.com/antigravity-dev/antigravity/internal/domain"
+	"github.com/nexus-dev/nexus/internal/domain"
 )
 
 // ConfigReader defines the port for reading project configurations.
 // Adapters: YAML file reader, JSON reader, remote API reader.
 type ConfigReader interface {
 	// ReadProject loads the project configuration from the given path.
-	// If path is empty, it searches typical locations (./antigravity.yaml, ~/.antigravity/).
+	// If path is empty, it searches typical locations (./nexus.yaml, ~/.nexus/).
 	ReadProject(path string) (*domain.Project, error)
 
 	// ListProjects returns all discovered projects from known config locations.
@@ -29,7 +29,7 @@ type SkillExecutor interface {
 }
 
 // CLIProfiler defines the port for switching CLI tool authentication profiles.
-// This is the CORE differentiator of Antigravity: each adapter knows how to
+// This is the CORE differentiator of Nexus: each adapter knows how to
 // log in/switch accounts for a specific CLI tool (gh, aws, supabase, etc.).
 type CLIProfiler interface {
 	// ToolName returns the CLI tool name (e.g., "gh", "aws", "supabase").

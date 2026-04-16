@@ -1,4 +1,4 @@
-"""Antigravity API — Configuration via Pydantic BaseSettings."""
+"""Nexus API — Configuration via Pydantic BaseSettings."""
 
 import json
 from pydantic_settings import BaseSettings
@@ -8,12 +8,12 @@ from typing import List, Optional
 
 class Settings(BaseSettings):
     # App
-    app_name: str = "Antigravity API"
+    app_name: str = "Nexus API"
     app_version: str = "0.1.0"
     debug: bool = True
 
     # Database — supports both SQLite (local) and PostgreSQL (Supabase)
-    database_url: str = "sqlite+aiosqlite:///./antigravity.db"
+    database_url: str = "sqlite+aiosqlite:///./nexus.db"
 
     # Supabase (optional — for production)
     supabase_url: Optional[str] = None

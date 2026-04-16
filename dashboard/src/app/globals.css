@@ -46,14 +46,14 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-  /* Custom Antigravity colors */
+  /* Custom Nexus colors */
   --color-violet: var(--violet);
   --color-teal: var(--teal);
   --color-success: var(--success);
   --color-warning: var(--warning);
 }
 
-/* ─── Antigravity Premium Theme ─── */
+/* ─── Nexus Premium Theme ─── */
 
 :root {
   --background: oklch(0.985 0.002 260);

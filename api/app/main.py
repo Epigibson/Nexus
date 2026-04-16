@@ -1,4 +1,4 @@
-"""Antigravity Control Center — Backend API.
+"""Nexus Control Center — Backend API.
 
 FastAPI application with JWT auth, SQLite/PostgreSQL, and RESTful endpoints.
 """

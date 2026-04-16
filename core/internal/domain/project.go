@@ -14,7 +14,7 @@ const (
 )
 
 // CLIProfile defines the authentication identity for a specific CLI tool.
-// This is the core of Antigravity: each project can have different
+// This is the core of Nexus: each project can have different
 // GitHub accounts, AWS profiles, Supabase orgs, etc.
 type CLIProfile struct {
 	Tool    string `yaml:"tool" json:"tool"`       // e.g., "gh", "aws", "supabase", "vercel", "mongosh"

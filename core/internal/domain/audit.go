@@ -43,7 +43,7 @@ func NewAuditEntry(action AuditAction, project, env, skill, message string) Audi
 		Environment: env,
 		SkillName:   skill,
 		Message:     message,
-		UserAgent:   "antigravity-cli/0.1.0",
+		UserAgent:   "nexus-cli/0.1.0",
 	}
 }
 

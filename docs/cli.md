@@ -1,4 +1,4 @@
-# Antigravity CLI — Guía de Desarrollo
+# Nexus CLI — Guía de Desarrollo
 
 ## Setup Rápido
 
@@ -6,7 +6,7 @@
 cd core/
 
 # Compilar
-go build -o antigravity ./cmd/main.go
+go build -o nexus ./cmd/main.go
 
 # O ejecutar directamente
 go run ./cmd/main.go --help
@@ -15,21 +15,21 @@ go run ./cmd/main.go --help
 ## Comandos
 
 ```bash
-# Inicializar un nuevo proyecto (genera antigravity.yaml interactivo)
-antigravity init
+# Inicializar un nuevo proyecto (genera nexus.yaml interactivo)
+nexus init
 
 # Cambiar a un entorno de un proyecto
-antigravity switch <project-name> --env <environment>
-antigravity switch my-saas --env development
+nexus switch <project-name> --env <environment>
+nexus switch my-saas --env development
 
 # Listar todos los proyectos configurados
-antigravity list
+nexus list
 
 # Mostrar perfiles CLI de un proyecto
-antigravity profiles <project-name>
+nexus profiles <project-name>
 
 # Versión
-antigravity version
+nexus version
 ```
 
 ## Arquitectura Hexagonal
@@ -55,7 +55,7 @@ core/internal/
     │   ├── list.go      # List projects from YAML
     │   └── profiles.go  # Show CLI profiles
     ├── config/
-    │   └── yaml_reader.go  # Lee antigravity.yaml (flat structure)
+    │   └── yaml_reader.go  # Lee nexus.yaml (flat structure)
     ├── executor/        # CLI Profilers
     │   ├── github.go    # gh auth switch
     │   ├── aws.go       # aws sso login
@@ -101,7 +101,7 @@ func (k *KubectlProfiler) Verify(p domain.CLIProfile) (bool, error) {
 
 > **Tip:** Hay un workflow documentado en `.agents/workflows/add-cli-profiler.md` con instrucciones detalladas.
 
-## Configuración (antigravity.yaml)
+## Configuración (nexus.yaml)
 
 ```yaml
 name: my-saas-app
@@ -149,7 +149,7 @@ skills:
 
 ## Audit Log
 
-Ubicación: `~/.antigravity/audit.jsonl`
+Ubicación: `~/.nexus/audit.jsonl`
 
 Formato (JSON Lines, append-only):
 ```json

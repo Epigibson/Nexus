@@ -1,5 +1,5 @@
 /**
- * Antigravity API Client — Typed HTTP client with JWT auth.
+ * Nexus API Client — Typed HTTP client with JWT auth.
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL

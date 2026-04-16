@@ -27,7 +27,7 @@ const (
 	SkillStatusSkipped  SkillStatus = "skipped"
 )
 
-// Skill represents a unit of automation in the Antigravity system.
+// Skill represents a unit of automation in the Nexus system.
 // Each skill is responsible for one aspect of context switching
 // (e.g., injecting env vars, switching Git branches, switching CLI profiles).
 type Skill struct {

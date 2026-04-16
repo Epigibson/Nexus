@@ -1,5 +1,5 @@
 -- ============================================================================
--- Antigravity Control Center — Seed Data
+-- Nexus Control Center — Seed Data
 -- Seeds: Skill definitions + Default plans
 -- ============================================================================
 

@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/antigravity-dev/antigravity/internal/domain"
+	"github.com/nexus-dev/nexus/internal/domain"
 )
 
 // FileLogger implements port.AuditLogger using an append-only JSON Lines file.
 // Each line is a complete JSON object representing an AuditEntry.
-// The file is stored at ~/.antigravity/audit.jsonl
+// The file is stored at ~/.nexus/audit.jsonl
 type FileLogger struct {
 	filePath string
 }
@@ -28,7 +28,7 @@ func NewFileLogger(customPath ...string) (*FileLogger, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot determine home directory: %w", err)
 		}
-		logPath = filepath.Join(home, ".antigravity", "audit.jsonl")
+		logPath = filepath.Join(home, ".nexus", "audit.jsonl")
 	}
 
 	// Ensure directory exists

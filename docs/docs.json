@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "name": "Antigravity",
+  "name": "Nexus",
   "description": "Centro de Control de Entornos de Desarrollo. Elimina la fricción del context switching para desarrolladores.",
   "theme": "palm",
   "colors": {
@@ -21,7 +21,7 @@
           {
             "group": "Inicio",
             "pages": [
-              "what-is-antigravity",
+              "what-is-nexus",
               "introduction",
               "installation",
               "quickstart",
@@ -107,7 +107,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/Epigibson/antigravity"
+      "github": "https://github.com/Epigibson/nexus"
     }
   }
 }

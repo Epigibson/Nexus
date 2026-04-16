@@ -1,7 +1,7 @@
 ---
 title: "Quick Start"
 sidebarTitle: "Quick Start"
-description: "Instala el CLI de Antigravity y haz tu primer switch en 5 minutos."
+description: "Instala el CLI de Nexus y haz tu primer switch en 5 minutos."
 ---
 
 ## Prerrequisitos
@@ -27,18 +27,18 @@ description: "Instala el CLI de Antigravity y haz tu primer switch en 5 minutos.
   <Tab title="Windows (PowerShell)">
     ```powershell
     # Descargar y compilar
-    git clone https://github.com/Epigibson/antigravity.git
-    cd antigravity/core
-    go build -o antigravity.exe ./cmd/antigravity
+    git clone https://github.com/Epigibson/nexus.git
+    cd nexus/core
+    go build -o nexus.exe ./cmd/nexus
 
     # Instalar globalmente
-    $installDir = "$env:USERPROFILE\.antigravity\bin"
+    $installDir = "$env:USERPROFILE\.nexus\bin"
     New-Item -ItemType Directory -Force -Path $installDir | Out-Null
-    Copy-Item antigravity.exe "$installDir\antigravity.exe" -Force
+    Copy-Item nexus.exe "$installDir\nexus.exe" -Force
 
     # Agregar al PATH (permanente, solo la primera vez)
     $currentPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
-    if ($currentPath -notlike "*\.antigravity\bin*") {
+    if ($currentPath -notlike "*\.nexus\bin*") {
         [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$installDir", "User")
     }
     ```
@@ -50,17 +50,17 @@ description: "Instala el CLI de Antigravity y haz tu primer switch en 5 minutos.
   <Tab title="macOS / Linux">
     ```bash
     # Descargar y compilar
-    git clone https://github.com/Epigibson/antigravity.git
-    cd antigravity/core
-    go build -o antigravity ./cmd/antigravity
+    git clone https://github.com/Epigibson/nexus.git
+    cd nexus/core
+    go build -o nexus ./cmd/nexus
 
     # Instalar globalmente
-    mkdir -p ~/.antigravity/bin
-    cp antigravity ~/.antigravity/bin/
-    chmod +x ~/.antigravity/bin/antigravity
+    mkdir -p ~/.nexus/bin
+    cp nexus ~/.nexus/bin/
+    chmod +x ~/.nexus/bin/nexus
 
     # Agregar al PATH (añadir a ~/.bashrc o ~/.zshrc)
-    echo 'export PATH="$HOME/.antigravity/bin:$PATH"' >> ~/.zshrc
+    echo 'export PATH="$HOME/.nexus/bin:$PATH"' >> ~/.zshrc
     source ~/.zshrc
     ```
   </Tab>
@@ -69,19 +69,19 @@ description: "Instala el CLI de Antigravity y haz tu primer switch en 5 minutos.
 Verifica la instalación:
 
 ```bash
-antigravity version
-# → Antigravity v0.1.0
+nexus version
+# → Nexus v0.1.0
 ```
 
 <Check>
-  Si ves `Antigravity v0.1.0`, la instalación fue exitosa.
+  Si ves `Nexus v0.1.0`, la instalación fue exitosa.
 </Check>
 
 ## Paso 2: Crear cuenta y API Key
 
 <Steps>
   <Step title="Registrarte en el Dashboard">
-    Ve a [antigravity-production-a677.up.railway.app](https://antigravity-production-a677.up.railway.app) y crea tu cuenta.
+    Ve a [nexus-production-a677.up.railway.app](https://nexus-production-a677.up.railway.app) y crea tu cuenta.
   </Step>
   <Step title="Crear un proyecto">
     En el dashboard, crea un proyecto y agrega entornos (development, staging, production). Configura los CLI profiles (GitHub, AWS, etc.) y variables de entorno (API keys, secrets).
@@ -99,11 +99,11 @@ antigravity version
 
 ```bash
 # Autenticarte con tu API key
-antigravity login
+nexus login
 ```
 
 ```
-🔐 Antigravity CLI — Login
+🔐 Nexus CLI — Login
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Generate an API key from your Dashboard:
@@ -114,17 +114,17 @@ Paste your API key: ag_live_xxxxxxxxxx...
 ✅ Authenticated as Ricardo (hackminor@live.com.mx)
 📋 Plan: free
 
-Run 'antigravity sync' to pull your projects from the cloud.
+Run 'nexus sync' to pull your projects from the cloud.
 ```
 
 ## Paso 4: Sincronizar proyectos
 
 ```bash
-antigravity sync
+nexus sync
 ```
 
 ```
-🔄 Antigravity Sync
+🔄 Nexus Sync
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Authenticating... ✅ hackminor@live.com.mx
@@ -144,7 +144,7 @@ antigravity sync
 
 ```bash
 # Desde CUALQUIER directorio
-antigravity switch auto-hotel-luxor --env production
+nexus switch auto-hotel-luxor --env production
 ```
 
 ```
@@ -176,24 +176,24 @@ antigravity switch auto-hotel-luxor --env production
 
 | Comando | Descripción |
 |---------|-------------|
-| `antigravity login` | Autenticarte con tu API key |
-| `antigravity sync` | Sincronizar proyectos del cloud |
-| `antigravity status` | Ver estado de conexión |
-| `antigravity switch <proyecto> --env <env>` | Cambiar contexto completo |
-| `antigravity list` | Listar proyectos locales |
-| `antigravity init` | Crear antigravity.yaml local |
-| `antigravity logout` | Desconectar del cloud |
-| `antigravity version` | Ver versión |
+| `nexus login` | Autenticarte con tu API key |
+| `nexus sync` | Sincronizar proyectos del cloud |
+| `nexus status` | Ver estado de conexión |
+| `nexus switch <proyecto> --env <env>` | Cambiar contexto completo |
+| `nexus list` | Listar proyectos locales |
+| `nexus init` | Crear nexus.yaml local |
+| `nexus logout` | Desconectar del cloud |
+| `nexus version` | Ver versión |
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="'antigravity' no se reconoce como comando">
-    Asegúrate de que `~/.antigravity/bin` está en tu PATH y que reiniciaste la terminal después de instalarlo.
+  <Accordion title="'nexus' no se reconoce como comando">
+    Asegúrate de que `~/.nexus/bin` está en tu PATH y que reiniciaste la terminal después de instalarlo.
 
-    **Windows**: Verifica con `$env:Path -split ";" | Where-Object { $_ -like "*antigravity*" }`
+    **Windows**: Verifica con `$env:Path -split ";" | Where-Object { $_ -like "*nexus*" }`
 
-    **macOS/Linux**: Verifica con `echo $PATH | tr ':' '\n' | grep antigravity`
+    **macOS/Linux**: Verifica con `echo $PATH | tr ':' '\n' | grep nexus`
   </Accordion>
   <Accordion title="Authentication failed al hacer login">
     - Verifica que copiaste la API key completa (empieza con `ag_live_`)

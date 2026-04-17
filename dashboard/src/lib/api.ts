@@ -389,5 +389,64 @@ export const api = {
     const res = await fetch(`${API_BASE}/billing/subscription`, { headers: authHeaders() });
     return handleResponse(res);
   },
+
+  // ─── Plan Limits ───
+
+  async getPlanLimits(): Promise<{
+    plan: string;
+    limits: Record<string, unknown>;
+    usage: { projects: number; members: number };
+  }> {
+    const res = await fetch(`${API_BASE}/billing/plan-limits`, { headers: authHeaders() });
+    return handleResponse(res);
+  },
+
+  // ─── Teams ───
+
+  async getTeamMembers(): Promise<Array<{
+    user_id: string;
+    email: string;
+    display_name: string | null;
+    role: string;
+    joined_at: string;
+  }>> {
+    const res = await fetch(`${API_BASE}/teams/members`, { headers: authHeaders() });
+    return handleResponse(res);
+  },
+
+  async inviteTeamMember(email: string, role: string = "member"): Promise<{
+    user_id: string;
+    email: string;
+    display_name: string | null;
+    role: string;
+    joined_at: string;
+  }> {
+    const res = await fetch(`${API_BASE}/teams/members`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ email, role }),
+    });
+    return handleResponse(res);
+  },
+
+  async updateMemberRole(userId: string, role: string): Promise<unknown> {
+    const res = await fetch(`${API_BASE}/teams/members/${userId}`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify({ role }),
+    });
+    return handleResponse(res);
+  },
+
+  async removeMember(userId: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/teams/members/${userId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Error" }));
+      throw new Error(err.detail || "Error eliminando miembro");
+    }
+  },
 };
 

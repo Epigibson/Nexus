@@ -21,6 +21,13 @@ async def lifespan(app: FastAPI):
     print(f"🌐 CORS origins: {settings.cors_origins}")
     if settings.stripe_secret_key:
         print(f"💳 Stripe configured (test mode)")
+
+    # Seed default data
+    from app.database import async_session
+    from app.services.seed_skills import seed_skills
+    async with async_session() as db:
+        await seed_skills(db)
+
     yield
     print("👋 Shutting down...")
 

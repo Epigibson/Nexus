@@ -10,6 +10,7 @@ import {
   ScrollText,
   Settings,
   CreditCard,
+  Users,
   Zap,
   Moon,
   Sun,
@@ -28,6 +29,7 @@ import { useEffect, useState } from "react";
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/projects", label: "Proyectos", icon: FolderKanban },
+  { href: "/dashboard/team", label: "Equipo", icon: Users },
   { href: "/dashboard/audit", label: "Registro (Audit)", icon: ScrollText },
   { href: "/dashboard/billing", label: "Suscripción y Pagos", icon: CreditCard },
   { href: "/dashboard/settings", label: "Configuración", icon: Settings },

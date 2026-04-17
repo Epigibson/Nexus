@@ -155,12 +155,13 @@ nexus logout
 
 | Componente | Tecnología | Estado |
 |-----------|-----------|--------|
-| Core CLI & Orchestrator | Go 1.26 (Cobra CLI) | ✅ Fase 1 |
-| Dashboard | Next.js 16 + Tailwind v4 + shadcn/ui | ✅ Fase 2 |
-| Backend API | FastAPI + Pydantic v2 + SQLAlchemy 2.0 | ✅ Fase 3 |
-| Dashboard ↔ API | JWT Auth + REST fetch client | ✅ Fase 4 |
+| Core CLI & Orchestrator | Go 1.26 (Cobra CLI) | ✅ |
+| Dashboard | Next.js 16 + Tailwind v4 + shadcn/ui | ✅ |
+| Backend API | FastAPI + Pydantic v2 + SQLAlchemy 2.0 | ✅ |
+| Payments | Stripe Checkout + Customer Portal | ✅ |
+| Dashboard ↔ API | JWT Auth + REST fetch client | ✅ |
 | Documentation | Mintlify (theme: palm) | ✅ |
-| Database | SQLite (local) → Supabase (PostgreSQL + RLS) | 🔄 Migración pendiente |
+| Database | PostgreSQL (Supabase) | ✅ |
 | Encryption | AES-256-GCM + Argon2id | 📐 Diseñado |
 
 ### Documentación (Mintlify)
@@ -181,9 +182,9 @@ nexus/
 ├── core/                  # Go CLI & Orchestrator (Arquitectura Hexagonal)
 │   ├── cmd/main.go        #   Entrypoint
 │   └── internal/
-│       ├── domain/        #   Entidades: Project, Skill, CLIProfile
+│       ├── domain/        #   Entidades: Project, Skill, CLIProfile, ScriptHook
 │       ├── port/          #   Interfaces: CLIProfiler, ConfigReader
-│       ├── service/       #   Orchestrator: coordina skills
+│       ├── service/       #   Orchestrator: skills + hooks pre/post
 │       └── adapter/       #   Implementaciones: CLI, Config, Audit
 │           ├── cli/       #     Comandos Cobra (init, switch, list)
 │           ├── config/    #     YAML reader
@@ -192,13 +193,26 @@ nexus/
 │
 ├── api/                   # FastAPI Backend
 │   ├── app/
-│   │   ├── main.py        #   FastAPI app + CORS + lifecycle
-│   │   ├── config.py      #   Pydantic BaseSettings
-│   │   ├── database.py    #   SQLAlchemy async + session factory
+│   │   ├── main.py        #   FastAPI app + CORS + lifecycle (seed + bootstrap)
+│   │   ├── config.py      #   Pydantic BaseSettings (plan limits, Stripe keys)
+│   │   ├── database.py    #   SQLAlchemy async + auto-migrate
 │   │   ├── models/        #   ORM models (9 tablas)
 │   │   ├── schemas/       #   Pydantic v2 request/response
 │   │   ├── services/      #   Lógica de negocio
-│   │   ├── routers/       #   Endpoints REST (6 routers, 20+ endpoints)
+│   │   │   ├── auth_service.py        # JWT + bcrypt
+│   │   │   ├── project_service.py     # CRUD projects
+│   │   │   ├── stats_service.py       # Dashboard aggregations
+│   │   │   ├── plan_enforcement.py    # Límites Free/Premium/Enterprise
+│   │   │   ├── seed_skills.py         # Seed 12 skills al startup
+│   │   │   └── admin_bootstrap.py     # Bootstrap admin enterprise
+│   │   ├── routers/       #   Endpoints REST (8 routers, 30+ endpoints)
+│   │   │   ├── auth.py          # /auth (6 endpoints)
+│   │   │   ├── projects.py      # /projects (9 endpoints)
+│   │   │   ├── skills.py        # /skills (3 endpoints)
+│   │   │   ├── teams.py         # /teams (4 endpoints)
+│   │   │   ├── billing.py       # /billing (5 endpoints)
+│   │   │   ├── audit.py         # /audit (1 endpoint)
+│   │   │   └── dashboard.py     # /dashboard (3 endpoints)
 │   │   └── middleware/    #   JWT auth dependency
 │   ├── seed.py            #   Datos de demo
 │   └── requirements.txt
@@ -206,19 +220,26 @@ nexus/
 ├── dashboard/             # Next.js 16 Web Dashboard
 │   └── src/
 │       ├── app/
-│       │   ├── login/     #   Página de autenticación
-│       │   └── dashboard/ #   Overview, Projects, Audit, Settings
+│       │   ├── login/           #   Página de autenticación
+│       │   └── dashboard/       #   Layout + páginas:
+│       │       ├── page.tsx     #     Overview (stats, plan badge)
+│       │       ├── projects/    #     Proyectos + detalle [slug]
+│       │       ├── skills/      #     Catálogo de skills + toggle
+│       │       ├── team/        #     Gestión de equipo
+│       │       ├── audit/       #     Registro de auditoría
+│       │       ├── billing/     #     Planes + pagos Stripe
+│       │       └── settings/    #     Configuración + API keys
 │       ├── components/    #   shadcn/ui + custom components
 │       └── lib/
-│           ├── api.ts     #   Cliente HTTP tipado (15+ métodos)
+│           ├── api.ts     #   Cliente HTTP tipado (25+ métodos)
 │           └── auth-context.tsx  # JWT AuthProvider
 │
 ├── database/              # Schema SQL & Migrations
-│   └── migrations/        #   001_initial_schema.sql (9 tablas + RLS)
+│   └── migrations/        #   001_initial_schema.sql
 │
 ├── configs/               # Configuraciones de ejemplo
-├── docs/                  # Documentación técnica
-└── nexus.yaml       # Configuración de ejemplo raíz
+├── docs/                  # Documentación técnica (Mintlify)
+└── nexus.yaml             # Configuración de ejemplo raíz
 ```
 
 ## API Endpoints
@@ -227,9 +248,11 @@ Todos los endpoints están bajo `/api/v1/` y documentados en Swagger UI (`/docs`
 
 | Tag | Endpoints | Auth |
 |-----|-----------|------|
-| **Auth** | `POST /register`, `POST /login`, `GET /me`, `PUT /me` | Público / Bearer |
-| **Projects** | CRUD + environments (8 endpoints) | Bearer |
-| **Skills** | Catálogo + config per-project (3 endpoints) | Bearer |
+| **Auth** | `POST /register`, `POST /login`, `GET /me`, `PUT /me`, API Keys CRUD | Público / Bearer |
+| **Projects** | CRUD + environments + hooks (9 endpoints) | Bearer |
+| **Skills** | Catálogo + toggle per-project (3 endpoints) | Bearer |
+| **Teams** | Listar, invitar, cambiar rol, eliminar (4 endpoints) | Bearer |
+| **Billing** | Plan limits, Stripe checkout/portal, subscriptions (5 endpoints) | Bearer |
 | **Audit** | Log filtrable + export (1 endpoint) | Bearer |
 | **Dashboard** | Stats, actividad, recientes (3 endpoints) | Bearer |
 | **Health** | 2 health checks | Público |

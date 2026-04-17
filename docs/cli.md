@@ -37,15 +37,15 @@ nexus version
 ```
 core/internal/
 ├── domain/              # Entidades puras (0 deps)
-│   ├── project.go       # Project, Environment, CLIProfile
-│   ├── skill.go         # Skill, SkillResult
+│   ├── project.go       # Project, Environment, CLIProfile, ScriptHook
+│   ├── skill.go         # Skill, SkillResult, SkillCategory
 │   └── audit.go         # AuditEntry
 │
 ├── port/                # Interfaces (contratos)
 │   └── ports.go         # CLIProfiler, ConfigReader, AuditLogger, ScriptGenerator
 │
 ├── service/             # Lógica de negocio
-│   └── orchestrator.go  # Orchestrator: coordina skills en secuencia
+│   └── orchestrator.go  # Orchestrator: skills + hooks pre/post
 │
 └── adapter/             # Implementaciones
     ├── cli/             # Comandos Cobra
@@ -134,6 +134,15 @@ environments:
       - tool: aws
         account: acme-prod
         region: us-east-1
+    hooks:
+      - name: "Backup database"
+        command: "pg_dump $DATABASE_URL > /tmp/backup.sql"
+        phase: pre
+        timeout: 120
+      - name: "Run migrations"
+        command: "npx prisma migrate deploy"
+        phase: post
+        timeout: 60
 
 skills:
   - name: context-injection
@@ -146,6 +155,40 @@ skills:
     enabled: true
     priority: 3
 ```
+
+## Script-Runners (Hooks)
+
+Los hooks son comandos shell que se ejecutan automáticamente durante un context switch.
+
+### Fases
+
+```
+PRE hooks → ENV injection → Git switch → CLI profiles → POST hooks
+```
+
+| Fase | Cuándo | Uso Típico |
+|------|--------|------------|
+| `pre` | Antes de cambiar contexto | Backup, guardar estado, validar |
+| `post` | Después de cambiar contexto | Migrations, instalar deps, iniciar servicios |
+
+### Configuración
+
+```yaml
+hooks:
+  - name: "Display Name"     # Nombre descriptivo
+    command: "shell command"  # Comando a ejecutar
+    phase: pre                # pre | post
+    timeout: 30               # Segundos (default: 30)
+```
+
+### Comportamiento
+
+- **Directorio de ejecución**: `project.root_path` si está definido
+- **Shell**: `sh -c` (Unix)
+- **Timeout**: Default 30 segundos. Si se excede, el hook falla
+- **Errores**: Un hook fallido **no detiene** los demás
+- **Output**: Se captura y registra en el audit log
+- **Variables de entorno**: Heredan el env del proceso actual
 
 ## Audit Log
 

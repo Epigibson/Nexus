@@ -27,6 +27,15 @@
               "quickstart",
               "architecture"
             ]
+          },
+          {
+            "group": "Guías",
+            "pages": [
+              "plans",
+              "api",
+              "dashboard",
+              "cli"
+            ]
           }
         ]
       },
@@ -66,6 +75,18 @@
               "api-reference/skills/catalog",
               "api-reference/skills/project-skills",
               "api-reference/skills/toggle"
+            ]
+          },
+          {
+            "group": "Teams",
+            "pages": [
+              "api-reference/teams/members"
+            ]
+          },
+          {
+            "group": "Billing",
+            "pages": [
+              "api-reference/billing/subscriptions"
             ]
           },
           {

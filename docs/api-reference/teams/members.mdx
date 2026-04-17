@@ -1,0 +1,125 @@
+---
+title: "List Members"
+api: "GET /api/v1/teams/members"
+description: "Listar todos los miembros de la organización"
+---
+
+## Headers
+
+| Header | Valor |
+|--------|-------|
+| `Authorization` | `Bearer {token}` |
+
+## Response (200)
+
+```json
+[
+  {
+    "user_id": "uuid",
+    "email": "hackminor@live.com.mx",
+    "display_name": "Ricardo Minor",
+    "role": "owner",
+    "joined_at": "2026-04-04T12:00:00"
+  },
+  {
+    "user_id": "uuid-2",
+    "email": "dev@team.com",
+    "display_name": "Dev User",
+    "role": "member",
+    "joined_at": "2026-04-16T18:00:00"
+  }
+]
+```
+
+### Roles Disponibles
+
+| Rol | Permisos |
+|-----|----------|
+| `owner` | Acceso total, no puede ser eliminado |
+| `admin` | Puede invitar, cambiar roles, eliminar miembros |
+| `member` | Acceso a proyectos compartidos |
+
+---
+
+# Invite Member
+
+```
+POST /api/v1/teams/members
+```
+
+## Request Body
+
+```json
+{
+  "email": "nuevo@team.com",
+  "role": "member"
+}
+```
+
+> **Nota:** El usuario debe tener una cuenta registrada en Nexus.
+
+## Response (201)
+
+```json
+{
+  "user_id": "uuid-new",
+  "email": "nuevo@team.com",
+  "display_name": "Nuevo Usuario",
+  "role": "member",
+  "joined_at": "2026-04-16T18:30:00"
+}
+```
+
+## Errores
+
+| Status | Descripción |
+|--------|-------------|
+| `403` | Límite del plan alcanzado |
+| `404` | Usuario no encontrado (debe registrarse primero) |
+| `400` | El usuario ya es miembro del equipo |
+
+---
+
+# Update Member Role
+
+```
+PUT /api/v1/teams/members/{user_id}
+```
+
+## Request Body
+
+```json
+{
+  "role": "admin"
+}
+```
+
+## Response (200)
+
+Devuelve el miembro actualizado con el nuevo rol.
+
+## Errores
+
+| Status | Descripción |
+|--------|-------------|
+| `400` | No puedes cambiar el rol del propietario |
+| `404` | Miembro no encontrado |
+
+---
+
+# Remove Member
+
+```
+DELETE /api/v1/teams/members/{user_id}
+```
+
+## Response (204)
+
+Sin contenido. El miembro fue eliminado exitosamente.
+
+## Errores
+
+| Status | Descripción |
+|--------|-------------|
+| `400` | No puedes eliminar al propietario |
+| `404` | Miembro no encontrado |

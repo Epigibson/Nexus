@@ -11,11 +11,15 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Crown,
+  Users,
+  Zap,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ActivityChart } from "@/components/dashboard/activity-chart";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import type {
   DashboardStats,
   ActivityPoint,
@@ -23,26 +27,40 @@ import type {
   ProjectResponse,
 } from "@/lib/api";
 
+const PLAN_LABELS: Record<string, { label: string; color: string; icon: typeof Crown }> = {
+  enterprise: { label: "Enterprise", color: "text-amber-400 bg-amber-400/10 border-amber-400/20", icon: Crown },
+  premium: { label: "Premium", color: "text-violet-400 bg-violet-400/10 border-violet-400/20", icon: Zap },
+  free: { label: "Free", color: "text-muted-foreground bg-muted/50 border-border", icon: Zap },
+};
+
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [activity, setActivity] = useState<ActivityPoint[]>([]);
   const [recent, setRecent] = useState<RecentSwitch[]>([]);
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
+  const [planLimits, setPlanLimits] = useState<{
+    plan: string;
+    limits: Record<string, unknown>;
+    usage: { projects: number; members: number };
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [s, a, r, p] = await Promise.all([
+        const [s, a, r, p, pl] = await Promise.all([
           api.getStats(),
           api.getActivity(),
           api.getRecentSwitches(5),
           api.listProjects(),
+          api.getPlanLimits(),
         ]);
         setStats(s);
         setActivity(a);
         setRecent(r);
         setProjects(p);
+        setPlanLimits(pl);
       } catch (err) {
         console.error("Error loading dashboard:", err);
       } finally {
@@ -60,12 +78,19 @@ export default function DashboardPage() {
     );
   }
 
+  const plan = planLimits?.plan || "free";
+  const maxProjects = (planLimits?.limits?.max_projects as number) || 3;
+  const maxTools = (planLimits?.limits?.max_cli_tools as number) || 5;
+  const planConfig = PLAN_LABELS[plan] || PLAN_LABELS.free;
+  const PlanIcon = planConfig.icon;
+  const isUnlimited = maxProjects > 9999;
+
   const statCards = [
     {
       title: "Proyectos Activos",
       value: stats?.total_projects ?? 0,
       icon: FolderKanban,
-      description: `de 3 permitidos (free)`,
+      description: isUnlimited ? "sin límite" : `de ${maxProjects} permitidos`,
       trend: "Configurados",
       color: "text-primary",
       bgColor: "bg-primary/10",
@@ -90,9 +115,11 @@ export default function DashboardPage() {
     },
     {
       title: "Tools Conectados",
-      value: `${stats?.tools_connected ?? 0}/5`,
+      value: isUnlimited
+        ? `${stats?.tools_connected ?? 0}`
+        : `${stats?.tools_connected ?? 0}/${maxTools}`,
       icon: Plug,
-      description: "CLI tools activos",
+      description: isUnlimited ? "CLI tools (ilimitados)" : "CLI tools activos",
       trend: "Estado actual",
       color: "text-success",
       bgColor: "bg-success/10",
@@ -102,13 +129,21 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Bienvenido de vuelta 👋
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          Resumen de tu actividad de desarrollo y estado de herramientas.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Bienvenido de vuelta 👋
+          </h1>
+          <p className="mt-1 text-muted-foreground">
+            Resumen de tu actividad de desarrollo y estado de herramientas.
+          </p>
+        </div>
+        <div
+          className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border ${planConfig.color}`}
+        >
+          <PlanIcon className="h-3.5 w-3.5" />
+          Plan {planConfig.label}
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -142,6 +177,45 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      {/* Plan usage bar — only for limited plans */}
+      {!isUnlimited && (
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Uso del Plan</span>
+              <span className="text-xs text-muted-foreground">
+                {stats?.total_projects ?? 0} / {maxProjects} proyectos
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full gradient-violet transition-all duration-500"
+                style={{
+                  width: `${Math.min(
+                    ((stats?.total_projects ?? 0) / maxProjects) * 100,
+                    100
+                  )}%`,
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-muted-foreground">
+                {maxProjects - (stats?.total_projects ?? 0)} proyectos
+                disponibles
+              </span>
+              {(stats?.total_projects ?? 0) >= maxProjects && (
+                <a
+                  href="/dashboard/billing"
+                  className="text-xs text-primary hover:underline"
+                >
+                  Upgrade →
+                </a>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Activity Chart + Recent Switches */}
       <div className="grid gap-6 lg:grid-cols-7">

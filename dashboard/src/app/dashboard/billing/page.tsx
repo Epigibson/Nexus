@@ -187,7 +187,7 @@ function BillingPageContent() {
     loadStats();
   }, [loadStats]);
 
-  const maxProjects = currentPlan === "free" ? 3 : currentPlan === "premium" ? 100 : null;
+  const maxProjects = currentPlan === "free" ? 3 : null;
 
   const handleUpgrade = () => {
     setShowCheckoutModal(true);
@@ -296,7 +296,7 @@ function BillingPageContent() {
               </p>
             </div>
 
-            {currentPlan !== "premium" && (
+            {currentPlan === "free" && (
               <Button
                 className="w-full gap-2 gradient-violet text-white border-0 hover:opacity-90 mt-2"
                 onClick={handleUpgrade}
@@ -310,11 +310,11 @@ function BillingPageContent() {
                 {upgrading ? "Redirigiendo a Stripe..." : "Upgrade a Premium"}
               </Button>
             )}
-            {currentPlan === "premium" && (
+            {(currentPlan === "premium" || currentPlan === "enterprise") && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary font-medium">
                   <Check className="h-4 w-4" />
-                  Estás en el mejor plan
+                  {currentPlan === "enterprise" ? "Plan Enterprise activo 👑" : "Estás en el mejor plan"}
                 </div>
                 <Button
                   variant="outline"

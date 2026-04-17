@@ -22,11 +22,13 @@ async def lifespan(app: FastAPI):
     if settings.stripe_secret_key:
         print(f"💳 Stripe configured (test mode)")
 
-    # Seed default data
+    # Seed default data & admin account
     from app.database import async_session
     from app.services.seed_skills import seed_skills
+    from app.services.admin_bootstrap import bootstrap_admin
     async with async_session() as db:
         await seed_skills(db)
+        await bootstrap_admin(db)
 
     yield
     print("👋 Shutting down...")

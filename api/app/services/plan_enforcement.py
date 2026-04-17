@@ -11,6 +11,17 @@ from app.models.environment import EnvironmentProfile
 
 def get_plan_limits(plan: str) -> dict:
     """Get all limits for a given plan tier."""
+    if plan == "enterprise":
+        return {
+            "max_projects": 999999,
+            "max_cli_tools": 999999,
+            "max_members": 999999,
+            "skills_parallel": True,
+            "skills_auto": True,
+            "script_runners": True,
+            "audit_cloud": True,
+            "team_management": True,
+        }
     if plan == "premium":
         return {
             "max_projects": settings.premium_max_projects,
@@ -105,7 +116,7 @@ async def check_premium_skill(db: AsyncSession, org_id: str, is_premium_skill: b
     if not is_premium_skill:
         return
     plan = await get_org_plan(db, org_id)
-    if plan != "premium":
+    if plan not in ("premium", "enterprise"):
         raise ValueError(
             "Los skills premium requieren el plan Premium. "
             "Actualiza tu plan para habilitar este skill."

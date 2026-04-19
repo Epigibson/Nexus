@@ -22,8 +22,6 @@ func NewYAMLReader(extraPaths ...string) *YAMLReader {
 	paths := []string{
 		"nexus.yaml",
 		".nexus.yaml",
-		"nexus.yaml",
-		".nexus.yaml",
 		".nexus/config.yaml",
 	}
 

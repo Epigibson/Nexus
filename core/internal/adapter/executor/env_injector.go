@@ -1,7 +1,9 @@
 package executor
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -131,8 +133,13 @@ func (g *GitSwitcher) Execute(project *domain.Project, env *domain.EnvironmentCo
 		}, nil
 	}
 
+	repoDir := project.RootPath
+	if repoDir == "" {
+		repoDir, _ = os.Getwd()
+	}
+
 	// Get current branch
-	currentBranch, err := getCurrentBranch(project.RootPath)
+	currentBranch, err := getCurrentBranch(repoDir)
 	if err != nil {
 		return &domain.SkillResult{
 			SkillName: skill.Name,
@@ -153,16 +160,40 @@ func (g *GitSwitcher) Execute(project *domain.Project, env *domain.EnvironmentCo
 		}, nil
 	}
 
-	// Fetch first in case branch only exists in remote
-	fetchCmd := exec.Command("git", "fetch")
-	fetchCmd.Dir = project.RootPath
+	// Fetch with timeout and --prune to clean stale refs
+	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	fetchCmd := exec.CommandContext(fetchCtx, "git", "fetch", "--prune")
+	fetchCmd.Dir = repoDir
 	_ = fetchCmd.Run()
+	fetchCancel()
 
-	// Checkout target branch
-	cmd := exec.Command("git", "checkout", env.Branch)
-	cmd.Dir = project.RootPath
+	// Count stash entries BEFORE stashing (locale-safe detection)
+	stashCountBefore := countGitStashEntries(repoDir)
+
+	// Stash any uncommitted work (including untracked files) to avoid conflicts
+	stashCtx, stashCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	stashCmd := exec.CommandContext(stashCtx, "git", "stash", "--include-untracked")
+	stashCmd.Dir = repoDir
+	_ = stashCmd.Run()
+	stashCancel()
+
+	stashCountAfter := countGitStashEntries(repoDir)
+	didStash := stashCountAfter > stashCountBefore
+
+	// Checkout target branch with timeout
+	checkoutCtx, checkoutCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	cmd := exec.CommandContext(checkoutCtx, "git", "checkout", env.Branch)
+	cmd.Dir = repoDir
 	output, err := cmd.CombinedOutput()
+	checkoutCancel()
+
 	if err != nil {
+		// If checkout failed and we stashed, restore the stash
+		if didStash {
+			popCmd := exec.Command("git", "stash", "pop")
+			popCmd.Dir = repoDir
+			_ = popCmd.Run()
+		}
 		return &domain.SkillResult{
 			SkillName: skill.Name,
 			Status:    domain.SkillStatusFailed,
@@ -172,17 +203,41 @@ func (g *GitSwitcher) Execute(project *domain.Project, env *domain.EnvironmentCo
 		}, nil
 	}
 
+	msg := fmt.Sprintf("Switched branch: '%s' → '%s'", currentBranch, env.Branch)
+	actions := []string{fmt.Sprintf("git checkout %s", env.Branch)}
+	if didStash {
+		msg += " (uncommitted changes stashed)"
+		actions = append(actions, "⚠️ run 'git stash pop' to restore your changes")
+	}
+
 	return &domain.SkillResult{
 		SkillName: skill.Name,
 		Status:    domain.SkillStatusSuccess,
-		Message:   fmt.Sprintf("Switched branch: '%s' → '%s'", currentBranch, env.Branch),
+		Message:   msg,
 		Duration:  time.Since(startTime),
-		Actions:   []string{fmt.Sprintf("git checkout %s", env.Branch)},
+		Actions:   actions,
 	}, nil
 }
 
 func (g *GitSwitcher) Rollback(project *domain.Project, env *domain.EnvironmentConfig) error {
 	return nil // Git state is managed by git itself
+}
+
+// countGitStashEntries returns the number of stash entries (locale-safe).
+func countGitStashEntries(repoPath string) int {
+	cmd := exec.Command("git", "stash", "list")
+	if repoPath != "" {
+		cmd.Dir = repoPath
+	}
+	output, err := cmd.Output()
+	if err != nil {
+		return 0
+	}
+	trimmed := strings.TrimSpace(string(output))
+	if trimmed == "" {
+		return 0
+	}
+	return len(strings.Split(trimmed, "\n"))
 }
 
 func getCurrentBranch(repoPath string) (string, error) {

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -71,6 +72,8 @@ Example:
 
 // switchFromAPI performs a switch using data fetched from the Nexus API.
 func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
+	startTime := time.Now()
+
 	// Find the target environment
 	var targetEnv *repository.EnvironmentDTO
 	for _, env := range projectDTO.Environments {
@@ -98,6 +101,7 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 	}
 
 	results := make([]string, 0)
+	hasErrors := false
 
 	// ── Inject env vars FIRST (tokens needed by profilers) ──
 	if len(targetEnv.EnvVars) > 0 {
@@ -130,6 +134,7 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 		err := profiler.Switch(domainProfile)
 		if err != nil {
 			results = append(results, fmt.Sprintf("  ❌ %s — %v", profile.Tool, err))
+			hasErrors = true
 		} else {
 			results = append(results, fmt.Sprintf("  ✅ %s → %s", profile.Tool, profile.Account))
 		}
@@ -199,16 +204,48 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 	if targetEnv.GitBranch != "" {
 		cwd, _ := os.Getwd()
 
-		fetchCmd := exec.Command("git", "fetch")
+		// Fetch with timeout and --prune to clean stale remote refs
+		fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		fetchCmd := exec.CommandContext(fetchCtx, "git", "fetch", "--prune")
 		fetchCmd.Dir = cwd
 		_ = fetchCmd.Run()
+		fetchCancel()
 
-		cmd := exec.Command("git", "checkout", targetEnv.GitBranch)
+		// Count stash entries BEFORE stashing (locale-safe detection)
+		stashCountBefore := countGitStash(cwd)
+
+		// Stash any uncommitted work (including untracked files) to avoid conflicts
+		stashCtx, stashCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		stashCmd := exec.CommandContext(stashCtx, "git", "stash", "--include-untracked")
+		stashCmd.Dir = cwd
+		_ = stashCmd.Run()
+		stashCancel()
+
+		stashCountAfter := countGitStash(cwd)
+		didStash := stashCountAfter > stashCountBefore
+
+		// Checkout with timeout
+		checkoutCtx, checkoutCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		cmd := exec.CommandContext(checkoutCtx, "git", "checkout", targetEnv.GitBranch)
 		cmd.Dir = cwd
-		if output, err := cmd.CombinedOutput(); err != nil {
+		output, err := cmd.CombinedOutput()
+		checkoutCancel()
+
+		if err != nil {
+			// If checkout failed and we stashed, restore the stash
+			if didStash {
+				popCmd := exec.Command("git", "stash", "pop")
+				popCmd.Dir = cwd
+				_ = popCmd.Run()
+			}
 			results = append(results, fmt.Sprintf("  ❌ git branch — failed: %v (%s)", err, strings.TrimSpace(string(output))))
+			hasErrors = true
 		} else {
 			results = append(results, fmt.Sprintf("  📌 git branch — %s", targetEnv.GitBranch))
+			// Warn user that their changes are stashed
+			if didStash {
+				results = append(results, "  ⚠️  uncommitted changes stashed (run 'git stash pop' to restore)")
+			}
 		}
 	}
 
@@ -223,7 +260,13 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 		fmt.Println("  (no profiles configured for this environment)")
 	}
 
-	fmt.Printf("\n  ✅ \033[1;32mContext switch complete!\033[0m\n")
+	totalDuration := time.Since(startTime)
+
+	if hasErrors {
+		fmt.Printf("\n  ⚠️  \033[1;33mContext switch completed with warnings\033[0m (%dms)\n", totalDuration.Milliseconds())
+	} else {
+		fmt.Printf("\n  ✅ \033[1;32mContext switch complete!\033[0m (%dms)\n", totalDuration.Milliseconds())
+	}
 
 	// Write shell script silently (the shell wrapper auto-sources it)
 	if len(shellLines) > 0 {
@@ -239,6 +282,16 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 		os.WriteFile(scriptPath, []byte(shellScript), 0600)
 	}
 
+	// ── Write local audit log as backup ──
+	localAudit, auditErr := audit.NewFileLogger()
+	if auditErr == nil {
+		entry := domain.NewAuditEntry(domain.AuditActionSwitch, projectDTO.Name, envName, "",
+			fmt.Sprintf("Switched to %s/%s", projectDTO.Slug, envName))
+		entry.Success = !hasErrors
+		entry.DurationMs = totalDuration.Milliseconds()
+		_ = localAudit.Log(entry)
+	}
+
 	// ── Push audit log to API ──
 	client := repository.NewAPIClient(getAPIURL())
 	_ = client.PushAudit(repository.AuditEntryDTO{
@@ -246,10 +299,26 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 		ProjectName: projectDTO.Name,
 		Environment: envName,
 		Message:     fmt.Sprintf("Switched to %s/%s", projectDTO.Slug, envName),
-		Success:     true,
+		Success:     !hasErrors,
+		DurationMs:  totalDuration.Milliseconds(),
 	})
 
 	return nil
+}
+
+// countGitStash returns the number of stash entries (locale-safe).
+func countGitStash(dir string) int {
+	cmd := exec.Command("git", "stash", "list")
+	cmd.Dir = dir
+	output, err := cmd.Output()
+	if err != nil {
+		return 0
+	}
+	trimmed := strings.TrimSpace(string(output))
+	if trimmed == "" {
+		return 0
+	}
+	return len(strings.Split(trimmed, "\n"))
 }
 
 // switchLocal performs a switch using the local YAML configuration file.

@@ -95,6 +95,8 @@ skills:
 `
 
 func newInitCmd() *cobra.Command {
+	var force bool
+
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "📦 Initialize Nexus in the current project",
@@ -106,7 +108,7 @@ Edit the generated file to match your project's accounts and credentials.`,
 			configPath := filepath.Join(".", "nexus.yaml")
 
 			// Check if file already exists
-			if _, err := os.Stat(configPath); err == nil {
+			if _, err := os.Stat(configPath); err == nil && !force {
 				return fmt.Errorf("nexus.yaml already exists in this directory. Use --force to overwrite")
 			}
 
@@ -136,6 +138,8 @@ Edit the generated file to match your project's accounts and credentials.`,
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing nexus.yaml")
 
 	return cmd
 }

@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -45,6 +46,14 @@ func (s *ScriptRunner) Execute(project *domain.Project, env *domain.EnvironmentC
 		}, nil
 	}
 
+	// Resolve timeout from skill config (default: 120s)
+	timeout := 120 * time.Second
+	if t, ok := skill.Config["timeout"]; ok {
+		if secs, ok := t.(int); ok && secs > 0 {
+			timeout = time.Duration(secs) * time.Second
+		}
+	}
+
 	actions := make([]string, 0)
 	for i, cmdRaw := range commandsList {
 		cmdStr, ok := cmdRaw.(string)
@@ -55,11 +64,13 @@ func (s *ScriptRunner) Execute(project *domain.Project, env *domain.EnvironmentC
 		actions = append(actions, fmt.Sprintf("Run: %s", cmdStr))
 		fmt.Printf("  ▶️ Running script [%d/%d]: %s\n", i+1, len(commandsList), cmdStr)
 
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+
 		var cmd *exec.Cmd
 		if runtime.GOOS == "windows" {
-			cmd = exec.Command("powershell", "-NoProfile", "-Command", cmdStr)
+			cmd = exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", cmdStr)
 		} else {
-			cmd = exec.Command("bash", "-c", cmdStr)
+			cmd = exec.CommandContext(ctx, "bash", "-c", cmdStr)
 		}
 
 		cmd.Dir = project.RootPath
@@ -68,11 +79,17 @@ func (s *ScriptRunner) Execute(project *domain.Project, env *domain.EnvironmentC
 
 		// Execute synchronously to allow interactive tools to finish (like npm install)
 		err := cmd.Run()
+		cancel()
+
 		if err != nil {
+			msg := fmt.Sprintf("Script failed: %s", cmdStr)
+			if ctx.Err() == context.DeadlineExceeded {
+				msg = fmt.Sprintf("Script timed out after %ds: %s", int(timeout.Seconds()), cmdStr)
+			}
 			return &domain.SkillResult{
 				SkillName: skill.Name,
 				Status:    domain.SkillStatusFailed,
-				Message:   fmt.Sprintf("Script failed: %s", cmdStr),
+				Message:   msg,
 				Duration:  time.Since(startTime),
 				Error:     err,
 			}, nil

@@ -2,12 +2,19 @@ package repository
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -186,28 +193,59 @@ func (c *APIClient) PushAudit(entry AuditEntryDTO) error {
 	return c.post("/audit/", entry, nil)
 }
 
-// ─── Credentials file management ───
+// ─── Credentials file management (encrypted at rest) ───
 
 const credentialsFile = "credentials"
 
-// SaveAPIKey persists the API key to ~/.nexus/credentials.
+// SaveAPIKey encrypts and persists the API key to ~/.nexus/credentials.
 func SaveAPIKey(apiKey string) error {
 	dir := getConfigDir()
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
 	path := filepath.Join(dir, credentialsFile)
-	return os.WriteFile(path, []byte(apiKey), 0600)
+
+	key := deriveCredentialKey()
+	encrypted, err := encryptAESGCM(key, []byte(apiKey))
+	if err != nil {
+		// Fallback: save plaintext if encryption fails (shouldn't happen)
+		return os.WriteFile(path, []byte(apiKey), 0600)
+	}
+
+	// Store as hex-encoded string with a magic prefix to identify encrypted format
+	encoded := "nexus_enc_v1:" + hex.EncodeToString(encrypted)
+	return os.WriteFile(path, []byte(encoded), 0600)
 }
 
-// loadAPIKey reads the API key from ~/.nexus/credentials.
+// loadAPIKey reads and decrypts the API key from ~/.nexus/credentials.
+// Backward-compatible: reads plaintext credentials from old installations.
 func loadAPIKey() string {
 	path := filepath.Join(getConfigDir(), credentialsFile)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return ""
 	}
-	return string(bytes.TrimSpace(data))
+
+	content := strings.TrimSpace(string(data))
+
+	// Check if encrypted (v1 format)
+	if strings.HasPrefix(content, "nexus_enc_v1:") {
+		hexData := strings.TrimPrefix(content, "nexus_enc_v1:")
+		ciphertext, err := hex.DecodeString(hexData)
+		if err != nil {
+			return ""
+		}
+		key := deriveCredentialKey()
+		plaintext, err := decryptAESGCM(key, ciphertext)
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(string(plaintext))
+	}
+
+	// Backward compatibility: plaintext credential from older version.
+	// Auto-upgrade to encrypted format on next save.
+	return content
 }
 
 // ClearAPIKey removes the stored credentials.
@@ -220,3 +258,57 @@ func getConfigDir() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".nexus")
 }
+
+// ─── Credential encryption helpers (AES-256-GCM) ───
+
+// deriveCredentialKey creates a 32-byte AES key from machine identity.
+// This prevents casual theft of the API key from the filesystem.
+func deriveCredentialKey() []byte {
+	hostname, _ := os.Hostname()
+	username := "nexus"
+	if u, err := user.Current(); err == nil {
+		username = u.Username
+	}
+	seed := fmt.Sprintf("nexus-credential-key:%s:%s", hostname, username)
+	hash := sha256.Sum256([]byte(seed))
+	return hash[:]
+}
+
+// encryptAESGCM encrypts plaintext with AES-256-GCM.
+// Output: [12-byte nonce][ciphertext+tag]
+func encryptAESGCM(key, plaintext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+	return gcm.Seal(nonce, nonce, plaintext, nil), nil
+}
+
+// decryptAESGCM decrypts AES-256-GCM ciphertext.
+// Input: [12-byte nonce][ciphertext+tag]
+func decryptAESGCM(key, ciphertext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	nonceSize := gcm.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+	nonce := ciphertext[:nonceSize]
+	encrypted := ciphertext[nonceSize:]
+	return gcm.Open(nil, nonce, encrypted, nil)
+}
+

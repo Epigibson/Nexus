@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"crypto/rand"
+	"math/big"
 	"time"
 )
 
@@ -52,13 +54,18 @@ func generateID() string {
 	return time.Now().UTC().Format("20060102T150405.000") + "-" + randomSuffix()
 }
 
-// randomSuffix generates a short random string for ID uniqueness.
+// randomSuffix generates a cryptographically random 8-char string for ID uniqueness.
 func randomSuffix() string {
 	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, 6)
+	b := make([]byte, 8)
 	for i := range b {
-		b[i] = chars[time.Now().UnixNano()%int64(len(chars))]
-		time.Sleep(1) // Ensure different nanoseconds
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			// Fallback: use timestamp-based (better than panicking)
+			b[i] = chars[time.Now().UnixNano()%int64(len(chars))]
+			continue
+		}
+		b[i] = chars[n.Int64()]
 	}
 	return string(b)
 }

@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 	"time"
@@ -196,7 +197,12 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 
 	// ── Git branch ──
 	if targetEnv.GitBranch != "" {
-		results = append(results, fmt.Sprintf("  📌 git branch — %s", targetEnv.GitBranch))
+		cmd := exec.Command("git", "checkout", targetEnv.GitBranch)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			results = append(results, fmt.Sprintf("  ❌ git branch — failed: %v (%s)", err, strings.TrimSpace(string(output))))
+		} else {
+			results = append(results, fmt.Sprintf("  📌 git branch — %s", targetEnv.GitBranch))
+		}
 	}
 
 	// ── Display results ──

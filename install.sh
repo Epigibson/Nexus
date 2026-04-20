@@ -22,7 +22,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 echo "📦 Descargando el código fuente más reciente..."
 # Clonando el proyecto oficial
-git clone -q https://github.com/Epigibson/antigravity.git "$TMP_DIR" || {
+git clone -q https://github.com/Epigibson/Nexus.git "$TMP_DIR" || {
     echo "⚠️  Nota: No se pudo clonar el repositorio, compilando desde el directorio local."
     cp -r core "$TMP_DIR/"
 }

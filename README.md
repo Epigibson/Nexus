@@ -66,18 +66,18 @@ Este comando:
 La forma más rápida y sin fricción para auto-instalar, compilar e inyectar configuraciones en tu entorno actual:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Epigibson/antigravity/master/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Epigibson/Nexus/master/install.sh | bash
 ```
 
 *¿Quieres desinstalarlo?* Puedes correr el desinstalador completo con:
-`curl -sSL https://raw.githubusercontent.com/Epigibson/antigravity/master/uninstall.sh | bash`
+`curl -sSL https://raw.githubusercontent.com/Epigibson/Nexus/master/uninstall.sh | bash`
 
 ### Windows (PowerShell)
 
 ```powershell
 # 1. Descargar y compilar
-git clone https://github.com/Epigibson/antigravity.git
-cd antigravity/core
+git clone https://github.com/Epigibson/Nexus.git
+cd Nexus/core
 go build -o nexus.exe ./cmd/nexus
 
 # 2. Instalar globalmente
@@ -100,8 +100,8 @@ nexus version
 
 ```bash
 # 1. Descargar y compilar
-git clone https://github.com/Epigibson/antigravity.git
-cd antigravity/core
+git clone https://github.com/Epigibson/Nexus.git
+cd Nexus/core
 go build -o nexus ./cmd/nexus
 
 # 2. Instalar globalmente

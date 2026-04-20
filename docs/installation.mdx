@@ -24,7 +24,7 @@ Go solo es necesario para compilar. El binario resultante no tiene dependencias 
     La forma más rápida y automática. Este script compilará el código, lo instalará en tu PATH e inyectará el validador a tu shell actual.
 
     ```bash
-    curl -sSL https://raw.githubusercontent.com/Epigibson/antigravity/master/install.sh | bash
+    curl -sSL https://raw.githubusercontent.com/Epigibson/Nexus/master/install.sh | bash
     ```
 
     Si deseas hacerlo manual, puedes descargar el repositorio, entrar al directorio y compilar con `go build -o nexus ./cmd/nexus`.
@@ -32,8 +32,8 @@ Go solo es necesario para compilar. El binario resultante no tiene dependencias 
   <Tab title="Windows">
     ```powershell
     # 1. Clonar y compilar
-    git clone https://github.com/Epigibson/antigravity.git
-    cd antigravity/core
+    git clone https://github.com/Epigibson/Nexus.git
+    cd Nexus/core
     go build -o nexus.exe ./cmd/nexus
 
     # 2. Instalar en ~/.nexus/bin
@@ -96,7 +96,7 @@ cp nexus ~/.nexus/bin/
     Ejecuta el script desinstalador que limpiará el cache, el binario global y el inyector de comandos en `~/.bashrc`:
 
     ```bash
-    curl -sSL https://raw.githubusercontent.com/Epigibson/antigravity/master/uninstall.sh | bash
+    curl -sSL https://raw.githubusercontent.com/Epigibson/Nexus/master/uninstall.sh | bash
     ```
   </Tab>
 </Tabs>

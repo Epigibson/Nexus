@@ -61,12 +61,23 @@ Este comando:
 
 ## Instalación del CLI
 
+### macOS / Linux (Recomendado)
+
+La forma más rápida y sin fricción para auto-instalar, compilar e inyectar configuraciones en tu entorno actual:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Epigibson/antigravity/master/install.sh | bash
+```
+
+*¿Quieres desinstalarlo?* Puedes correr el desinstalador completo con:
+`curl -sSL https://raw.githubusercontent.com/Epigibson/antigravity/master/uninstall.sh | bash`
+
 ### Windows (PowerShell)
 
 ```powershell
 # 1. Descargar y compilar
-git clone https://github.com/Epigibson/nexus.git
-cd nexus/core
+git clone https://github.com/Epigibson/antigravity.git
+cd antigravity/core
 go build -o nexus.exe ./cmd/nexus
 
 # 2. Instalar globalmente
@@ -85,24 +96,19 @@ nexus version
 # → Nexus v0.1.0
 ```
 
-### macOS / Linux
+### Compilación Manual (macOS/Linux)
 
 ```bash
 # 1. Descargar y compilar
-git clone https://github.com/Epigibson/nexus.git
-cd nexus/core
+git clone https://github.com/Epigibson/antigravity.git
+cd antigravity/core
 go build -o nexus ./cmd/nexus
 
 # 2. Instalar globalmente
-mkdir -p ~/.nexus/bin
-cp nexus ~/.nexus/bin/
-chmod +x ~/.nexus/bin/nexus
+sudo mv nexus /usr/local/bin/nexus
 
-# 3. Agregar al PATH (añadir a ~/.bashrc o ~/.zshrc)
-echo 'export PATH="$HOME/.nexus/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-
-# 4. Verificar
+# 3. Activar integraciones y verificar
+nexus setup-shell
 nexus version
 # → Nexus v0.1.0
 ```

@@ -17,6 +17,16 @@ class AuditEntryResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AuditCreate(BaseModel):
+    action: str
+    project_name: str | None = None
+    environment: str | None = None
+    skill_name: str | None = None
+    message: str
+    success: bool
+    duration_ms: int | None = None
+
+
 class AuditFilter(BaseModel):
     project_id: str | None = None
     action: str | None = None

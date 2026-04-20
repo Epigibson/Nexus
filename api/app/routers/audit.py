@@ -1,6 +1,6 @@
 """Audit router — filterable audit log."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.audit import AuditLog
 from app.models.project import Project
-from app.schemas.dashboard import AuditEntryResponse
+from app.schemas.dashboard import AuditEntryResponse, AuditCreate
 from app.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/audit", tags=["Audit"])
@@ -59,3 +59,48 @@ async def list_audit(
         ))
 
     return responses
+
+
+@router.post("/", response_model=AuditEntryResponse, status_code=status.HTTP_201_CREATED)
+async def create_audit(
+    body: AuditCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Crear un log de auditoría (normalmente usado por el CLI vía X-API-Key)."""
+    project_id = None
+    if body.project_name:
+        from sqlalchemy import or_
+        # Resolving project matching the slug or name owned by user
+        proj_q = await db.execute(
+            select(Project.id).where(
+                or_(Project.slug == body.project_name, Project.name == body.project_name),
+                Project.user_id == user.id
+            )
+        )
+        project_id = proj_q.scalar_one_or_none()
+
+    entry = AuditLog(
+        user_id=user.id,
+        project_id=project_id,
+        action=body.action,
+        environment=body.environment,
+        message=body.message,
+        success=body.success,
+        duration_ms=body.duration_ms,
+    )
+    db.add(entry)
+    await db.commit()
+    await db.refresh(entry)
+
+    return AuditEntryResponse(
+        id=entry.id,
+        action=entry.action,
+        project_name=body.project_name,
+        environment=entry.environment,
+        skill_name=None,
+        message=entry.message,
+        success=entry.success,
+        duration_ms=entry.duration_ms,
+        created_at=entry.created_at.isoformat() if entry.created_at else "",
+    )

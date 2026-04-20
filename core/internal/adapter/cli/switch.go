@@ -288,27 +288,6 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 		os.WriteFile(scriptPath, []byte(shellScript), 0600)
 	}
 
-	// ── Write local audit log as backup ──
-	localAudit, auditErr := audit.NewFileLogger()
-	if auditErr == nil {
-		entry := domain.NewAuditEntry(domain.AuditActionSwitch, projectDTO.Name, envName, "",
-			fmt.Sprintf("Switched to %s/%s", projectDTO.Slug, envName))
-		entry.Success = !hasErrors
-		entry.DurationMs = totalDuration.Milliseconds()
-		_ = localAudit.Log(entry)
-	}
-
-	// ── Push audit log to API ──
-	client := repository.NewAPIClient(getAPIURL())
-	_ = client.PushAudit(repository.AuditEntryDTO{
-		Action:      "switch",
-		ProjectName: projectDTO.Name,
-		Environment: envName,
-		Message:     fmt.Sprintf("Switched to %s/%s", projectDTO.Slug, envName),
-		Success:     !hasErrors,
-		DurationMs:  totalDuration.Milliseconds(),
-	})
-
 	if !hasErrors {
 		_ = state.SaveActiveState(domain.ActiveState{
 			ProjectName: projectDTO.Name,
@@ -412,10 +391,13 @@ func buildOrchestrator() (*service.Orchestrator, error) {
 		cliProfilers = append(cliProfilers, p)
 	}
 
-	auditLogger, err := audit.NewFileLogger()
+	localLogger, err := audit.NewFileLogger()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize audit logger: %w", err)
 	}
+
+	apiClient := repository.NewAPIClient(getAPIURL())
+	auditLogger := audit.NewMultiLogger(localLogger, apiClient)
 
 	shellEmitter := executor.DetectShellEmitter()
 

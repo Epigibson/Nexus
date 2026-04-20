@@ -16,6 +16,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/nexus-dev/nexus/internal/domain"
 )
 
 // APIClient handles communication with the Nexus backend API.
@@ -191,6 +193,23 @@ func (c *APIClient) doRequest(req *http.Request, result interface{}) error {
 // PushAudit sends an audit log entry to the API.
 func (c *APIClient) PushAudit(entry AuditEntryDTO) error {
 	return c.post("/audit/", entry, nil)
+}
+
+// Log implements port.AuditLogger for the API Client
+func (c *APIClient) Log(entry domain.AuditEntry) error {
+	return c.PushAudit(AuditEntryDTO{
+		Action:      string(entry.Action),
+		ProjectName: entry.ProjectName,
+		Environment: entry.Environment,
+		Message:     entry.Message,
+		Success:     entry.Success,
+		DurationMs:  entry.DurationMs,
+	})
+}
+
+// GetLogs is currently unsupported natively via APIClient since the dashboard handles reading.
+func (c *APIClient) GetLogs(projectName string, limit int) ([]domain.AuditEntry, error) {
+	return nil, fmt.Errorf("GetLogs is not implemented on the API client")
 }
 
 // ─── Credentials file management (encrypted at rest) ───

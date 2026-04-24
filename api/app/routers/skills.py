@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.skill import SkillDefinition, SkillConfiguration
 from app.schemas.project import SkillSchema
-from app.services.project_service import get_project_by_slug
+from app.services.project_service import get_project_by_slug, assign_default_skills
 from app.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/skills", tags=["Skills"])
@@ -51,6 +51,26 @@ async def project_skills(
                 is_premium=s.is_premium,
             ))
     return skills
+
+
+@router.post("/projects/{slug}/provision")
+async def provision_skills(
+    slug: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Provisionar skills faltantes para un proyecto existente.
+
+    Útil para proyectos creados antes de que se implementara la asignación
+    automática de skills. Solo agrega skills que aún no están configurados.
+    """
+    project = await get_project_by_slug(db, user.id, slug)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado")
+
+    count = await assign_default_skills(db, project.id)
+    await db.commit()
+    return {"status": "ok", "skills_provisioned": count}
 
 
 @router.put("/projects/{slug}/{skill_id}")
@@ -105,3 +125,4 @@ async def toggle_skill(
 
     await db.commit()
     return {"status": "ok", "skill_id": skill_id, "enabled": enabled, "priority": priority}
+

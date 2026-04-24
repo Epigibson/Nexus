@@ -90,7 +90,46 @@ async def create_project(db: AsyncSession, user_id: str, name: str, slug: str,
         description=description, repo_url=repo_url,
     )
     db.add(project)
+    await db.flush()  # Get the project ID before assigning skills
+
+    # Auto-assign all free skills to the new project
+    await assign_default_skills(db, project.id)
+
     return project
+
+
+async def assign_default_skills(db: AsyncSession, project_id: str) -> int:
+    """Assign all free SkillDefinitions to a project (enabled by default).
+
+    If skills already exist for this project, only missing ones are added.
+    Returns count of newly assigned skills.
+    """
+    from app.models.skill import SkillDefinition, SkillConfiguration
+
+    # Get all skill definitions
+    all_skills_result = await db.execute(select(SkillDefinition))
+    all_skills = all_skills_result.scalars().all()
+
+    # Get existing configurations for this project
+    existing_result = await db.execute(
+        select(SkillConfiguration.skill_id)
+        .where(SkillConfiguration.project_id == project_id)
+    )
+    existing_ids = {row for row in existing_result.scalars().all()}
+
+    count = 0
+    for skill in all_skills:
+        if skill.id not in existing_ids:
+            config = SkillConfiguration(
+                project_id=project_id,
+                skill_id=skill.id,
+                is_enabled=True,
+                priority=10,
+            )
+            db.add(config)
+            count += 1
+
+    return count
 
 
 async def update_project(db: AsyncSession, project: Project, **kwargs) -> Project:

@@ -4,6 +4,7 @@ Supports both SQLite (local development) and PostgreSQL (Supabase production).
 Switch by changing DATABASE_URL in .env.
 """
 
+import uuid
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -19,12 +20,14 @@ engine_kwargs = {
 if settings.is_postgres:
     # PostgreSQL (Supabase) — use NullPool for serverless-friendly connections
     engine_kwargs["poolclass"] = NullPool
-    # SSL required for Supabase, and disable statement cache for PgBouncer
+    # SSL required for Supabase, and bulletproof PgBouncer transaction mode configuration
     engine_kwargs["connect_args"] = {
         "ssl": "prefer",
         "statement_cache_size": 0,
-        "prepared_statement_cache_size": 0,
+        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4().hex}__",
     }
+    # This must be at the engine level, not in connect_args
+    engine_kwargs["prepared_statement_cache_size"] = 0
 else:
     # SQLite — needs check_same_thread=False for async
     engine_kwargs["connect_args"] = {"check_same_thread": False}

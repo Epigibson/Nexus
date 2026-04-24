@@ -7,7 +7,7 @@ provider:
   runtime: python3.11
   stage: ${opt:stage, 'prod'}
   region: ${opt:region, 'us-east-1'}
-  memorySize: 512
+  memorySize: 1024
   timeout: 30
   environment:
     # Estas variables deben existir en el entorno al momento del despliegue 
@@ -18,7 +18,7 @@ provider:
     SECRET_KEY: ${env:SECRET_KEY, 'dev-secret-key-change-in-production'}
     ACCESS_TOKEN_EXPIRE_MINUTES: ${env:ACCESS_TOKEN_EXPIRE_MINUTES, '1440'}
     CORS_ORIGINS: ${env:CORS_ORIGINS, '["http://localhost:3000","https://antigravity-production-a677.up.railway.app"]'}
-    DEBUG: ${env:DEBUG, 'true'}
+    DEBUG: ${env:DEBUG, 'false'}
     FRONTEND_URL: ${env:FRONTEND_URL, 'https://antigravity-production-a677.up.railway.app'}
     STRIPE_SECRET_KEY: ${env:STRIPE_SECRET_KEY, ''}
     STRIPE_PUBLISHABLE_KEY: ${env:STRIPE_PUBLISHABLE_KEY, ''}

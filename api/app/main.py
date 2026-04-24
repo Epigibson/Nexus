@@ -15,20 +15,26 @@ from app.routers import auth, projects, skills, audit, dashboard, billing, teams
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup/shutdown lifecycle — creates tables on boot."""
-    await init_db()
-    print(f"🚀 {settings.app_name} v{settings.app_version} — Database ready")
-    print(f"🌐 CORS origins: {settings.cors_origins}")
-    if settings.stripe_secret_key:
-        print(f"💳 Stripe configured (test mode)")
+    """Startup/shutdown lifecycle — creates tables on boot (dev only)."""
+    if settings.is_production:
+        # Production (Lambda): skip table creation, migrations, and seeds
+        # Tables already exist in Supabase — this saves ~1-3s per cold start
+        print(f"🚀 {settings.app_name} v{settings.app_version} — Production mode (skipping init_db)")
+    else:
+        # Development: create tables, run migrations, seed data
+        await init_db()
+        print(f"🚀 {settings.app_name} v{settings.app_version} — Database ready")
+        print(f"🌐 CORS origins: {settings.cors_origins}")
+        if settings.stripe_secret_key:
+            print(f"💳 Stripe configured (test mode)")
 
-    # Seed default data & admin account
-    from app.database import async_session
-    from app.services.seed_skills import seed_skills
-    from app.services.admin_bootstrap import bootstrap_admin
-    async with async_session() as db:
-        await seed_skills(db)
-        await bootstrap_admin(db)
+        # Seed default data & admin account
+        from app.database import async_session
+        from app.services.seed_skills import seed_skills
+        from app.services.admin_bootstrap import bootstrap_admin
+        async with async_session() as db:
+            await seed_skills(db)
+            await bootstrap_admin(db)
 
     yield
     print("👋 Shutting down...")

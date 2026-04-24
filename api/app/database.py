@@ -23,11 +23,8 @@ if settings.is_postgres:
     # SSL required for Supabase, and bulletproof PgBouncer transaction mode configuration
     engine_kwargs["connect_args"] = {
         "ssl": "prefer",
-        "statement_cache_size": 0,
         "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4().hex}__",
     }
-    # This must be at the engine level, not in connect_args
-    engine_kwargs["prepared_statement_cache_size"] = 0
 else:
     # SQLite — needs check_same_thread=False for async
     engine_kwargs["connect_args"] = {"check_same_thread": False}

@@ -19,8 +19,12 @@ engine_kwargs = {
 if settings.is_postgres:
     # PostgreSQL (Supabase) — use NullPool for serverless-friendly connections
     engine_kwargs["poolclass"] = NullPool
-    # SSL required for Supabase
-    engine_kwargs["connect_args"] = {"ssl": "prefer"}
+    # SSL required for Supabase, and disable statement cache for PgBouncer
+    engine_kwargs["connect_args"] = {
+        "ssl": "prefer",
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
+    }
 else:
     # SQLite — needs check_same_thread=False for async
     engine_kwargs["connect_args"] = {"check_same_thread": False}

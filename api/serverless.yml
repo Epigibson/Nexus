@@ -13,8 +13,9 @@ provider:
     # Estas variables deben existir en el entorno al momento del despliegue 
     # o puedes usar Parameter Store / Secrets Manager
     DATABASE_URL: ${env:DATABASE_URL, ''}
-    JWT_SECRET: ${env:JWT_SECRET, ''}
     ENVIRONMENT: production
+  httpApi:
+    cors: true
 
 functions:
   api:

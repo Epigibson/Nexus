@@ -1,0 +1,37 @@
+service: nexus-backend-api
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.11
+  stage: ${opt:stage, 'prod'}
+  region: ${opt:region, 'us-east-1'}
+  memorySize: 512
+  timeout: 30
+  environment:
+    # Estas variables deben existir en el entorno al momento del despliegue 
+    # o puedes usar Parameter Store / Secrets Manager
+    DATABASE_URL: ${env:DATABASE_URL, ''}
+    JWT_SECRET: ${env:JWT_SECRET, ''}
+    ENVIRONMENT: production
+
+functions:
+  api:
+    handler: app.main.handler
+    events:
+      - httpApi:
+          path: /
+          method: '*'
+      - httpApi:
+          path: /{proxy+}
+          method: '*'
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux # Compila librerías que dependan de C (como psycopg2) en un contenedor Amazon Linux para máxima compatibilidad.
+    zip: true
+    slim: true

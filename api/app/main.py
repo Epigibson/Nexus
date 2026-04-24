@@ -75,3 +75,7 @@ async def health():
 @app.get("/api/v1/health", tags=["Health"])
 async def api_health():
     return {"status": "ok", "api": "v1"}
+
+# ─── AWS Lambda Handler ───
+from mangum import Mangum
+handler = Mangum(app, lifespan="on")

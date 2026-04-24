@@ -15,6 +15,15 @@ class Settings(BaseSettings):
     # Database — supports both SQLite (local) and PostgreSQL (Supabase)
     database_url: str = "sqlite+aiosqlite:///./nexus.db"
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def format_database_url(cls, v):
+        if v and (v.startswith("postgres://") or v.startswith("postgresql://")):
+            # SQLAlchemy async requires postgresql+asyncpg://
+            v = v.replace("postgres://", "postgresql+asyncpg://", 1)
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
+
     # Supabase (optional — for production)
     supabase_url: Optional[str] = None
     supabase_anon_key: Optional[str] = None
@@ -74,7 +83,7 @@ class Settings(BaseSettings):
     @property
     def is_postgres(self) -> bool:
         """Check if we're using PostgreSQL (Supabase) vs SQLite."""
-        return "postgresql" in self.database_url
+        return "postgres" in self.database_url
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

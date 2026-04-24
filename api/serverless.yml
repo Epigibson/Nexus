@@ -8,6 +8,7 @@ provider:
   stage: ${opt:stage, 'prod'}
   region: ${opt:region, 'us-east-1'}
   memorySize: 1024
+  architecture: arm64
   timeout: 30
   environment:
     # Estas variables deben existir en el entorno al momento del despliegue 

@@ -124,3 +124,50 @@ async def get_project_last_switch(db: AsyncSession, project_id: str) -> str | No
     )
     row = result.scalar_one_or_none()
     return row.isoformat() if row else None
+
+
+async def batch_get_switch_stats(db: AsyncSession, project_ids: list[str]) -> dict:
+    """Batch-load switch counts and last switch times for multiple projects.
+
+    Returns dict: {project_id: {"count": int, "last_switch": str | None}}
+    Eliminates N+1: 2 queries total instead of 2 per project.
+    """
+    if not project_ids:
+        return {}
+
+    # Batch switch counts
+    count_result = await db.execute(
+        select(
+            AuditLog.project_id,
+            func.count(AuditLog.id).label("cnt"),
+        )
+        .where(
+            AuditLog.project_id.in_(project_ids),
+            AuditLog.action == "context_switch",
+        )
+        .group_by(AuditLog.project_id)
+    )
+    counts = {row.project_id: row.cnt for row in count_result.all()}
+
+    # Batch last switch times
+    last_result = await db.execute(
+        select(
+            AuditLog.project_id,
+            func.max(AuditLog.created_at).label("last_at"),
+        )
+        .where(
+            AuditLog.project_id.in_(project_ids),
+            AuditLog.action == "context_switch",
+        )
+        .group_by(AuditLog.project_id)
+    )
+    lasts = {row.project_id: row.last_at for row in last_result.all()}
+
+    return {
+        pid: {
+            "count": counts.get(pid, 0),
+            "last_switch": lasts[pid].isoformat() if pid in lasts else None,
+        }
+        for pid in project_ids
+    }
+

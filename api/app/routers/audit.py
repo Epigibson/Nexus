@@ -25,7 +25,11 @@ async def list_audit(
     db: AsyncSession = Depends(get_db),
 ):
     """Listar audit log con filtros opcionales."""
-    query = select(AuditLog)
+    # Single JOIN query instead of N+1 (was: 1 query per entry to get project name)
+    query = (
+        select(AuditLog, Project.name.label("project_name"))
+        .outerjoin(Project, AuditLog.project_id == Project.id)
+    )
 
     if action:
         query = query.where(AuditLog.action == action)
@@ -36,29 +40,22 @@ async def list_audit(
 
     query = query.order_by(desc(AuditLog.created_at)).offset(offset).limit(limit)
     result = await db.execute(query)
-    entries = result.scalars().all()
+    rows = result.all()
 
-    responses = []
-    for e in entries:
-        # Get project name if available
-        project_name = ""
-        if e.project_id:
-            proj = await db.execute(select(Project.name).where(Project.id == e.project_id))
-            project_name = proj.scalar_one_or_none() or ""
-
-        responses.append(AuditEntryResponse(
+    return [
+        AuditEntryResponse(
             id=e.id,
             action=e.action,
-            project_name=project_name,
+            project_name=project_name or "",
             environment=e.environment,
             skill_name=None,
             message=e.message,
             success=e.success,
             duration_ms=e.duration_ms,
             created_at=e.created_at.isoformat() if e.created_at else "",
-        ))
-
-    return responses
+        )
+        for e, project_name in rows
+    ]
 
 
 @router.post("/", response_model=AuditEntryResponse, status_code=status.HTTP_201_CREATED)

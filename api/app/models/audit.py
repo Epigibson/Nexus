@@ -4,7 +4,7 @@ import uuid
 import enum
 from datetime import datetime
 
-from sqlalchemy import String, DateTime, Integer, Boolean, ForeignKey, JSON, Enum as SAEnum
+from sqlalchemy import String, DateTime, Integer, Boolean, ForeignKey, JSON, Enum as SAEnum, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -28,6 +28,12 @@ class AuditAction(str, enum.Enum):
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
+    __table_args__ = (
+        # Composite indexes for common query patterns
+        Index("ix_audit_action_created", "action", "created_at"),      # stats: switches per day, skills executed
+        Index("ix_audit_project_action", "project_id", "action"),      # switch count & last switch per project
+        Index("ix_audit_action_success", "action", "success"),         # tools connected query
+    )
 
     id: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
@@ -45,4 +51,5 @@ class AuditLog(Base):
     success: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     user_agent: Mapped[str | None] = mapped_column(String(200))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+

@@ -20,11 +20,15 @@ engine_kwargs = {
 if settings.is_postgres:
     # PostgreSQL (Supabase) — use NullPool for serverless-friendly connections
     engine_kwargs["poolclass"] = NullPool
+    # Verify connections before use — prevents stale connection errors on Lambda resume
+    engine_kwargs["pool_pre_ping"] = True
     # SSL required for Supabase, and bulletproof PgBouncer transaction mode configuration
     engine_kwargs["connect_args"] = {
         "ssl": "prefer",
         "statement_cache_size": 0,
         "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4().hex}__",
+        # Reduce connection timeout for faster failure detection
+        "timeout": 10,
     }
 else:
     # SQLite — needs check_same_thread=False for async

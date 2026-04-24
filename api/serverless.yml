@@ -32,5 +32,5 @@ plugins:
 
 custom:
   pythonRequirements:
-    dockerizePip: non-linux # Compila librerías que dependan de C (como psycopg2) en un contenedor Amazon Linux para máxima compatibilidad.
+    dockerizePip: true # Fuerza siempre el uso de Docker para compilar (incluso en GitHub Actions) para evitar error de GLIBC
     slim: true

@@ -517,16 +517,29 @@ func (r *RailwayProfiler) CurrentProfile() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "railway", "whoami")
+	// If using a token from the environment (like Nexus injects), 
+	// we need to check if it's a project token or account token.
 	if token := os.Getenv("RAILWAY_TOKEN"); token != "" {
+		cmd := exec.CommandContext(ctx, "railway", "status")
 		cmd.Env = append(os.Environ(), "RAILWAY_TOKEN="+token)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return "none (invalid project token)", nil
+		}
+		
+		// Parse the project name from the status output
+		for _, line := range strings.Split(string(output), "\n") {
+			if strings.HasPrefix(line, "Project:") {
+				return "project → " + strings.TrimSpace(strings.TrimPrefix(line, "Project:")), nil
+			}
+		}
+		return "project token (authenticated)", nil
 	}
 
+	// Default check for global authentication
+	cmd := exec.CommandContext(ctx, "railway", "whoami")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		if os.Getenv("RAILWAY_TOKEN") != "" {
-			return "none (invalid token)", nil
-		}
 		return "none", nil
 	}
 	return strings.TrimSpace(string(output)), nil

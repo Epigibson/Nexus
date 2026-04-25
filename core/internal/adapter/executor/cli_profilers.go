@@ -1,10 +1,12 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/nexus-dev/nexus/internal/domain"
 )
@@ -332,7 +334,16 @@ func (v *VercelProfiler) IsInstalled() bool {
 }
 
 func (v *VercelProfiler) CurrentProfile() (string, error) {
-	cmd := exec.Command("vercel", "whoami")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	args := []string{"whoami", "--no-color"}
+	// If VERCEL_TOKEN is set, use it to avoid interactive login
+	if token := os.Getenv("VERCEL_TOKEN"); token != "" {
+		args = append(args, "--token", token)
+	}
+
+	cmd := exec.CommandContext(ctx, "vercel", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "none", nil

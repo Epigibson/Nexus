@@ -33,6 +33,7 @@ venv/
 *.db
 *.sqlite
 *.sqlite3
+*.temp
 
 # Nexus configs and vault (contains sensitive tokens/passwords)
 .nexus/

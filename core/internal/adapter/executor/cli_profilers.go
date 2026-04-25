@@ -178,17 +178,25 @@ func (a *AWSProfiler) CurrentProfile() (string, error) {
 }
 
 func (a *AWSProfiler) Switch(profile domain.CLIProfile) error {
-	// Step 1: Set AWS_PROFILE for named profile switching
-	os.Setenv("AWS_PROFILE", profile.Account)
+	hasExplicitKeys := false
 
-	// Step 2: If Extra has access keys, configure them directly
+	// Step 1: If Extra has access keys, configure them directly
 	if profile.Extra != nil {
-		if key, ok := profile.Extra["access_key_id"]; ok && key != "" {
+		key, hasKey := profile.Extra["access_key_id"]
+		secret, hasSecret := profile.Extra["secret_access_key"]
+		if hasKey && hasSecret && key != "" && secret != "" {
 			os.Setenv("AWS_ACCESS_KEY_ID", key)
-		}
-		if secret, ok := profile.Extra["secret_access_key"]; ok && secret != "" {
 			os.Setenv("AWS_SECRET_ACCESS_KEY", secret)
+			hasExplicitKeys = true
 		}
+	}
+
+	// Step 2: Set AWS_PROFILE only if we don't have explicit keys
+	if hasExplicitKeys {
+		// Ensure AWS_PROFILE is unset so AWS CLI uses the explicit keys instead
+		os.Unsetenv("AWS_PROFILE")
+	} else if profile.Account != "" {
+		os.Setenv("AWS_PROFILE", profile.Account)
 	}
 
 	// Step 3: Set region if provided

@@ -68,18 +68,23 @@ func (r *SkillResult) IsSuccess() bool {
 	return r.Status == SkillStatusSuccess
 }
 
-// Summary returns a human-readable one-line summary of the result.
+// Summary returns a human-readable one-line summary of the result with styling.
 func (r *SkillResult) Summary() string {
-	icon := "❌"
+	icon := "🚨"
+	color := "\033[31m" // red
 	switch r.Status {
 	case SkillStatusSuccess:
-		icon = "✅"
+		icon = "✨" // Or "🟢", but ✨ looks premium next to checks
+		color = "\033[32m" // green
 	case SkillStatusSkipped:
-		icon = "⏭️"
+		icon = "➖"
+		color = "\033[90m" // gray
 	case SkillStatusRunning:
-		icon = "⏳"
+		icon = "⚡"
+		color = "\033[33m" // yellow
 	case SkillStatusPending:
-		icon = "🔲"
+		icon = "🗓️ "
+		color = "\033[36m" // cyan
 	}
-	return fmt.Sprintf("%s %s — %s (%dms)", icon, r.SkillName, r.Message, r.Duration.Milliseconds())
+	return fmt.Sprintf("%s %s%s\033[0m — %s (%dms)", icon, color, r.SkillName, r.Message, r.Duration.Milliseconds())
 }

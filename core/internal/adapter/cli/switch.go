@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -87,22 +89,36 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 		return fmt.Errorf("failed to build orchestrator: %w", err)
 	}
 
+	// Start spinner
+	ctx, cancel := context.WithCancel(context.Background())
+	go showSpinner(ctx, fmt.Sprintf("Switching context to \033[1;36m%s\033[0m... please wait", envName))
+
 	// Execute the switch through the Orchestrator
 	// Pass empty string as projectPath since we already have the project loaded
 	result, err := orch.SwitchWithProject(project, envName)
+	cancel() // Stop spinner
+	
+	// Clear the spinner line
+	fmt.Printf("\r\033[K")
+
 	if err != nil {
 		return fmt.Errorf("switch failed: %w", err)
 	}
 
+	// Sort results by status, then alphabetically
+	sortSkillResults(result.SkillResults)
+
 	// Display results
 	fmt.Println("  ─────────────────────────────────────────")
 	for _, sr := range result.SkillResults {
-		fmt.Printf("  %s\n", sr.Summary())
+		if sr.Status != domain.SkillStatusSkipped {
+			fmt.Printf("  %s\n", sr.Summary())
+		}
 	}
 	fmt.Println("  ─────────────────────────────────────────")
 
 	if result.Success {
-		fmt.Printf("\n  ✅ \033[1;32mContext switch complete!\033[0m (%dms)\n", result.TotalDuration.Milliseconds())
+		fmt.Printf("\n  ✨ \033[1;32mContext switch complete!\033[0m (%dms)\n", result.TotalDuration.Milliseconds())
 	} else {
 		fmt.Printf("\n  ⚠️  \033[1;33mContext switch completed with warnings\033[0m (%dms)\n", result.TotalDuration.Milliseconds())
 	}
@@ -145,14 +161,28 @@ func switchLocal(args []string, envName string) error {
 
 	fmt.Printf("  🚀 Switching context → \033[1;36m%s\033[0m (local)\n\n", envName)
 
+	// Start spinner
+	ctx, cancel := context.WithCancel(context.Background())
+	go showSpinner(ctx, fmt.Sprintf("Switching context to \033[1;36m%s\033[0m... please wait", envName))
+
 	result, err := orch.Switch(configPath, envName)
+	cancel() // Stop spinner
+
+	// Clear the spinner line
+	fmt.Printf("\r\033[K")
+
 	if err != nil {
 		return fmt.Errorf("switch failed: %w", err)
 	}
 
+	// Sort results by status, then alphabetically
+	sortSkillResults(result.SkillResults)
+
 	fmt.Println("  ─────────────────────────────────────────")
 	for _, sr := range result.SkillResults {
-		fmt.Printf("  %s\n", sr.Summary())
+		if sr.Status != domain.SkillStatusSkipped {
+			fmt.Printf("  %s\n", sr.Summary())
+		}
 	}
 	fmt.Println("  ─────────────────────────────────────────")
 
@@ -227,4 +257,46 @@ func buildOrchestrator() (*service.Orchestrator, error) {
 	})
 
 	return orch, nil
+}
+
+// sortSkillResults orders the results primarily by Status (Failures -> Success -> Skipped)
+// and secondarily alphabetically by SkillName.
+func sortSkillResults(results []domain.SkillResult) {
+	statusWeight := func(status domain.SkillStatus) int {
+		switch status {
+		case domain.SkillStatusFailed:
+			return 0
+		case domain.SkillStatusSuccess:
+			return 1
+		case domain.SkillStatusSkipped:
+			return 4
+		default:
+			return 2
+		}
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		w1 := statusWeight(results[i].Status)
+		w2 := statusWeight(results[j].Status)
+		if w1 == w2 {
+			return results[i].SkillName < results[j].SkillName
+		}
+		return w1 < w2
+	})
+}
+
+// showSpinner displays an animated braille spinner until the context is canceled.
+func showSpinner(ctx context.Context, message string) {
+	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	i := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			fmt.Printf("\r  \033[1;33m%s\033[0m %s", frames[i%len(frames)], message)
+			i++
+			time.Sleep(80 * time.Millisecond)
+		}
+	}
 }

@@ -161,18 +161,23 @@ func (o *Orchestrator) SwitchWithProject(project *domain.Project, envName string
 					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("SUPABASE_ACCESS_TOKEN", v))
 				}
 			case "aws":
-				if profile.Account != "" {
+				key, hasKey := profile.Extra["access_key_id"]
+				secret, hasSecret := profile.Extra["secret_access_key"]
+				hasExplicitKeys := hasKey && hasSecret && key != "" && secret != ""
+
+				if hasExplicitKeys {
+					// Export explicit keys and unset AWS_PROFILE
+					shellLines = append(shellLines, o.shellEmitter.EmitUnsetEnv("AWS_PROFILE"))
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_ACCESS_KEY_ID", key))
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_SECRET_ACCESS_KEY", secret))
+				} else if profile.Account != "" {
+					// Only set AWS_PROFILE if we don't have explicit keys
 					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_PROFILE", profile.Account))
 				}
+
 				if profile.Region != "" {
 					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_REGION", profile.Region))
 					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_DEFAULT_REGION", profile.Region))
-				}
-				if v, ok := profile.Extra["access_key_id"]; ok && v != "" {
-					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_ACCESS_KEY_ID", v))
-				}
-				if v, ok := profile.Extra["secret_access_key"]; ok && v != "" {
-					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_SECRET_ACCESS_KEY", v))
 				}
 			case "vercel":
 				if v, ok := profile.Extra["token"]; ok && v != "" {

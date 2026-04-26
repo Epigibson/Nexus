@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { ProjectResponse, AuditEntry, SkillResponse } from "@/lib/api";
 import { InnovativeLoader } from "@/components/ui/innovative-loader";
@@ -436,7 +437,16 @@ export default function ProjectDetailPage() {
           <Button variant="outline" size="sm" className="gap-2 h-9" onClick={openProjectModal}>
             <Pencil className="h-3.5 w-3.5" /> Editar
           </Button>
-          <Button size="sm" className="gap-2 gradient-violet text-white border-0 hover:opacity-90 h-9">
+          <Button 
+            size="sm" 
+            className="gap-2 gradient-violet text-white border-0 hover:opacity-90 h-9" 
+            onClick={() => {
+              copyToClipboard(`nexus switch ${project.slug}`, 'switch-now');
+              toast.success("¡Comando copiado!", { 
+                description: `Ejecuta 'nexus switch ${project.slug}' en tu terminal para cambiar de entorno.`
+              });
+            }}
+          >
             <ArrowRightLeft className="h-3.5 w-3.5" /> Switch Now
           </Button>
         </div>

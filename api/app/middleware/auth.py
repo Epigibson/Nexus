@@ -66,19 +66,25 @@ async def get_current_user(
 
         user = await get_user_by_id(db, user_id)
         if not user:
-            # Auto-register user from Cognito token if they don't exist
+            # User not found by Cognito sub — check if they exist by email (migrated from old JWT system)
             email = payload.get("email")
             if not email:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cognito token missing email")
             
-            # Generate a random password since Cognito handles the real one
-            dummy_password = secrets.token_urlsafe(32)
-            display_name = payload.get("name") or payload.get("preferred_username") or email.split("@")[0]
-            
             try:
-                # We need to explicitly set their ID to match Cognito sub so future lookups work
-                user = await register_user(db, email, dummy_password, display_name, user_id=user_id)
-                await db.commit()
+                # First, try to find existing user by email (migrated from old auth system)
+                result = await db.execute(select(User).where(User.email == email))
+                existing_user = result.scalar_one_or_none()
+                
+                if existing_user:
+                    # Return existing user — their DB ID differs from Cognito sub but that's OK
+                    user = existing_user
+                else:
+                    # Truly new user — auto-register from Cognito token
+                    dummy_password = secrets.token_urlsafe(32)
+                    display_name = payload.get("name") or payload.get("preferred_username") or email.split("@")[0]
+                    user = await register_user(db, email, dummy_password, display_name, user_id=user_id)
+                    await db.commit()
             except Exception as e:
                 await db.rollback()
                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to sync user: {str(e)}")

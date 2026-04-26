@@ -5,11 +5,14 @@ import { useTheme } from "next-themes";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import type { ApiKeyResponse } from "@/lib/api";
+import { toast } from "sonner";
 import {
   User,
   Mail,
   CreditCard,
   Shield,
+  ShieldCheck,
+  Smartphone,
   Moon,
   Sun,
   Monitor,
@@ -28,6 +31,8 @@ import {
   Eye,
   EyeOff,
   Terminal,
+  KeyRound,
+  ShieldOff,
 } from "lucide-react";
 import {
   Card,
@@ -45,7 +50,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const { user, refreshProfile } = useAuth();
+  const { user, refreshProfile, setupTotp, verifyTotp, getMfaStatus, disableMfa } = useAuth();
   const [name, setName] = useState(user?.display_name || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -58,8 +63,20 @@ export default function SettingsPage() {
   const [keyCopied, setKeyCopied] = useState(false);
   const [showKey, setShowKey] = useState(true);
 
+  // MFA state
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaLoading, setMfaLoading] = useState(true);
+  const [mfaSetupMode, setMfaSetupMode] = useState(false);
+  const [mfaQrUri, setMfaQrUri] = useState("");
+  const [mfaSecret, setMfaSecret] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaVerifying, setMfaVerifying] = useState(false);
+  const [mfaDisabling, setMfaDisabling] = useState(false);
+  const [secretCopied, setSecretCopied] = useState(false);
+
   useEffect(() => {
     loadApiKeys();
+    loadMfaStatus();
   }, []);
 
   const loadApiKeys = async () => {
@@ -116,6 +133,69 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // ── MFA Handlers ──
+
+  const loadMfaStatus = async () => {
+    setMfaLoading(true);
+    try {
+      const status = await getMfaStatus();
+      setMfaEnabled(status.enabled);
+    } catch {
+      setMfaEnabled(false);
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleStartMfaSetup = async () => {
+    try {
+      const result = await setupTotp();
+      setMfaQrUri(result.qrCodeUri);
+      setMfaSecret(result.secretKey);
+      setMfaSetupMode(true);
+      setMfaCode("");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al iniciar configuración 2FA");
+    }
+  };
+
+  const handleVerifyMfa = async () => {
+    if (mfaCode.length !== 6) return;
+    setMfaVerifying(true);
+    try {
+      await verifyTotp(mfaCode);
+      setMfaEnabled(true);
+      setMfaSetupMode(false);
+      setMfaQrUri("");
+      setMfaSecret("");
+      setMfaCode("");
+      toast.success("¡Autenticación de 2 pasos activada!");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Código inválido, intenta de nuevo");
+    } finally {
+      setMfaVerifying(false);
+    }
+  };
+
+  const handleDisableMfa = async () => {
+    setMfaDisabling(true);
+    try {
+      await disableMfa();
+      setMfaEnabled(false);
+      toast.success("Autenticación de 2 pasos desactivada");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al desactivar 2FA");
+    } finally {
+      setMfaDisabling(false);
+    }
+  };
+
+  const handleCopySecret = async () => {
+    await navigator.clipboard.writeText(mfaSecret);
+    setSecretCopied(true);
+    setTimeout(() => setSecretCopied(false), 2000);
   };
 
   const initials = user?.display_name
@@ -220,6 +300,158 @@ export default function SettingsPage() {
               </Button>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ─── 2FA Security Section ─── */}
+      <Card className="glass bg-card/40 border-border/50 transition-all duration-300 hover:shadow-xl hover:shadow-violet-900/10 hover:border-primary/20">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ShieldCheck className="h-4 w-4" />
+                Autenticación de 2 Pasos (2FA)
+              </CardTitle>
+              <CardDescription>
+                Protege tu cuenta con un código temporal desde tu app autenticadora.
+              </CardDescription>
+            </div>
+            {!mfaLoading && (
+              <Badge
+                variant={mfaEnabled ? "default" : "secondary"}
+                className={`shrink-0 text-[10px] uppercase ${mfaEnabled ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
+              >
+                {mfaEnabled ? "Activo" : "Inactivo"}
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {mfaLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Verificando estado de 2FA...
+            </div>
+          ) : mfaEnabled && !mfaSetupMode ? (
+            /* ── MFA is active ── */
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
+                <ShieldCheck className="h-5 w-5 text-emerald-500 shrink-0" />
+                <div>
+                  <div className="text-sm font-medium">Tu cuenta está protegida</div>
+                  <div className="text-xs text-muted-foreground">
+                    Se requiere un código de tu app autenticadora en cada inicio de sesión.
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDisableMfa}
+                disabled={mfaDisabling}
+                className="gap-2 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
+              >
+                {mfaDisabling ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ShieldOff className="h-3.5 w-3.5" />
+                )}
+                {mfaDisabling ? "Desactivando..." : "Desactivar 2FA"}
+              </Button>
+            </div>
+          ) : mfaSetupMode ? (
+            /* ── MFA Setup Flow ── */
+            <div className="space-y-5 animate-in slide-in-from-top-4 fade-in duration-300">
+              {/* Step 1: Scan QR */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[10px] font-bold text-white">1</div>
+                  Escanea el código QR con tu app autenticadora
+                </div>
+                <div className="flex flex-col items-center gap-4 rounded-lg border border-border p-5 bg-background/50">
+                  <div className="rounded-xl bg-white p-3 shadow-md">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mfaQrUri)}`}
+                      alt="QR Code para 2FA"
+                      className="h-[200px] w-[200px]"
+                    />
+                  </div>
+                  <div className="text-center space-y-2 w-full">
+                    <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                      <Smartphone className="h-3 w-3" />
+                      Google Authenticator, Authy, 1Password, etc.
+                    </p>
+                    <Separator />
+                    <p className="text-xs text-muted-foreground">¿No puedes escanear? Ingresa esta clave manualmente:</p>
+                    <div className="flex gap-2 items-center justify-center">
+                      <code className="text-xs font-mono bg-muted px-2 py-1 rounded break-all">{mfaSecret}</code>
+                      <Button variant="ghost" size="sm" onClick={handleCopySecret} className="h-7 w-7 p-0 shrink-0">
+                        {secretCopied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Verify */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[10px] font-bold text-white">2</div>
+                  Ingresa el código de 6 dígitos para verificar
+                </div>
+                <div className="flex gap-3">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                    className="text-center text-xl tracking-[0.2em] h-12 font-mono max-w-[200px]"
+                  />
+                  <Button
+                    onClick={handleVerifyMfa}
+                    disabled={mfaCode.length !== 6 || mfaVerifying}
+                    className="gap-2 h-12"
+                  >
+                    {mfaVerifying ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="h-4 w-4" />
+                    )}
+                    {mfaVerifying ? "Verificando..." : "Activar 2FA"}
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setMfaSetupMode(false); setMfaCode(""); }}
+                className="text-muted-foreground"
+              >
+                ← Cancelar
+              </Button>
+            </div>
+          ) : (
+            /* ── MFA not configured ── */
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                <Shield className="h-5 w-5 text-amber-500 shrink-0" />
+                <div>
+                  <div className="text-sm font-medium">Agrega una capa extra de seguridad</div>
+                  <div className="text-xs text-muted-foreground">
+                    Usa una app autenticadora para generar códigos temporales al iniciar sesión.
+                  </div>
+                </div>
+              </div>
+              <Button size="sm" onClick={handleStartMfaSetup} className="gap-2">
+                <KeyRound className="h-3.5 w-3.5" />
+                Configurar 2FA
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

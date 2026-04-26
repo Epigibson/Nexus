@@ -12,6 +12,10 @@ import {
   getCurrentUser,
   confirmSignIn,
   confirmSignUp,
+  setUpTOTP,
+  verifyTOTPSetup,
+  updateMFAPreference,
+  fetchMFAPreference,
   type SignInOutput
 } from 'aws-amplify/auth';
 
@@ -34,6 +38,11 @@ Amplify.configure({
   }
 });
 
+interface MfaSetupResult {
+  qrCodeUri: string;
+  secretKey: string;
+}
+
 interface AuthState {
   user: UserResponse | null;
   token: string | null;
@@ -45,6 +54,10 @@ interface AuthState {
   confirmRegistration: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  setupTotp: () => Promise<MfaSetupResult>;
+  verifyTotp: (code: string) => Promise<void>;
+  getMfaStatus: () => Promise<{ enabled: boolean; preferred: string | null }>;
+  disableMfa: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -185,6 +198,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const setupTotp = useCallback(async (): Promise<MfaSetupResult> => {
+    const totpSetupDetails = await setUpTOTP();
+    const appName = 'Nexus';
+    const setupUri = totpSetupDetails.getSetupUri(appName);
+    return {
+      qrCodeUri: setupUri.toString(),
+      secretKey: totpSetupDetails.sharedSecret,
+    };
+  }, []);
+
+  const verifyTotp = useCallback(async (code: string) => {
+    await verifyTOTPSetup({ code });
+    await updateMFAPreference({ totp: 'PREFERRED' });
+  }, []);
+
+  const getMfaStatus = useCallback(async () => {
+    try {
+      const output = await fetchMFAPreference();
+      const enabled = (output.enabled || []).includes('TOTP');
+      const preferred = output.preferred || null;
+      return { enabled, preferred };
+    } catch {
+      return { enabled: false, preferred: null };
+    }
+  }, []);
+
+  const disableMfa = useCallback(async () => {
+    await updateMFAPreference({ totp: 'DISABLED' });
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -198,6 +241,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         confirmRegistration,
         logout,
         refreshProfile,
+        setupTotp,
+        verifyTotp,
+        getMfaStatus,
+        disableMfa,
       }}
     >
       {children}

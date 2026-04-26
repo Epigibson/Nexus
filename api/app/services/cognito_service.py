@@ -58,7 +58,9 @@ async def verify_cognito_token(token: str) -> dict | None:
             return None
             
         # Verify Client ID (App Client)
-        if payload.get("client_id") != settings.cognito_client_id:
+        # ID tokens use 'aud', access tokens use 'client_id'
+        token_client_id = payload.get("client_id") or payload.get("aud")
+        if token_client_id != settings.cognito_client_id:
             return None
 
         # Verify token use (ID token is needed to get the email)

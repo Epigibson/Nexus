@@ -260,9 +260,9 @@ export default function StripeCheckoutModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 rounded-2xl border border-white/[0.06] bg-[#141424] shadow-2xl shadow-primary/10 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+      <div className="relative w-full max-w-md mx-4 flex flex-col rounded-2xl border border-white/[0.06] bg-[#141424] shadow-2xl shadow-primary/10 animate-in fade-in zoom-in-95 duration-200 overflow-hidden max-h-[90vh]">
         {/* Header gradient bar */}
-        <div className="h-1 w-full gradient-violet" />
+        <div className="h-1 w-full gradient-violet shrink-0" />
 
         {/* Close */}
         <button
@@ -272,7 +272,7 @@ export default function StripeCheckoutModal({
           <X className="h-4 w-4" />
         </button>
 
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto custom-scrollbar">
           {/* Title */}
           <div className="flex items-center gap-3 mb-5">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl gradient-violet text-white shadow-lg shadow-primary/25">

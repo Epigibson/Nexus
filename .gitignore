@@ -63,3 +63,6 @@ audit.jsonl
 # Mintlify
 .mintlify/
 
+
+# Serverless
+.serverless/

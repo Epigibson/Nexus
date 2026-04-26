@@ -39,14 +39,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="flex min-h-[100dvh] items-center justify-center p-4 py-8">
       {/* Background glow */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-1/3 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/10 blur-[120px] animate-pulse duration-10000" />
         <div className="absolute right-1/4 bottom-1/4 h-[400px] w-[400px] rounded-full bg-fuchsia-600/10 blur-[100px] animate-pulse duration-7000 delay-1000" />
       </div>
 
-      <div className="w-full max-w-md space-y-8 relative z-10">
+      <div className="w-full max-w-md space-y-6 md:space-y-8 relative z-10">
         {/* Logo */}
         <div className="flex flex-col items-center text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden shadow-lg shadow-primary/25 mb-4 animate-float border border-primary/20">
@@ -170,7 +170,7 @@ export default function LoginPage() {
                 ) : (
                   <ArrowRight className="h-4 w-4 relative z-10" />
                 )}
-                <span className="relative z-10 font-medium">
+                <span className="relative z-10 font-medium ml-1.5">
                   {loading
                     ? (mode === "login" ? "Ingresando..." : "Creando cuenta...")
                     : (mode === "login" ? "Ingresar" : "Crear Cuenta")}
@@ -183,14 +183,14 @@ export default function LoginPage() {
               {mode === "login" ? (
                 <>
                   ¿No tienes cuenta?{" "}
-                  <button type="button" onClick={toggleMode} className="text-primary hover:underline font-medium">
+                  <button type="button" onClick={toggleMode} className="text-violet-400 hover:text-violet-300 transition-colors hover:underline font-medium">
                     Crear una
                   </button>
                 </>
               ) : (
                 <>
                   ¿Ya tienes cuenta?{" "}
-                  <button type="button" onClick={toggleMode} className="text-primary hover:underline font-medium">
+                  <button type="button" onClick={toggleMode} className="text-violet-400 hover:text-violet-300 transition-colors hover:underline font-medium">
                     Iniciar sesión
                   </button>
                 </>
@@ -200,7 +200,7 @@ export default function LoginPage() {
         </Card>
 
         {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-xs text-zinc-400 font-medium">
           Encriptación AES-256-GCM · Zero-Knowledge · Tus secretos nunca salen de tu máquina
         </p>
       </div>

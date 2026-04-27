@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { ProjectResponse, AuditEntry, SkillResponse } from "@/lib/api";
 import { InnovativeLoader } from "@/components/ui/innovative-loader";
@@ -436,7 +437,16 @@ export default function ProjectDetailPage() {
           <Button variant="outline" size="sm" className="gap-2 h-9" onClick={openProjectModal}>
             <Pencil className="h-3.5 w-3.5" /> Editar
           </Button>
-          <Button size="sm" className="gap-2 gradient-violet text-white border-0 hover:opacity-90 h-9">
+          <Button 
+            size="sm" 
+            className="gap-2 gradient-violet text-white border-0 hover:opacity-90 h-9" 
+            onClick={() => {
+              copyToClipboard(`nexus switch ${project.slug}`, 'switch-now');
+              toast.success("¡Comando copiado!", { 
+                description: `Ejecuta 'nexus switch ${project.slug}' en tu terminal para cambiar de entorno.`
+              });
+            }}
+          >
             <ArrowRightLeft className="h-3.5 w-3.5" /> Switch Now
           </Button>
         </div>
@@ -672,8 +682,23 @@ export default function ProjectDetailPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         {skill.is_premium && <Badge className="gradient-violet text-white border-0 text-[9px]">PRO</Badge>}
-                        <Switch checked={skill.is_enabled} disabled={togglingSkill === skill.id}
-                          onCheckedChange={() => handleToggleSkill(skill.id, skill.is_enabled)} />
+                        <button
+                          onClick={() => handleToggleSkill(skill.id, skill.is_enabled)}
+                          disabled={togglingSkill === skill.id}
+                          className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+                            skill.is_enabled ? "bg-primary" : "bg-muted-foreground/30"
+                          } ${togglingSkill === skill.id ? "opacity-50" : ""}`}
+                        >
+                          {togglingSkill === skill.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white" />
+                          ) : (
+                            <span
+                              className={`block w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                                skill.is_enabled ? "translate-x-6" : "translate-x-1"
+                              }`}
+                            />
+                          )}
+                        </button>
                       </div>
                     </div>
                   </CardHeader>

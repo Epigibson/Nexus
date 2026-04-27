@@ -7,29 +7,33 @@ provider:
   runtime: python3.11
   stage: ${opt:stage, 'prod'}
   region: ${opt:region, 'us-east-1'}
-  memorySize: 512
+  memorySize: 1024
+  architecture: arm64
   timeout: 30
   environment:
-    # Estas variables deben existir en el entorno al momento del despliegue 
-    # o puedes usar Parameter Store / Secrets Manager
-    DATABASE_URL: ${env:DATABASE_URL, ''}
-    SUPABASE_URL: ${env:SUPABASE_URL, ''}
-    SUPABASE_ANON_KEY: ${env:SUPABASE_ANON_KEY, ''}
-    SECRET_KEY: ${env:SECRET_KEY, 'dev-secret-key-change-in-production'}
-    ACCESS_TOKEN_EXPIRE_MINUTES: ${env:ACCESS_TOKEN_EXPIRE_MINUTES, '1440'}
-    CORS_ORIGINS: ${env:CORS_ORIGINS, '["http://localhost:3000","https://antigravity-production-a677.up.railway.app"]'}
-    DEBUG: ${env:DEBUG, 'true'}
-    FRONTEND_URL: ${env:FRONTEND_URL, 'https://antigravity-production-a677.up.railway.app'}
-    STRIPE_SECRET_KEY: ${env:STRIPE_SECRET_KEY, ''}
-    STRIPE_PUBLISHABLE_KEY: ${env:STRIPE_PUBLISHABLE_KEY, ''}
-    STRIPE_WEBHOOK_SECRET: ${env:STRIPE_WEBHOOK_SECRET, ''}
+    # 🔐 Advanced Security: Fetching secrets from AWS Systems Manager (SSM) Parameter Store
+    DATABASE_URL: ${ssm:/nexus/${sls:stage}/database_url, env:DATABASE_URL, ''}
+    SUPABASE_URL: ${ssm:/nexus/${sls:stage}/supabase_url, env:SUPABASE_URL, ''}
+    SUPABASE_ANON_KEY: ${ssm:/nexus/${sls:stage}/supabase_anon_key, env:SUPABASE_ANON_KEY, ''}
+    SECRET_KEY: ${ssm:/nexus/${sls:stage}/secret_key, env:SECRET_KEY, 'dev-secret-key-change-in-production'}
+    ACCESS_TOKEN_EXPIRE_MINUTES: ${env:ACCESS_TOKEN_EXPIRE_MINUTES, '15'}
+    CORS_ORIGINS: ${env:CORS_ORIGINS, '["http://localhost:3000","https://nexusproject.pro", "https://master.d3cehroonlwhdk.amplifyapp.com"]'}
+    DEBUG: ${env:DEBUG, 'false'}
+    FRONTEND_URL: ${env:FRONTEND_URL, 'https://nexusproject.pro'}
+    STRIPE_SECRET_KEY: ${ssm:/nexus/${sls:stage}/stripe_secret_key, env:STRIPE_SECRET_KEY, ''}
+    STRIPE_PUBLISHABLE_KEY: ${ssm:/nexus/${sls:stage}/stripe_publishable_key, env:STRIPE_PUBLISHABLE_KEY, ''}
+    STRIPE_WEBHOOK_SECRET: ${ssm:/nexus/${sls:stage}/stripe_webhook_secret, env:STRIPE_WEBHOOK_SECRET, ''}
     STRIPE_PREMIUM_PRICE_ID: ${env:STRIPE_PREMIUM_PRICE_ID, ''}
+    COGNITO_REGION: ${env:COGNITO_REGION, 'us-east-1'}
+    COGNITO_USER_POOL_ID: ${env:COGNITO_USER_POOL_ID, 'us-east-1_80HMwd889'}
+    COGNITO_CLIENT_ID: ${env:COGNITO_CLIENT_ID, '71qj9s2k6aprmnsur7rmbbka35'}
     ENVIRONMENT: production
   httpApi:
     cors:
       allowedOrigins:
         - http://localhost:3000
-        - https://antigravity-production-a677.up.railway.app
+        - https://nexusproject.pro
+        - https://master.d3cehroonlwhdk.amplifyapp.com
       allowedHeaders:
         - Content-Type
         - Authorization
@@ -41,6 +45,13 @@ provider:
         - OPTIONS
         - PATCH
       allowCredentials: true
+
+package:
+  patterns:
+    - '!**/.env'
+    - '!**/.env.*'
+    - '!**/tests/**'
+    - '!**/__pycache__/**'
 
 functions:
   api:

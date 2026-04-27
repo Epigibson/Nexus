@@ -74,29 +74,15 @@ curl -sSL https://raw.githubusercontent.com/Epigibson/Nexus/master/install.sh | 
 
 ### Windows (PowerShell)
 
+Instalación rápida en un solo comando (descarga el binario oficial precompilado):
+
 ```powershell
-# 1. Descargar y compilar
-git clone https://github.com/Epigibson/Nexus.git
-cd Nexus/core
-go build -o nexus.exe ./cmd/nexus
-
-# 2. Instalar globalmente
-$installDir = "$env:USERPROFILE\.nexus\bin"
-New-Item -ItemType Directory -Force -Path $installDir | Out-Null
-Copy-Item nexus.exe "$installDir\nexus.exe" -Force
-
-# 3. Agregar al PATH (permanente)
-$currentPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
-if ($currentPath -notlike "*\.nexus\bin*") {
-    [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$installDir", "User")
-}
-
-# 4. Reiniciar terminal y verificar
-nexus version
-# → Nexus v0.1.0
+irm https://raw.githubusercontent.com/Epigibson/Nexus/master/install.ps1 | iex
 ```
 
-### Compilación Manual (macOS/Linux)
+*Nota: Una vez instalado, reinicia tu terminal de PowerShell para que se recargue el PATH y verifica la instalación ejecutando `nexus version`.*
+
+### Compilación Manual (Avanzado)
 
 ```bash
 # 1. Descargar y compilar
@@ -117,7 +103,7 @@ nexus version
 
 ### 1. Crear cuenta en el Dashboard
 
-Regístrate en [nexus-production-a677.up.railway.app](https://nexus-production-a677.up.railway.app) y crea un proyecto con sus entornos (development, staging, production).
+Regístrate en [nexusproject.pro](https://nexusproject.pro) y crea un proyecto con sus entornos (development, staging, production).
 
 ### 2. Generar API Key
 
@@ -168,100 +154,12 @@ nexus logout
 | Dashboard ↔ API | JWT Auth + REST fetch client | ✅ |
 | Documentation | Mintlify (theme: palm) | ✅ |
 | Database | PostgreSQL (Supabase) | ✅ |
-| Encryption | AES-256-GCM + Argon2id | 📐 Diseñado |
+| Encryption | AES-256-GCM + Argon2id | ✅ |
 
-### Documentación (Mintlify)
-```bash
-cd docs/
-npx mintlify@latest dev
-# → http://localhost:3333
-```
+## Enlaces Oficiales
 
-## Estructura del Proyecto
-
-```
-nexus/
-├── .agents/               # AI agent skills, workflows & context
-│   ├── context/           #   └── architecture.md (documentación técnica)
-│   └── workflows/         #   └── add-cli-profiler.md
-│
-├── core/                  # Go CLI & Orchestrator (Arquitectura Hexagonal)
-│   ├── cmd/main.go        #   Entrypoint
-│   └── internal/
-│       ├── domain/        #   Entidades: Project, Skill, CLIProfile, ScriptHook
-│       ├── port/          #   Interfaces: CLIProfiler, ConfigReader
-│       ├── service/       #   Orchestrator: skills + hooks pre/post
-│       └── adapter/       #   Implementaciones: CLI, Config, Audit
-│           ├── cli/       #     Comandos Cobra (init, switch, list)
-│           ├── config/    #     YAML reader
-│           ├── executor/  #     CLI profilers (gh, aws, supabase, vercel, mongo)
-│           └── audit/     #     JSONL audit logger
-│
-├── api/                   # FastAPI Backend
-│   ├── app/
-│   │   ├── main.py        #   FastAPI app + CORS + lifecycle (seed + bootstrap)
-│   │   ├── config.py      #   Pydantic BaseSettings (plan limits, Stripe keys)
-│   │   ├── database.py    #   SQLAlchemy async + auto-migrate
-│   │   ├── models/        #   ORM models (9 tablas)
-│   │   ├── schemas/       #   Pydantic v2 request/response
-│   │   ├── services/      #   Lógica de negocio
-│   │   │   ├── auth_service.py        # JWT + bcrypt
-│   │   │   ├── project_service.py     # CRUD projects
-│   │   │   ├── stats_service.py       # Dashboard aggregations
-│   │   │   ├── plan_enforcement.py    # Límites Free/Premium/Enterprise
-│   │   │   ├── seed_skills.py         # Seed 12 skills al startup
-│   │   │   └── admin_bootstrap.py     # Bootstrap admin enterprise
-│   │   ├── routers/       #   Endpoints REST (8 routers, 30+ endpoints)
-│   │   │   ├── auth.py          # /auth (6 endpoints)
-│   │   │   ├── projects.py      # /projects (9 endpoints)
-│   │   │   ├── skills.py        # /skills (3 endpoints)
-│   │   │   ├── teams.py         # /teams (4 endpoints)
-│   │   │   ├── billing.py       # /billing (5 endpoints)
-│   │   │   ├── audit.py         # /audit (1 endpoint)
-│   │   │   └── dashboard.py     # /dashboard (3 endpoints)
-│   │   └── middleware/    #   JWT auth dependency
-│   ├── seed.py            #   Datos de demo
-│   └── requirements.txt
-│
-├── dashboard/             # Next.js 16 Web Dashboard
-│   └── src/
-│       ├── app/
-│       │   ├── login/           #   Página de autenticación
-│       │   └── dashboard/       #   Layout + páginas:
-│       │       ├── page.tsx     #     Overview (stats, plan badge)
-│       │       ├── projects/    #     Proyectos + detalle [slug]
-│       │       ├── skills/      #     Catálogo de skills + toggle
-│       │       ├── team/        #     Gestión de equipo
-│       │       ├── audit/       #     Registro de auditoría
-│       │       ├── billing/     #     Planes + pagos Stripe
-│       │       └── settings/    #     Configuración + API keys
-│       ├── components/    #   shadcn/ui + custom components
-│       └── lib/
-│           ├── api.ts     #   Cliente HTTP tipado (25+ métodos)
-│           └── auth-context.tsx  # JWT AuthProvider
-│
-├── database/              # Schema SQL & Migrations
-│   └── migrations/        #   001_initial_schema.sql
-│
-├── configs/               # Configuraciones de ejemplo
-├── docs/                  # Documentación técnica (Mintlify)
-└── nexus.yaml             # Configuración de ejemplo raíz
-```
-
-## API Endpoints
-
-Todos los endpoints están bajo `/api/v1/` y documentados en Swagger UI (`/docs`).
-
-| Tag | Endpoints | Auth |
-|-----|-----------|------|
-| **Auth** | `POST /register`, `POST /login`, `GET /me`, `PUT /me`, API Keys CRUD | Público / Bearer |
-| **Projects** | CRUD + environments + hooks (9 endpoints) | Bearer |
-| **Skills** | Catálogo + toggle per-project (3 endpoints) | Bearer |
-| **Teams** | Listar, invitar, cambiar rol, eliminar (4 endpoints) | Bearer |
-| **Billing** | Plan limits, Stripe checkout/portal, subscriptions (5 endpoints) | Bearer |
-| **Audit** | Log filtrable + export (1 endpoint) | Bearer |
-| **Dashboard** | Stats, actividad, recientes (3 endpoints) | Bearer |
-| **Health** | 2 health checks | Público |
+- 🌍 **Página Principal & Dashboard:** [nexusproject.pro](https://nexusproject.pro)
+- 📚 **Documentación Completa:** [docs.nexusproject.pro](https://docs.nexusproject.pro)
 
 ## Licencia
 

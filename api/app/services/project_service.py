@@ -90,7 +90,46 @@ async def create_project(db: AsyncSession, user_id: str, name: str, slug: str,
         description=description, repo_url=repo_url,
     )
     db.add(project)
+    await db.flush()  # Get the project ID before assigning skills
+
+    # Auto-assign all free skills to the new project
+    await assign_default_skills(db, project.id)
+
     return project
+
+
+async def assign_default_skills(db: AsyncSession, project_id: str) -> int:
+    """Assign all free SkillDefinitions to a project (enabled by default).
+
+    If skills already exist for this project, only missing ones are added.
+    Returns count of newly assigned skills.
+    """
+    from app.models.skill import SkillDefinition, SkillConfiguration
+
+    # Get all skill definitions
+    all_skills_result = await db.execute(select(SkillDefinition))
+    all_skills = all_skills_result.scalars().all()
+
+    # Get existing configurations for this project
+    existing_result = await db.execute(
+        select(SkillConfiguration.skill_id)
+        .where(SkillConfiguration.project_id == project_id)
+    )
+    existing_ids = {row for row in existing_result.scalars().all()}
+
+    count = 0
+    for skill in all_skills:
+        if skill.id not in existing_ids:
+            config = SkillConfiguration(
+                project_id=project_id,
+                skill_id=skill.id,
+                is_enabled=True,
+                priority=10,
+            )
+            db.add(config)
+            count += 1
+
+    return count
 
 
 async def update_project(db: AsyncSession, project: Project, **kwargs) -> Project:
@@ -124,3 +163,50 @@ async def get_project_last_switch(db: AsyncSession, project_id: str) -> str | No
     )
     row = result.scalar_one_or_none()
     return row.isoformat() if row else None
+
+
+async def batch_get_switch_stats(db: AsyncSession, project_ids: list[str]) -> dict:
+    """Batch-load switch counts and last switch times for multiple projects.
+
+    Returns dict: {project_id: {"count": int, "last_switch": str | None}}
+    Eliminates N+1: 2 queries total instead of 2 per project.
+    """
+    if not project_ids:
+        return {}
+
+    # Batch switch counts
+    count_result = await db.execute(
+        select(
+            AuditLog.project_id,
+            func.count(AuditLog.id).label("cnt"),
+        )
+        .where(
+            AuditLog.project_id.in_(project_ids),
+            AuditLog.action == "context_switch",
+        )
+        .group_by(AuditLog.project_id)
+    )
+    counts = {row.project_id: row.cnt for row in count_result.all()}
+
+    # Batch last switch times
+    last_result = await db.execute(
+        select(
+            AuditLog.project_id,
+            func.max(AuditLog.created_at).label("last_at"),
+        )
+        .where(
+            AuditLog.project_id.in_(project_ids),
+            AuditLog.action == "context_switch",
+        )
+        .group_by(AuditLog.project_id)
+    )
+    lasts = {row.project_id: row.last_at for row in last_result.all()}
+
+    return {
+        pid: {
+            "count": counts.get(pid, 0),
+            "last_switch": lasts[pid].isoformat() if pid in lasts else None,
+        }
+        for pid in project_ids
+    }
+

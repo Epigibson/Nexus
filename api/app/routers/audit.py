@@ -25,7 +25,11 @@ async def list_audit(
     db: AsyncSession = Depends(get_db),
 ):
     """Listar audit log con filtros opcionales."""
-    query = select(AuditLog)
+    # Single JOIN query instead of N+1 (was: 1 query per entry to get project name)
+    query = (
+        select(AuditLog, Project.name.label("project_name"))
+        .outerjoin(Project, AuditLog.project_id == Project.id)
+    )
 
     if action:
         query = query.where(AuditLog.action == action)
@@ -36,29 +40,22 @@ async def list_audit(
 
     query = query.order_by(desc(AuditLog.created_at)).offset(offset).limit(limit)
     result = await db.execute(query)
-    entries = result.scalars().all()
+    rows = result.all()
 
-    responses = []
-    for e in entries:
-        # Get project name if available
-        project_name = ""
-        if e.project_id:
-            proj = await db.execute(select(Project.name).where(Project.id == e.project_id))
-            project_name = proj.scalar_one_or_none() or ""
-
-        responses.append(AuditEntryResponse(
+    return [
+        AuditEntryResponse(
             id=e.id,
             action=e.action,
-            project_name=project_name,
+            project_name=project_name or "",
             environment=e.environment,
             skill_name=None,
             message=e.message,
             success=e.success,
             duration_ms=e.duration_ms,
             created_at=e.created_at.isoformat() if e.created_at else "",
-        ))
-
-    return responses
+        )
+        for e, project_name in rows
+    ]
 
 
 @router.post("/", response_model=AuditEntryResponse, status_code=status.HTTP_201_CREATED)
@@ -69,20 +66,19 @@ async def create_audit(
 ):
     """Crear un log de auditoría (normalmente usado por el CLI vía X-API-Key)."""
     try:
+        from app.services.project_service import get_user_org_id
+        org_id = await get_user_org_id(db, user.id)
+
         project_id = None
-        if body.project_name:
+        if body.project_name and org_id:
             from sqlalchemy import or_
-            from app.services.project_service import get_user_org_id
-            
-            org_id = await get_user_org_id(db, user.id)
-            if org_id:
-                proj_q = await db.execute(
-                    select(Project.id).where(
-                        or_(Project.slug == body.project_name, Project.name == body.project_name),
-                        Project.org_id == org_id
-                    ).limit(1)
-                )
-                project_id = proj_q.scalar_one_or_none()
+            proj_q = await db.execute(
+                select(Project.id).where(
+                    or_(Project.slug == body.project_name, Project.name == body.project_name),
+                    Project.org_id == org_id
+                ).limit(1)
+            )
+            project_id = proj_q.scalar_one_or_none()
 
         from app.models.audit import AuditAction
         import enum
@@ -95,6 +91,7 @@ async def create_audit(
 
         entry = AuditLog(
             user_id=user.id,
+            org_id=org_id,
             project_id=project_id,
             action=safe_action,
             environment=body.environment,

@@ -1,10 +1,12 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/nexus-dev/nexus/internal/domain"
 )
@@ -176,17 +178,25 @@ func (a *AWSProfiler) CurrentProfile() (string, error) {
 }
 
 func (a *AWSProfiler) Switch(profile domain.CLIProfile) error {
-	// Step 1: Set AWS_PROFILE for named profile switching
-	os.Setenv("AWS_PROFILE", profile.Account)
+	hasExplicitKeys := false
 
-	// Step 2: If Extra has access keys, configure them directly
+	// Step 1: If Extra has access keys, configure them directly
 	if profile.Extra != nil {
-		if key, ok := profile.Extra["access_key_id"]; ok && key != "" {
+		key, hasKey := profile.Extra["access_key_id"]
+		secret, hasSecret := profile.Extra["secret_access_key"]
+		if hasKey && hasSecret && key != "" && secret != "" {
 			os.Setenv("AWS_ACCESS_KEY_ID", key)
-		}
-		if secret, ok := profile.Extra["secret_access_key"]; ok && secret != "" {
 			os.Setenv("AWS_SECRET_ACCESS_KEY", secret)
+			hasExplicitKeys = true
 		}
+	}
+
+	// Step 2: Set AWS_PROFILE only if we don't have explicit keys
+	if hasExplicitKeys {
+		// Ensure AWS_PROFILE is unset so AWS CLI uses the explicit keys instead
+		os.Unsetenv("AWS_PROFILE")
+	} else if profile.Account != "" {
+		os.Setenv("AWS_PROFILE", profile.Account)
 	}
 
 	// Step 3: Set region if provided
@@ -238,18 +248,22 @@ func (s *SupabaseProfiler) IsInstalled() bool {
 }
 
 func (s *SupabaseProfiler) CurrentProfile() (string, error) {
-	// Try to detect the currently linked project
+	if ref := os.Getenv("SUPABASE_PROJECT_REF"); ref != "" {
+		return "linked → " + ref, nil
+	}
+
+	// Fallback: Try to detect from local supabase folder
+	if data, err := os.ReadFile("supabase/.temp/project-ref"); err == nil {
+		return "linked → " + strings.TrimSpace(string(data)), nil
+	}
+
+	// If neither env var nor local file is found, check if we're authenticated
 	cmd := exec.Command("supabase", "projects", "list")
-	cmd.Env = append(os.Environ())
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "unknown", nil
+	if err := cmd.Run(); err == nil {
+		return "authenticated (no active link)", nil
 	}
-	out := strings.TrimSpace(string(output))
-	if out == "" {
-		return "none", nil
-	}
-	return "linked", nil
+
+	return "none", nil
 }
 
 func (s *SupabaseProfiler) Switch(profile domain.CLIProfile) error {
@@ -332,7 +346,16 @@ func (v *VercelProfiler) IsInstalled() bool {
 }
 
 func (v *VercelProfiler) CurrentProfile() (string, error) {
-	cmd := exec.Command("vercel", "whoami")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	args := []string{"whoami", "--no-color"}
+	// If VERCEL_TOKEN is set, use it to avoid interactive login
+	if token := os.Getenv("VERCEL_TOKEN"); token != "" {
+		args = append(args, "--token", token)
+	}
+
+	cmd := exec.CommandContext(ctx, "vercel", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "none", nil
@@ -499,7 +522,30 @@ func (r *RailwayProfiler) IsInstalled() bool {
 }
 
 func (r *RailwayProfiler) CurrentProfile() (string, error) {
-	cmd := exec.Command("railway", "whoami")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// If using a token from the environment (like Nexus injects), 
+	// we need to check if it's a project token or account token.
+	if token := os.Getenv("RAILWAY_TOKEN"); token != "" {
+		cmd := exec.CommandContext(ctx, "railway", "status")
+		cmd.Env = append(os.Environ(), "RAILWAY_TOKEN="+token)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return "none (invalid project token)", nil
+		}
+		
+		// Parse the project name from the status output
+		for _, line := range strings.Split(string(output), "\n") {
+			if strings.HasPrefix(line, "Project:") {
+				return "project → " + strings.TrimSpace(strings.TrimPrefix(line, "Project:")), nil
+			}
+		}
+		return "project token (authenticated)", nil
+	}
+
+	// Default check for global authentication
+	cmd := exec.CommandContext(ctx, "railway", "whoami")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "none", nil

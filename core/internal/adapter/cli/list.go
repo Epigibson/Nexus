@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/nexus-dev/nexus/internal/adapter/config"
 	"github.com/nexus-dev/nexus/internal/adapter/executor"
@@ -60,18 +61,33 @@ and show which profiles are configured for each project environment.`,
 			fmt.Println("  ─────────────────────────────────────────")
 
 			profilers := executor.AllProfilers()
+			sort.Slice(profilers, func(i, j int) bool {
+				iInstalled := profilers[i].IsInstalled()
+				jInstalled := profilers[j].IsInstalled()
+
+				if iInstalled == jInstalled {
+					return profilers[i].ToolName() < profilers[j].ToolName()
+				}
+				return iInstalled && !jInstalled
+			})
+			hasTools := false
 			for _, p := range profilers {
-				installed := "❌ not installed"
-				current := ""
-				if p.IsInstalled() {
-					installed = "✅ installed"
-					profile, err := p.CurrentProfile()
-					if err == nil && profile != "" {
-						current = fmt.Sprintf(" → \033[1;33m%s\033[0m", profile)
-					}
+				if !p.IsInstalled() {
+					continue
+				}
+				profile, err := p.CurrentProfile()
+				if err != nil || profile == "" || profile == "none" {
+					continue
 				}
 
+				installed := "\033[32m✨ installed\033[0m"
+				current := fmt.Sprintf(" → \033[1;36m%s\033[0m", profile)
 				fmt.Printf("  %-12s %s%s\n", p.ToolName(), installed, current)
+				hasTools = true
+			}
+
+			if !hasTools {
+				fmt.Println("  ➖ No active CLI tools configured for this context.")
 			}
 
 			fmt.Println("  ─────────────────────────────────────────")

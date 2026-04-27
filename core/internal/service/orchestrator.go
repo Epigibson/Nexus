@@ -63,10 +63,8 @@ func NewOrchestrator(cfg OrchestratorConfig) *Orchestrator {
 }
 
 // Switch performs a full context switch to the specified project and environment.
-// This is the main entry point of Nexus's core functionality.
+// This is the main entry point for Local Mode (reads from YAML file).
 func (o *Orchestrator) Switch(projectPath, envName string) (*SwitchResult, error) {
-	startTime := time.Now()
-
 	// 1. Load project configuration
 	project, err := o.configReader.ReadProject(projectPath)
 	if err != nil {
@@ -77,23 +75,43 @@ func (o *Orchestrator) Switch(projectPath, envName string) (*SwitchResult, error
 		return nil, fmt.Errorf("invalid project config: %w", err)
 	}
 
-	// 2. Resolve the target environment
+	return o.SwitchWithProject(project, envName)
+}
+
+// SwitchWithProject performs a full context switch with a pre-loaded project.
+// This is used by Cloud Mode (project loaded from API) and Local Mode (via Switch).
+// Having a single entry point ensures consistent behavior across both modes.
+func (o *Orchestrator) SwitchWithProject(project *domain.Project, envName string) (*SwitchResult, error) {
+	startTime := time.Now()
+
+	// 1. Resolve the target environment
 	env, err := project.GetEnvironment(envName)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Log the switch initiation
+	// 2. Log the switch initiation
 	o.logAudit(domain.AuditActionSwitch, project.Name, envName, "",
 		fmt.Sprintf("Starting context switch to %s/%s", project.Name, envName), true)
 
-	// 4. Run PRE-switch hooks
+	// 3. Run PRE-switch hooks
 	preResults := o.runHooks(project, env, envName, "pre")
 
-	// 5. Get enabled skills sorted by priority
+	// 4. Get enabled skills sorted by priority
 	skills := project.GetEnabledSkills()
 
-	// 6. Execute each skill
+	// 5. Check if Parallel Switch is enabled
+	parallelMode := false
+	var nonParallelSkills []domain.Skill
+	for _, skill := range skills {
+		if skill.Category == domain.SkillCategoryParallel {
+			parallelMode = true
+		} else {
+			nonParallelSkills = append(nonParallelSkills, skill)
+		}
+	}
+
+	// 6. Execute skills (parallel or sequential)
 	results := make([]domain.SkillResult, 0, len(skills)+len(preResults))
 	results = append(results, preResults...)
 	var shellLines []string
@@ -110,32 +128,125 @@ func (o *Orchestrator) Switch(projectPath, envName string) (*SwitchResult, error
 	shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("NEXUS_ACTIVE_ENV", envName))
 	shellLines = append(shellLines, "")
 
-	for _, skill := range skills {
-		result := o.executeSkill(project, env, &skill)
-		results = append(results, *result)
-
-		// Collect shell commands from env injection
-		if skill.Category == domain.SkillCategoryContext && result.IsSuccess() {
-			for key, value := range env.EnvVars {
-				shellLines = append(shellLines, o.shellEmitter.EmitSetEnv(key, value))
+	if parallelMode {
+		// Parallel execution mode — use the ParallelExecutor
+		if pe, ok := o.executors[string(domain.SkillCategoryParallel)]; ok {
+			// Type assert to access ExecuteAll
+			type parallelRunner interface {
+				ExecuteAll(*domain.Project, *domain.EnvironmentConfig, []domain.Skill, int, time.Duration) []domain.SkillResult
 			}
-			shellLines = append(shellLines, "")
+			if pr, ok := pe.(parallelRunner); ok {
+				parallelResults := pr.ExecuteAll(project, env, nonParallelSkills, 5, 60*time.Second)
+				results = append(results, parallelResults...)
+
+				// Log all results
+				for i, r := range parallelResults {
+					o.logAudit(domain.AuditAction("skill_"+string(nonParallelSkills[i].Category)), project.Name, envName,
+						nonParallelSkills[i].Name, r.Message, r.IsSuccess())
+				}
+
+				// Add a parallel mode indicator result
+				results = append(results, domain.SkillResult{
+					SkillName: "⚡ Parallel Switch",
+					Status:    domain.SkillStatusSuccess,
+					Message:   fmt.Sprintf("Executed %d skills in parallel", len(nonParallelSkills)),
+					Duration:  0,
+				})
+			}
 		}
 
-		// Log the skill result to audit
-		o.logAudit(domain.AuditAction("skill_"+string(skill.Category)), project.Name, envName,
-			skill.Name, result.Message, result.IsSuccess())
+		// Collect env vars for shell script
+		for key, value := range env.EnvVars {
+			shellLines = append(shellLines, o.shellEmitter.EmitSetEnv(key, value))
+		}
+		shellLines = append(shellLines, "")
+	} else {
+		// Sequential execution mode (default)
+		for _, skill := range skills {
+			result := o.executeSkill(project, env, &skill)
+			results = append(results, *result)
+
+			// Collect shell commands from env injection
+			if skill.Category == domain.SkillCategoryContext && result.IsSuccess() {
+				for key, value := range env.EnvVars {
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv(key, value))
+				}
+				shellLines = append(shellLines, "")
+			}
+
+			// Log the skill result to audit
+			o.logAudit(domain.AuditAction("skill_"+string(skill.Category)), project.Name, envName,
+				skill.Name, result.Message, result.IsSuccess())
+		}
 	}
 
-	// 7. Handle CLI profile switching
+	// 6. Handle CLI profile switching
 	cliResults := o.switchCLIProfiles(project, env, envName)
 	results = append(results, cliResults...)
 
-	// 8. Run POST-switch hooks
+	// Collect shell commands from CLI profile switching
+	for _, profile := range env.CLIProfiles {
+		if profile.Extra != nil {
+			switch profile.Tool {
+			case "stripe":
+				if v, ok := profile.Extra["secret_key"]; ok && v != "" {
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("STRIPE_API_KEY", v))
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("STRIPE_SECRET_KEY", v))
+				}
+				if v, ok := profile.Extra["publishable_key"]; ok && v != "" {
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("STRIPE_PUBLISHABLE_KEY", v))
+				}
+				if profile.Account != "" {
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("STRIPE_ACCOUNT", profile.Account))
+				}
+			case "supabase":
+				if profile.Account != "" {
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("SUPABASE_PROJECT_REF", profile.Account))
+				}
+				if v, ok := profile.Extra["token"]; ok && v != "" {
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("SUPABASE_ACCESS_TOKEN", v))
+				}
+			case "aws":
+				key, hasKey := profile.Extra["access_key_id"]
+				secret, hasSecret := profile.Extra["secret_access_key"]
+				hasExplicitKeys := hasKey && hasSecret && key != "" && secret != ""
+
+				if hasExplicitKeys {
+					// Export explicit keys and unset AWS_PROFILE
+					shellLines = append(shellLines, o.shellEmitter.EmitUnsetEnv("AWS_PROFILE"))
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_ACCESS_KEY_ID", key))
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_SECRET_ACCESS_KEY", secret))
+				} else if profile.Account != "" {
+					// Only set AWS_PROFILE if we don't have explicit keys
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_PROFILE", profile.Account))
+				}
+
+				if profile.Region != "" {
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_REGION", profile.Region))
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("AWS_DEFAULT_REGION", profile.Region))
+				}
+			case "vercel":
+				if v, ok := profile.Extra["token"]; ok && v != "" {
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("VERCEL_TOKEN", v))
+				}
+			case "railway":
+				if v, ok := profile.Extra["token"]; ok && v != "" {
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("RAILWAY_TOKEN", v))
+				}
+			case "fly":
+				if v, ok := profile.Extra["token"]; ok && v != "" {
+					shellLines = append(shellLines, o.shellEmitter.EmitSetEnv("FLY_API_TOKEN", v))
+				}
+			}
+		}
+	}
+	shellLines = append(shellLines, "")
+
+	// 7. Run POST-switch hooks
 	postResults := o.runHooks(project, env, envName, "post")
 	results = append(results, postResults...)
 
-	// 9. Aggregate results
+	// 8. Aggregate results
 	allSuccess := true
 	for _, r := range results {
 		if r.Status == domain.SkillStatusFailed {
@@ -146,7 +257,7 @@ func (o *Orchestrator) Switch(projectPath, envName string) (*SwitchResult, error
 
 	totalDuration := time.Since(startTime)
 
-	// 10. Final audit log
+	// 9. Final audit log
 	o.logAudit(domain.AuditActionSwitch, project.Name, envName, "",
 		fmt.Sprintf("Context switch completed in %dms (success=%v)", totalDuration.Milliseconds(), allSuccess),
 		allSuccess)

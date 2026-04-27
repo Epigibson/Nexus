@@ -4,6 +4,7 @@ import json
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from typing import List, Optional
+import os
 
 
 class Settings(BaseSettings):
@@ -32,8 +33,13 @@ class Settings(BaseSettings):
     # JWT & Crypto
     secret_key: str
     encryption_key: str
-    access_token_expire_minutes: int = 1440  # 24 hours
+    access_token_expire_minutes: int = 15  # 15 minutes (was 24 hours)
     algorithm: str = "HS256"
+
+    # AWS Cognito
+    cognito_region: str = "us-east-1"
+    cognito_user_pool_id: Optional[str] = None
+    cognito_client_id: Optional[str] = None
 
     # CORS
     cors_origins: List[str] = ["http://localhost:3000"]
@@ -51,6 +57,9 @@ class Settings(BaseSettings):
     stripe_publishable_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
     stripe_premium_price_id: Optional[str] = None  # "auto" = create on boot
+
+    # Environment
+    environment: str = "development"
 
     # Frontend
     frontend_url: str = "http://localhost:3000"
@@ -84,6 +93,11 @@ class Settings(BaseSettings):
     def is_postgres(self) -> bool:
         """Check if we're using PostgreSQL (Supabase) vs SQLite."""
         return "postgres" in self.database_url
+
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production (AWS Lambda)."""
+        return self.environment.lower() == "production" or "AWS_LAMBDA_FUNCTION_NAME" in os.environ
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

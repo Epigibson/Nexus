@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -72,212 +72,59 @@ Example:
 }
 
 // switchFromAPI performs a switch using data fetched from the Nexus API.
+// It converts the API DTO to a domain.Project (including skills and hooks),
+// then delegates to the same Orchestrator used by Local Mode.
+// This ensures a single source of truth for all switch logic.
 func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
-	startTime := time.Now()
+	// Convert API DTO to domain model (includes skills + hooks)
+	project := config.ProjectDTOToDomain(projectDTO)
 
-	// Find the target environment
-	var targetEnv *repository.EnvironmentDTO
-	for _, env := range projectDTO.Environments {
-		if env.Name == envName {
-			targetEnv = &env
-			break
-		}
-	}
-	if targetEnv == nil {
-		available := make([]string, 0, len(projectDTO.Environments))
-		for _, e := range projectDTO.Environments {
-			available = append(available, e.Name)
-		}
-		return fmt.Errorf("environment '%s' not found (available: %v)", envName, available)
+	// Show active skills summary
+	enabledSkills := project.GetEnabledSkills()
+	fmt.Printf("  🧩 Skills: %d/%d enabled\n", len(enabledSkills), len(project.Skills))
+
+	// Build the orchestrator (same one used by Local Mode)
+	orch, err := buildOrchestrator()
+	if err != nil {
+		return fmt.Errorf("failed to build orchestrator: %w", err)
 	}
 
-	fmt.Printf("  🚀 Switching context → \033[1;36m%s\033[0m / \033[1;33m%s\033[0m\n\n",
-		projectDTO.Name, envName)
+	// Start spinner
+	ctx, cancel := context.WithCancel(context.Background())
+	go showSpinner(ctx, fmt.Sprintf("Switching context to \033[1;36m%s\033[0m... please wait", envName))
 
-	// Build CLI profilers
-	allProfilers := executor.AllProfilers()
-	profilerMap := make(map[string]port.CLIProfiler)
-	for _, p := range allProfilers {
-		profilerMap[p.ToolName()] = p
+	// Execute the switch through the Orchestrator
+	// Pass empty string as projectPath since we already have the project loaded
+	result, err := orch.SwitchWithProject(project, envName)
+	cancel() // Stop spinner
+	
+	// Clear the spinner line
+	fmt.Printf("\r\033[K")
+
+	if err != nil {
+		return fmt.Errorf("switch failed: %w", err)
 	}
 
-	results := make([]string, 0)
-	hasErrors := false
+	// Sort results by status, then alphabetically
+	sortSkillResults(result.SkillResults)
 
-	// ── Inject env vars FIRST (tokens needed by profilers) ──
-	if len(targetEnv.EnvVars) > 0 {
-		for key, value := range targetEnv.EnvVars {
-			os.Setenv(key, value)
-		}
-	}
-
-	// ── Switch CLI profiles ──
-	for _, profile := range targetEnv.CLIProfiles {
-		profiler, ok := profilerMap[profile.Tool]
-		if !ok {
-			results = append(results, fmt.Sprintf("  ⏭️  %s — no profiler registered", profile.Tool))
-			continue
-		}
-
-		if !profiler.IsInstalled() {
-			results = append(results, fmt.Sprintf("  ⏭️  %s — CLI not installed", profile.Tool))
-			continue
-		}
-
-		domainProfile := domain.CLIProfile{
-			Tool:    profile.Tool,
-			Account: profile.Account,
-			Org:     profile.Org,
-			Region:  profile.Region,
-			Extra:   profile.Extra,
-		}
-
-		err := profiler.Switch(domainProfile)
-		if err != nil {
-			results = append(results, fmt.Sprintf("  ❌ %s — %v", profile.Tool, err))
-			hasErrors = true
-		} else {
-			results = append(results, fmt.Sprintf("  ✅ %s → %s", profile.Tool, profile.Account))
-		}
-	}
-
-	// ── Apply environment variables ──
-	shellEmitter := executor.DetectShellEmitter()
-	var shellLines []string
-
-	// Collect env vars from profilers (Stripe keys, etc.)
-	profilerEnvVars := map[string]string{}
-	for _, profile := range targetEnv.CLIProfiles {
-		if profile.Extra != nil {
-			switch profile.Tool {
-			case "stripe":
-				if v, ok := profile.Extra["secret_key"]; ok && v != "" {
-					profilerEnvVars["STRIPE_SECRET_KEY"] = v
-					profilerEnvVars["STRIPE_API_KEY"] = v
-				}
-				if v, ok := profile.Extra["publishable_key"]; ok && v != "" {
-					profilerEnvVars["STRIPE_PUBLISHABLE_KEY"] = v
-				}
-				if profile.Account != "" {
-					profilerEnvVars["STRIPE_ACCOUNT"] = profile.Account
-				}
-			case "supabase":
-				if profile.Account != "" {
-					profilerEnvVars["SUPABASE_PROJECT_REF"] = profile.Account
-				}
-				if v, ok := profile.Extra["token"]; ok && v != "" {
-					profilerEnvVars["SUPABASE_ACCESS_TOKEN"] = v
-				}
-			case "aws":
-				if profile.Account != "" {
-					profilerEnvVars["AWS_PROFILE"] = profile.Account
-				}
-				if profile.Region != "" {
-					profilerEnvVars["AWS_REGION"] = profile.Region
-					profilerEnvVars["AWS_DEFAULT_REGION"] = profile.Region
-				}
-			}
-		}
-	}
-
-	allEnvVars := make(map[string]string)
-	for k, v := range targetEnv.EnvVars {
-		allEnvVars[k] = v
-	}
-	for k, v := range profilerEnvVars {
-		allEnvVars[k] = v
-	}
-
-	if len(allEnvVars) > 0 {
-		shellLines = append(shellLines, shellEmitter.EmitComment(
-			fmt.Sprintf("Nexus Context Switch: %s → %s", projectDTO.Name, envName)))
-		shellLines = append(shellLines, shellEmitter.EmitComment(
-			fmt.Sprintf("Generated at: %s", time.Now().Format(time.RFC3339))))
-		shellLines = append(shellLines, "")
-
-		// Inject hybrid state context variables
-		shellLines = append(shellLines, shellEmitter.EmitSetEnv("NEXUS_ACTIVE_WORKSPACE", projectDTO.Name))
-		shellLines = append(shellLines, shellEmitter.EmitSetEnv("NEXUS_ACTIVE_ENV", envName))
-		shellLines = append(shellLines, "")
-
-		for key, value := range allEnvVars {
-			shellLines = append(shellLines, shellEmitter.EmitSetEnv(key, value))
-		}
-		results = append(results, fmt.Sprintf("  ✅ env vars — %d variables set", len(allEnvVars)))
-	}
-
-	// ── Git branch ──
-	if targetEnv.GitBranch != "" {
-		cwd, _ := os.Getwd()
-
-		// Fetch with timeout and --prune to clean stale remote refs
-		fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		fetchCmd := exec.CommandContext(fetchCtx, "git", "fetch", "--prune")
-		fetchCmd.Dir = cwd
-		_ = fetchCmd.Run()
-		fetchCancel()
-
-		// Count stash entries BEFORE stashing (locale-safe detection)
-		stashCountBefore := countGitStash(cwd)
-
-		// Stash any uncommitted work (including untracked files) to avoid conflicts
-		stashCtx, stashCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		stashCmd := exec.CommandContext(stashCtx, "git", "stash", "--include-untracked")
-		stashCmd.Dir = cwd
-		_ = stashCmd.Run()
-		stashCancel()
-
-		stashCountAfter := countGitStash(cwd)
-		didStash := stashCountAfter > stashCountBefore
-
-		// Checkout with timeout
-		checkoutCtx, checkoutCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		cmd := exec.CommandContext(checkoutCtx, "git", "checkout", targetEnv.GitBranch)
-		cmd.Dir = cwd
-		output, err := cmd.CombinedOutput()
-		checkoutCancel()
-
-		if err != nil {
-			// If checkout failed and we stashed, restore the stash
-			if didStash {
-				popCmd := exec.Command("git", "stash", "pop")
-				popCmd.Dir = cwd
-				_ = popCmd.Run()
-			}
-			results = append(results, fmt.Sprintf("  ❌ git branch — failed: %v (%s)", err, strings.TrimSpace(string(output))))
-			hasErrors = true
-		} else {
-			results = append(results, fmt.Sprintf("  📌 git branch — %s", targetEnv.GitBranch))
-			// Warn user that their changes are stashed
-			if didStash {
-				results = append(results, "  ⚠️  uncommitted changes stashed (run 'git stash pop' to restore)")
-			}
-		}
-	}
-
-	// ── Display results ──
+	// Display results
 	fmt.Println("  ─────────────────────────────────────────")
-	for _, r := range results {
-		fmt.Println(r)
+	for _, sr := range result.SkillResults {
+		if sr.Status != domain.SkillStatusSkipped {
+			fmt.Printf("  %s\n", sr.Summary())
+		}
 	}
 	fmt.Println("  ─────────────────────────────────────────")
 
-	if len(results) == 0 {
-		fmt.Println("  (no profiles configured for this environment)")
-	}
-
-	totalDuration := time.Since(startTime)
-
-	if hasErrors {
-		fmt.Printf("\n  ⚠️  \033[1;33mContext switch completed with warnings\033[0m (%dms)\n", totalDuration.Milliseconds())
+	if result.Success {
+		fmt.Printf("\n  ✨ \033[1;32mContext switch complete!\033[0m (%dms)\n", result.TotalDuration.Milliseconds())
 	} else {
-		fmt.Printf("\n  ✅ \033[1;32mContext switch complete!\033[0m (%dms)\n", totalDuration.Milliseconds())
+		fmt.Printf("\n  ⚠️  \033[1;33mContext switch completed with warnings\033[0m (%dms)\n", result.TotalDuration.Milliseconds())
 	}
 
-	// Write shell script silently (the shell wrapper auto-sources it)
-	if len(shellLines) > 0 {
-		shellScript := strings.Join(shellLines, "\n")
-
+	// Write shell script for env var sourcing
+	if result.ShellScript != "" {
 		home, _ := os.UserHomeDir()
 		ext := ".sh"
 		if runtime.GOOS == "windows" {
@@ -285,48 +132,20 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 		}
 		scriptPath := home + "/.nexus/last_switch" + ext
 		os.MkdirAll(home+"/.nexus", 0700)
-		os.WriteFile(scriptPath, []byte(shellScript), 0600)
+		os.WriteFile(scriptPath, []byte(result.ShellScript), 0600)
 	}
 
-	if !hasErrors {
+	if result.Success {
 		_ = state.SaveActiveState(domain.ActiveState{
-			ProjectName: projectDTO.Name,
+			ProjectName: project.Name,
 			Environment: envName,
 			Timestamp:   time.Now().UTC(),
 		})
 	}
 
-	// ── Send Audit Log ──
-	localLogger, _ := audit.NewFileLogger()
-	apiClient := repository.NewAPIClient(getAPIURL())
-	auditLog := audit.NewMultiLogger(localLogger, apiClient)
-	
-	_ = auditLog.Log(domain.AuditEntry{
-		Action:      domain.AuditActionSwitch,
-		ProjectName: projectDTO.Name,
-		Environment: envName,
-		Message:     fmt.Sprintf("Context switch completed in %dms (success=%v)", totalDuration.Milliseconds(), !hasErrors),
-		Success:     !hasErrors,
-		DurationMs:  totalDuration.Milliseconds(),
-	})
-
 	return nil
 }
 
-// countGitStash returns the number of stash entries (locale-safe).
-func countGitStash(dir string) int {
-	cmd := exec.Command("git", "stash", "list")
-	cmd.Dir = dir
-	output, err := cmd.Output()
-	if err != nil {
-		return 0
-	}
-	trimmed := strings.TrimSpace(string(output))
-	if trimmed == "" {
-		return 0
-	}
-	return len(strings.Split(trimmed, "\n"))
-}
 
 // switchLocal performs a switch using the local YAML configuration file.
 func switchLocal(args []string, envName string) error {
@@ -342,14 +161,28 @@ func switchLocal(args []string, envName string) error {
 
 	fmt.Printf("  🚀 Switching context → \033[1;36m%s\033[0m (local)\n\n", envName)
 
+	// Start spinner
+	ctx, cancel := context.WithCancel(context.Background())
+	go showSpinner(ctx, fmt.Sprintf("Switching context to \033[1;36m%s\033[0m... please wait", envName))
+
 	result, err := orch.Switch(configPath, envName)
+	cancel() // Stop spinner
+
+	// Clear the spinner line
+	fmt.Printf("\r\033[K")
+
 	if err != nil {
 		return fmt.Errorf("switch failed: %w", err)
 	}
 
+	// Sort results by status, then alphabetically
+	sortSkillResults(result.SkillResults)
+
 	fmt.Println("  ─────────────────────────────────────────")
 	for _, sr := range result.SkillResults {
-		fmt.Printf("  %s\n", sr.Summary())
+		if sr.Status != domain.SkillStatusSkipped {
+			fmt.Printf("  %s\n", sr.Summary())
+		}
 	}
 	fmt.Println("  ─────────────────────────────────────────")
 
@@ -398,6 +231,11 @@ func buildOrchestrator() (*service.Orchestrator, error) {
 	envInjector := executor.NewEnvInjector()
 	gitSwitcher := executor.NewGitSwitcher()
 	scriptRunner := executor.NewScriptRunner()
+	docGenerator := executor.NewDocGenerator()
+	cloudAuditSync := executor.NewCloudAuditSync()
+	sandbox := executor.NewSandbox()
+	teamSync := executor.NewTeamContextSync()
+	secretRotation := executor.NewSecretRotation()
 
 	allProfilers := executor.AllProfilers()
 	cliProfilers := make([]port.CLIProfiler, 0, len(allProfilers))
@@ -415,13 +253,73 @@ func buildOrchestrator() (*service.Orchestrator, error) {
 
 	shellEmitter := executor.DetectShellEmitter()
 
+	// Build the base executors map
+	baseExecutors := []port.SkillExecutor{
+		envInjector, gitSwitcher, scriptRunner, docGenerator,
+		cloudAuditSync, sandbox, teamSync, secretRotation,
+	}
+
+	// Create a map for the parallel executor to reference
+	executorMap := make(map[string]port.SkillExecutor)
+	for _, e := range baseExecutors {
+		executorMap[e.Name()] = e
+	}
+
+	// Create the parallel executor (wraps all other executors for concurrent execution)
+	parallelExecutor := executor.NewParallelExecutor(executorMap)
+
+	// All executors including the parallel one
+	allExecutors := append(baseExecutors, parallelExecutor)
+
 	orch := service.NewOrchestrator(service.OrchestratorConfig{
 		ConfigReader:  reader,
-		Executors:     []port.SkillExecutor{envInjector, gitSwitcher, scriptRunner},
+		Executors:     allExecutors,
 		CLIProfilers:  cliProfilers,
 		AuditLogger:   auditLogger,
 		ShellEmitter:  shellEmitter,
 	})
 
 	return orch, nil
+}
+
+// sortSkillResults orders the results primarily by Status (Failures -> Success -> Skipped)
+// and secondarily alphabetically by SkillName.
+func sortSkillResults(results []domain.SkillResult) {
+	statusWeight := func(status domain.SkillStatus) int {
+		switch status {
+		case domain.SkillStatusFailed:
+			return 0
+		case domain.SkillStatusSuccess:
+			return 1
+		case domain.SkillStatusSkipped:
+			return 4
+		default:
+			return 2
+		}
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		w1 := statusWeight(results[i].Status)
+		w2 := statusWeight(results[j].Status)
+		if w1 == w2 {
+			return results[i].SkillName < results[j].SkillName
+		}
+		return w1 < w2
+	})
+}
+
+// showSpinner displays an animated braille spinner until the context is canceled.
+func showSpinner(ctx context.Context, message string) {
+	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	i := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			fmt.Printf("\r  \033[1;33m%s\033[0m %s", frames[i%len(frames)], message)
+			i++
+			time.Sleep(80 * time.Millisecond)
+		}
+	}
 }

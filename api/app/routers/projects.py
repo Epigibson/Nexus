@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
+from app.models.project import Project
 from app.models.environment import EnvironmentProfile
 from app.schemas.project import (
     ProjectResponse, ProjectCreate, ProjectUpdate,
@@ -13,8 +14,7 @@ from app.schemas.project import (
 )
 from app.services.project_service import (
     list_projects, get_project_by_slug, create_project,
-    update_project, delete_project, get_project_switch_count,
-    get_project_last_switch, batch_get_switch_stats,
+    update_project, delete_project, batch_get_switch_stats,
 )
 from app.services.crypto_service import encrypt_dict, decrypt_dict, encrypt_value
 from app.services.plan_enforcement import check_cli_tools_limit
@@ -65,55 +65,45 @@ def _env_to_schema_unmasked(env: EnvironmentProfile) -> EnvironmentSchema:
     )
 
 
-async def _project_response(db, project) -> ProjectResponse:
-    switch_count = await get_project_switch_count(db, project.id)
-    last_switch = await get_project_last_switch(db, project.id)
+def _project_to_schema(project: Project, stats: dict, unmasked: bool = False) -> ProjectResponse:
+    """Convert a Project model to a ProjectResponse schema with stats."""
+    if unmasked:
+        envs = [_env_to_schema_unmasked(e) for e in project.environments]
+    else:
+        envs = [_env_to_schema(e) for e in project.environments]
 
-    envs = [_env_to_schema(e) for e in project.environments]
     skills = []
     for sc in project.skill_configs:
-        s = sc.skill
-        if s:
+        sk = sc.skill
+        if sk:
             skills.append(SkillSchema(
-                id=s.id, name=s.name, description=s.description,
-                category=s.category, icon=s.icon,
+                id=sk.id, name=sk.name, description=sk.description,
+                category=sk.category, icon=sk.icon,
                 is_enabled=sc.is_enabled, priority=sc.priority,
-                is_premium=s.is_premium,
+                is_premium=sk.is_premium,
             ))
 
     return ProjectResponse(
         id=project.id, name=project.name, slug=project.slug,
         description=project.description, repo_url=project.repo_url,
         is_active=project.is_active, environments=envs, skills=skills,
-        switch_count=switch_count, last_switch=last_switch,
+        switch_count=stats.get("count", 0),
+        last_switch=stats.get("last_switch"),
         created_at=project.created_at.isoformat() if project.created_at else "",
     )
+
+
+async def _project_response(db, project) -> ProjectResponse:
+    stats_map = await batch_get_switch_stats(db, [project.id])
+    stats = stats_map.get(project.id, {"count": 0, "last_switch": None})
+    return _project_to_schema(project, stats, unmasked=False)
 
 
 async def _project_response_unmasked(db, project) -> ProjectResponse:
     """Same as _project_response but env vars are NOT masked. For CLI only."""
-    switch_count = await get_project_switch_count(db, project.id)
-    last_switch = await get_project_last_switch(db, project.id)
-
-    envs = [_env_to_schema_unmasked(e) for e in project.environments]
-    skills = []
-    for sc in project.skill_configs:
-        s = sc.skill
-        if s:
-            skills.append(SkillSchema(
-                id=s.id, name=s.name, description=s.description,
-                category=s.category, icon=s.icon,
-                is_enabled=sc.is_enabled, priority=sc.priority,
-                is_premium=s.is_premium,
-            ))
-
-    return ProjectResponse(
-        id=project.id, name=project.name, slug=project.slug,
-        description=project.description, repo_url=project.repo_url,
-        is_active=project.is_active, environments=envs, skills=skills,
-        switch_count=switch_count, last_switch=last_switch,
-        created_at=project.created_at.isoformat() if project.created_at else "",
-    )
+    stats_map = await batch_get_switch_stats(db, [project.id])
+    stats = stats_map.get(project.id, {"count": 0, "last_switch": None})
+    return _project_to_schema(project, stats, unmasked=True)
 
 
 @router.get("/", response_model=list[ProjectResponse])
@@ -121,32 +111,14 @@ async def list_all(user: User = Depends(get_current_user), db: AsyncSession = De
     """Listar todos los proyectos del usuario."""
     projects = await list_projects(db, user.id)
 
-    # Batch-load switch stats: 2 queries total instead of 2 per project (N+1 fix)
+    # Batch-load switch stats: 1 query total instead of 2 per project (N+1 fix)
     project_ids = [p.id for p in projects]
-    stats = await batch_get_switch_stats(db, project_ids)
+    stats_map = await batch_get_switch_stats(db, project_ids)
 
-    results = []
-    for project in projects:
-        s = stats.get(project.id, {"count": 0, "last_switch": None})
-        envs = [_env_to_schema(e) for e in project.environments]
-        skills = []
-        for sc in project.skill_configs:
-            sk = sc.skill
-            if sk:
-                skills.append(SkillSchema(
-                    id=sk.id, name=sk.name, description=sk.description,
-                    category=sk.category, icon=sk.icon,
-                    is_enabled=sc.is_enabled, priority=sc.priority,
-                    is_premium=sk.is_premium,
-                ))
-        results.append(ProjectResponse(
-            id=project.id, name=project.name, slug=project.slug,
-            description=project.description, repo_url=project.repo_url,
-            is_active=project.is_active, environments=envs, skills=skills,
-            switch_count=s["count"], last_switch=s["last_switch"],
-            created_at=project.created_at.isoformat() if project.created_at else "",
-        ))
-    return results
+    return [
+        _project_to_schema(p, stats_map.get(p.id, {}), unmasked=False)
+        for p in projects
+    ]
 
 
 @router.post("/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)

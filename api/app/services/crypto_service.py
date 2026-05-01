@@ -6,11 +6,7 @@ from app.config import settings
 
 # Initialize Fernet with the symmetric key
 # The key must be 32 url-safe base64-encoded bytes.
-try:
-    _fernet = Fernet(settings.encryption_key.encode('utf-8'))
-except ValueError:
-    # Fallback to generate a valid key if somehow the user messes up the config
-    _fernet = Fernet(Fernet.generate_key())
+_fernet = Fernet(settings.encryption_key.encode('utf-8'))
 
 
 def encrypt_value(plain: str) -> str:

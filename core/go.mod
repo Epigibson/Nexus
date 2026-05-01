@@ -1,6 +1,6 @@
 module github.com/nexus-dev/nexus
 
-go 1.26.1
+go 1.24.3
 
 require (
 	github.com/spf13/cobra v1.10.2

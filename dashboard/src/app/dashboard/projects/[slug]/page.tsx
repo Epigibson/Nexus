@@ -407,8 +407,9 @@ export default function ProjectDetailPage() {
   }
 
   // Merge skills catalog with project skills
+  const projectSkillsMap = new Map(project.skills.map((ps) => [ps.id, ps]));
   const mergedSkills = skillCatalog.map((s) => {
-    const ps = project.skills.find((ps) => ps.id === s.id);
+    const ps = projectSkillsMap.get(s.id);
     return { ...s, is_enabled: ps?.is_enabled ?? false, priority: ps?.priority ?? 10 };
   });
 

@@ -22,6 +22,7 @@ import (
 
 func newSwitchCmd() *cobra.Command {
 	var envName string
+	var refresh bool
 
 	cmd := &cobra.Command{
 		Use:   "switch <project-name>",
@@ -30,13 +31,16 @@ func newSwitchCmd() *cobra.Command {
 the specified project and environment. This is the core command of Nexus.
 
 If you are authenticated (run 'nexus login' first), the project
-configuration is fetched from the cloud API. Otherwise, it reads from
-a local nexus.yaml file.
+configuration is loaded from local cache. If no cache exists, it fetches
+from the cloud API and caches for future use.
+
+Use --refresh to force a fresh fetch from the cloud.
+Use 'nexus sync' to update cached configs after dashboard changes.
 
 Example:
   nexus switch my-saas-app --env production
   nexus switch client-dashboard --env staging
-  nexus switch personal-blog`,
+  nexus switch personal-blog --refresh`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if envName == "" {
@@ -49,9 +53,20 @@ Example:
 			client := repository.NewAPIClient(getAPIURL())
 			if client.IsAuthenticated() && len(args) > 0 {
 				projectSlug := args[0]
+
+				// Check local cache first (unless --refresh is set)
+				if !refresh {
+					cached, err := repository.LoadProjectCache(projectSlug)
+					if err == nil && cached != nil {
+						fmt.Printf("  📦 Using cached config for '%s'\n", projectSlug)
+						return switchFromAPI(cached, envName)
+					}
+				}
+
+				// No cache or --refresh: fetch from API
 				fmt.Printf("  ☁️  Cloud mode — fetching project '%s'\n", projectSlug)
 
-				project, err := client.GetProject(projectSlug)
+				project, err := client.SyncProject(projectSlug)
 				if err != nil {
 					fmt.Printf("  ⚠️  Cloud fetch failed: %v\n", err)
 					fmt.Println("  Falling back to local config...")
@@ -67,6 +82,7 @@ Example:
 	}
 
 	cmd.Flags().StringVarP(&envName, "env", "e", "development", "Target environment (development, staging, production)")
+	cmd.Flags().BoolVarP(&refresh, "refresh", "r", false, "Force fresh fetch from cloud (bypass cache)")
 
 	return cmd
 }
@@ -84,10 +100,11 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 	fmt.Printf("  🧩 Skills: %d/%d enabled\n", len(enabledSkills), len(project.Skills))
 
 	// Build the orchestrator (same one used by Local Mode)
-	orch, err := buildOrchestrator()
+	orch, auditFlusher, err := buildOrchestrator()
 	if err != nil {
 		return fmt.Errorf("failed to build orchestrator: %w", err)
 	}
+	defer auditFlusher.Flush() // Ensure background audit logs complete before exit
 
 	// Start spinner
 	ctx, cancel := context.WithCancel(context.Background())
@@ -149,10 +166,11 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 
 // switchLocal performs a switch using the local YAML configuration file.
 func switchLocal(args []string, envName string) error {
-	orch, err := buildOrchestrator()
+	orch, auditFlusher, err := buildOrchestrator()
 	if err != nil {
 		return err
 	}
+	defer auditFlusher.Flush() // Ensure background audit logs complete before exit
 
 	configPath := cfgFile
 	if len(args) > 0 {
@@ -225,7 +243,8 @@ func switchLocal(args []string, envName string) error {
 }
 
 // buildOrchestrator wires up all adapters and creates the orchestrator.
-func buildOrchestrator() (*service.Orchestrator, error) {
+// Returns the orchestrator and the MultiLogger (for flushing background logs before exit).
+func buildOrchestrator() (*service.Orchestrator, *audit.MultiLogger, error) {
 	reader := config.NewYAMLReader()
 
 	envInjector := executor.NewEnvInjector()
@@ -245,7 +264,7 @@ func buildOrchestrator() (*service.Orchestrator, error) {
 
 	localLogger, err := audit.NewFileLogger()
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize audit logger: %w", err)
+		return nil, nil, fmt.Errorf("failed to initialize audit logger: %w", err)
 	}
 
 	apiClient := repository.NewAPIClient(getAPIURL())
@@ -279,7 +298,7 @@ func buildOrchestrator() (*service.Orchestrator, error) {
 		ShellEmitter:  shellEmitter,
 	})
 
-	return orch, nil
+	return orch, auditLogger, nil
 }
 
 // sortSkillResults orders the results primarily by Status (Failures -> Success -> Skipped)

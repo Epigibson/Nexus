@@ -66,73 +66,16 @@ The key is stored securely in ~/.nexus/credentials.`,
 			fmt.Println()
 			fmt.Printf("✅ Authenticated as %s (%s)\n", user.DisplayName, user.Email)
 			fmt.Printf("📋 Plan: %s\n", user.Plan)
-			fmt.Println()
-			fmt.Println("Run 'nexus sync' to pull your projects from the cloud.")
+
+			// Auto-sync: cache all projects locally for instant switching
+			SyncAfterLogin(getAPIURL())
+
 			return nil
 		},
 	}
 }
 
-// newSyncCmd creates the `nexus sync` command.
-func newSyncCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "sync",
-		Short: "Sync projects and audit log with the cloud",
-		Long: `Synchronize your local project configurations with the Nexus cloud.
-
-This command:
-  • Pulls project configs from the API into your local YAML
-  • Pushes local audit log entries to the cloud
-  • Shows a summary of what changed`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client := repository.NewAPIClient(getAPIURL())
-			if !client.IsAuthenticated() {
-				return fmt.Errorf("not authenticated — run 'nexus login' first")
-			}
-
-			fmt.Println("🔄 Nexus Sync")
-			fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-			fmt.Println()
-
-			// 1. Validate credentials
-			fmt.Print("  Authenticating... ")
-			user, err := client.GetProfile()
-			if err != nil {
-				fmt.Println("❌")
-				return err
-			}
-			fmt.Printf("✅ %s\n", user.Email)
-
-			// 2. Pull projects from cloud
-			fmt.Print("  Pulling projects... ")
-			projects, err := client.ListProjects()
-			if err != nil {
-				fmt.Println("❌")
-				return err
-			}
-			fmt.Printf("✅ %d projects found\n", len(projects))
-
-			// 3. Display summary
-			fmt.Println()
-			fmt.Println("📦 Cloud Projects:")
-			for _, p := range projects {
-				status := "✅"
-				if !p.IsActive {
-					status = "❌"
-				}
-				fmt.Printf("  %s %s (%s)\n", status, p.Name, p.Slug)
-				for _, env := range p.Environments {
-					toolCount := len(env.CLIProfiles)
-					fmt.Printf("      └─ %s (branch: %s, %d tools)\n", env.Name, env.GitBranch, toolCount)
-				}
-			}
-
-			fmt.Println()
-			fmt.Println("✅ Sync complete!")
-			return nil
-		},
-	}
-}
+// Old newSyncCmd removed — replaced by sync.go with local cache support.
 
 // newStatusCmd creates the `nexus status` command.
 func newStatusCmd() *cobra.Command {

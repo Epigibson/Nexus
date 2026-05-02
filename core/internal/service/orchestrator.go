@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nexus-dev/nexus/internal/domain"
@@ -302,64 +303,75 @@ func (o *Orchestrator) executeSkill(project *domain.Project, env *domain.Environ
 }
 
 // switchCLIProfiles handles the core value proposition: switching all CLI tools.
+// All profiles are switched concurrently for maximum speed.
 func (o *Orchestrator) switchCLIProfiles(project *domain.Project, env *domain.EnvironmentConfig, envName string) []domain.SkillResult {
-	var results []domain.SkillResult
-
-	for _, profile := range env.CLIProfiles {
-		startTime := time.Now()
-
-		profiler, ok := o.cliProfilers[profile.Tool]
-		if !ok {
-			results = append(results, domain.SkillResult{
-				SkillName: fmt.Sprintf("cli:%s", profile.Tool),
-				Status:    domain.SkillStatusSkipped,
-				Message:   fmt.Sprintf("No profiler registered for tool '%s'", profile.Tool),
-				Duration:  time.Since(startTime),
-			})
-			continue
-		}
-
-		// Check if tool is installed
-		if !profiler.IsInstalled() {
-			results = append(results, domain.SkillResult{
-				SkillName: fmt.Sprintf("cli:%s", profile.Tool),
-				Status:    domain.SkillStatusSkipped,
-				Message:   fmt.Sprintf("Tool '%s' is not installed, skipping", profile.Tool),
-				Duration:  time.Since(startTime),
-			})
-			continue
-		}
-
-		// Get current profile for comparison
-		currentProfile, _ := profiler.CurrentProfile()
-
-		// Switch to the target profile
-		if err := profiler.Switch(profile); err != nil {
-			results = append(results, domain.SkillResult{
-				SkillName: fmt.Sprintf("cli:%s", profile.Tool),
-				Status:    domain.SkillStatusFailed,
-				Message:   fmt.Sprintf("Failed to switch %s to '%s': %v", profile.Tool, profile.Account, err),
-				Duration:  time.Since(startTime),
-				Error:     err,
-			})
-
-			o.logAudit(domain.AuditActionCLISwitch, project.Name, envName, profile.Tool,
-				fmt.Sprintf("Failed to switch %s from '%s' → '%s'", profile.Tool, currentProfile, profile.Account), false)
-			continue
-		}
-
-		results = append(results, domain.SkillResult{
-			SkillName: fmt.Sprintf("cli:%s", profile.Tool),
-			Status:    domain.SkillStatusSuccess,
-			Message:   fmt.Sprintf("Switched %s: '%s' → '%s'", profile.Tool, currentProfile, profile.Account),
-			Duration:  time.Since(startTime),
-			Actions:   []string{fmt.Sprintf("%s account changed to %s", profile.Tool, profile.Account)},
-		})
-
-		o.logAudit(domain.AuditActionCLISwitch, project.Name, envName, profile.Tool,
-			fmt.Sprintf("Switched %s: '%s' → '%s'", profile.Tool, currentProfile, profile.Account), true)
+	if len(env.CLIProfiles) == 0 {
+		return nil
 	}
 
+	results := make([]domain.SkillResult, len(env.CLIProfiles))
+	var wg sync.WaitGroup
+
+	wg.Add(len(env.CLIProfiles))
+	for i, profile := range env.CLIProfiles {
+		go func(idx int, profile domain.CLIProfile) {
+			defer wg.Done()
+			startTime := time.Now()
+
+			profiler, ok := o.cliProfilers[profile.Tool]
+			if !ok {
+				results[idx] = domain.SkillResult{
+					SkillName: fmt.Sprintf("cli:%s", profile.Tool),
+					Status:    domain.SkillStatusSkipped,
+					Message:   fmt.Sprintf("No profiler registered for tool '%s'", profile.Tool),
+					Duration:  time.Since(startTime),
+				}
+				return
+			}
+
+			// Check if tool is installed
+			if !profiler.IsInstalled() {
+				results[idx] = domain.SkillResult{
+					SkillName: fmt.Sprintf("cli:%s", profile.Tool),
+					Status:    domain.SkillStatusSkipped,
+					Message:   fmt.Sprintf("Tool '%s' is not installed, skipping", profile.Tool),
+					Duration:  time.Since(startTime),
+				}
+				return
+			}
+
+			// Get current profile for comparison
+			currentProfile, _ := profiler.CurrentProfile()
+
+			// Switch to the target profile
+			if err := profiler.Switch(profile); err != nil {
+				results[idx] = domain.SkillResult{
+					SkillName: fmt.Sprintf("cli:%s", profile.Tool),
+					Status:    domain.SkillStatusFailed,
+					Message:   fmt.Sprintf("Failed to switch %s to '%s': %v", profile.Tool, profile.Account, err),
+					Duration:  time.Since(startTime),
+					Error:     err,
+				}
+
+				o.logAudit(domain.AuditActionCLISwitch, project.Name, envName, profile.Tool,
+					fmt.Sprintf("Failed to switch %s from '%s' → '%s'", profile.Tool, currentProfile, profile.Account), false)
+				return
+			}
+
+			results[idx] = domain.SkillResult{
+				SkillName: fmt.Sprintf("cli:%s", profile.Tool),
+				Status:    domain.SkillStatusSuccess,
+				Message:   fmt.Sprintf("Switched %s: '%s' → '%s'", profile.Tool, currentProfile, profile.Account),
+				Duration:  time.Since(startTime),
+				Actions:   []string{fmt.Sprintf("%s account changed to %s", profile.Tool, profile.Account)},
+			}
+
+			o.logAudit(domain.AuditActionCLISwitch, project.Name, envName, profile.Tool,
+				fmt.Sprintf("Switched %s: '%s' → '%s'", profile.Tool, currentProfile, profile.Account), true)
+		}(i, profile)
+	}
+
+	wg.Wait()
 	return results
 }
 

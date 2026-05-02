@@ -638,20 +638,34 @@ func (f *FlyProfiler) ListProfiles() ([]string, error) {
 // Expo Profiler
 // ============================================================================
 
-// ExpoProfiler manages Expo CLI profile switching.
+// ExpoProfiler manages Expo/EAS CLI profile switching.
+// Supports both modern `eas` and legacy `expo` CLI binaries.
 type ExpoProfiler struct{}
 
 func NewExpoProfiler() *ExpoProfiler { return &ExpoProfiler{} }
 
 func (e *ExpoProfiler) ToolName() string { return "expo" }
 
+// exoCLI returns the available Expo CLI binary name ("eas" preferred, "expo" fallback).
+func (e *ExpoProfiler) exoCLI() string {
+	if _, err := exec.LookPath("eas"); err == nil {
+		return "eas"
+	}
+	return "expo"
+}
+
 func (e *ExpoProfiler) IsInstalled() bool {
+	// Check for modern EAS CLI first, then legacy expo
+	if _, err := exec.LookPath("eas"); err == nil {
+		return true
+	}
 	_, err := exec.LookPath("expo")
 	return err == nil
 }
 
 func (e *ExpoProfiler) CurrentProfile() (string, error) {
-	cmd := exec.Command("expo", "whoami")
+	cli := e.exoCLI()
+	cmd := exec.Command(cli, "whoami")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "none", nil
@@ -660,28 +674,9 @@ func (e *ExpoProfiler) CurrentProfile() (string, error) {
 }
 
 func (e *ExpoProfiler) Switch(profile domain.CLIProfile) error {
-	// Step 1: Always logout first to clear any existing session
-	logoutCmd := exec.Command("expo", "logout")
-	_ = logoutCmd.Run() // Ignore error if not logged in
+	cli := e.exoCLI()
 
-	// Step 2: Try explicit login with username and password
-	password := ""
-	if profile.Extra != nil {
-		if p, ok := profile.Extra["password"]; ok && p != "" {
-			password = p
-		}
-	}
-
-	if password != "" && profile.Account != "" {
-		loginCmd := exec.Command("expo", "login", "-u", profile.Account, "-p", password)
-		output, err := loginCmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("expo login failed: %s", strings.TrimSpace(string(output)))
-		}
-		return nil // Session created successfully
-	}
-
-	// Step 3: Fallback to token-based auth
+	// Step 1: Resolve token from Extra or env var
 	token := ""
 	if profile.Extra != nil {
 		if t, ok := profile.Extra["token"]; ok && t != "" {
@@ -692,12 +687,43 @@ func (e *ExpoProfiler) Switch(profile domain.CLIProfile) error {
 		token = os.Getenv("EXPO_TOKEN")
 	}
 
+	// Step 2: Token-based auth (works for both eas and expo)
 	if token != "" {
 		os.Setenv("EXPO_TOKEN", token)
+
+		// Verify the token works
+		verifyCmd := exec.Command(cli, "whoami")
+		output, err := verifyCmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%s: token auth failed — verify your EXPO_TOKEN is valid: %s", cli, strings.TrimSpace(string(output)))
+		}
 		return nil
 	}
 
-	return fmt.Errorf("expo: no token or password found. Add password or token in your extra fields")
+	// Step 3: Username/password login (legacy `expo` CLI only)
+	if cli == "expo" {
+		password := ""
+		if profile.Extra != nil {
+			if p, ok := profile.Extra["password"]; ok && p != "" {
+				password = p
+			}
+		}
+
+		if password != "" && profile.Account != "" {
+			// Logout first to clear stale sessions
+			logoutCmd := exec.Command(cli, "logout")
+			_ = logoutCmd.Run()
+
+			loginCmd := exec.Command(cli, "login", "-u", profile.Account, "-p", password)
+			output, err := loginCmd.CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("%s login failed: %s", cli, strings.TrimSpace(string(output)))
+			}
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%s: no EXPO_TOKEN found. Generate one at https://expo.dev/accounts/[account]/settings/access-tokens and add it to your profile's extra fields as 'token'", cli)
 }
 
 func (e *ExpoProfiler) ListProfiles() ([]string, error) {

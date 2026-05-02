@@ -66,3 +66,6 @@ audit.jsonl
 
 # Serverless
 .serverless/
+
+# Nexus auto-generated context
+NEXUS_CONTEXT.md

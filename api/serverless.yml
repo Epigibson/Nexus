@@ -30,22 +30,7 @@ provider:
     COGNITO_CLIENT_ID: ${env:COGNITO_CLIENT_ID, '71qj9s2k6aprmnsur7rmbbka35'}
     ENVIRONMENT: production
   httpApi:
-    cors:
-      allowedOrigins:
-        - http://localhost:3000
-        - https://nexusproject.pro
-        - https://master.d3cehroonlwhdk.amplifyapp.com
-      allowedHeaders:
-        - Content-Type
-        - Authorization
-      allowedMethods:
-        - GET
-        - POST
-        - PUT
-        - DELETE
-        - OPTIONS
-        - PATCH
-      allowCredentials: true
+    cors: false
 
 package:
   patterns:

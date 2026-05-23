@@ -35,6 +35,7 @@ export default function SettingsPage() {
   const [generatingKey, setGeneratingKey] = useState(false);
   const [keyCopied, setKeyCopied] = useState(false);
   const [showKey, setShowKey] = useState(true);
+  const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
 
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [mfaLoading, setMfaLoading] = useState(true);
@@ -61,7 +62,18 @@ export default function SettingsPage() {
     catch (e) { console.error(e); } finally { setGeneratingKey(false); }
   };
   const handleCopyKey = async () => { if (generatedKey) { await navigator.clipboard.writeText(generatedKey); setKeyCopied(true); setTimeout(() => setKeyCopied(false), 2000); } };
-  const handleRevokeKey = async (id: string) => { try { await api.revokeApiKey(id); await loadApiKeys(); setGeneratedKey(null); } catch {} };
+  const handleRevokeKey = async (id: string) => {
+    setRevokingKeyId(id);
+    try {
+      await api.revokeApiKey(id);
+      await loadApiKeys();
+      setGeneratedKey(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRevokingKeyId(null);
+    }
+  };
   const handleSave = async () => {
     setSaving(true); setSaved(false);
     try { await api.updateProfile({ display_name: name }); await refreshProfile(); setSaved(true); setTimeout(() => setSaved(false), 2000); }
@@ -410,8 +422,20 @@ export default function SettingsPage() {
                         <div className="font-mono text-[11px] text-muted-foreground">{key.key_prefix}</div>
                         <div className="text-[11px] text-muted-foreground">{key.last_used_at ? `Uso: ${new Date(key.last_used_at).toLocaleDateString()}` : "Sin usar"} · {new Date(key.created_at).toLocaleDateString()}</div>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => handleRevokeKey(key.id)} className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10">
-                        <Trash2 className="h-4 w-4" />
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleRevokeKey(key.id)} 
+                        disabled={revokingKeyId !== null}
+                        className={`text-destructive transition-all hover:bg-destructive/10 disabled:opacity-50 ${
+                          revokingKeyId === key.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        }`}
+                      >
+                        {revokingKeyId === key.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   ))}

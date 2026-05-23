@@ -202,6 +202,9 @@ export default function ProjectDetailPage() {
   // Delete confirm
   const [deletingEnv, setDeletingEnv] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [envDeleting, setEnvDeleting] = useState(false);
+  const [deletingProfileKey, setDeletingProfileKey] = useState<string | null>(null);
+  const [projectDeleting, setProjectDeleting] = useState(false);
 
   const loadProject = useCallback(async () => {
     try {
@@ -264,8 +267,16 @@ export default function ProjectDetailPage() {
   };
 
   const handleDeleteEnv = async (name: string) => {
-    try { await api.deleteEnvironment(slug, name); setDeletingEnv(null); await loadProject(); }
-    catch (err) { console.error(err); }
+    setEnvDeleting(true);
+    try {
+      await api.deleteEnvironment(slug, name);
+      setDeletingEnv(null);
+      await loadProject();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEnvDeleting(false);
+    }
   };
 
   /* ── Profile Modal helpers ── */
@@ -340,11 +351,19 @@ export default function ProjectDetailPage() {
   };
 
   const handleDeleteProfile = async (envName: string, index: number) => {
-    const env = project?.environments.find((e) => e.name === envName);
-    if (!env) return;
-    const updatedProfiles = env.cli_profiles.filter((_, i) => i !== index);
-    await api.updateEnvironment(slug, envName, { cli_profiles: updatedProfiles });
-    await loadProject();
+    const key = `${envName}-${index}`;
+    setDeletingProfileKey(key);
+    try {
+      const env = project?.environments.find((e) => e.name === envName);
+      if (!env) return;
+      const updatedProfiles = env.cli_profiles.filter((_, i) => i !== index);
+      await api.updateEnvironment(slug, envName, { cli_profiles: updatedProfiles });
+      await loadProject();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeletingProfileKey(null);
+    }
   };
 
   /* ── Skills ── */
@@ -394,11 +413,14 @@ export default function ProjectDetailPage() {
     const confirm = window.confirm(`¿Estás seguro de que deseas eliminar permanentemente el proyecto "${project.name}" y todos sus entornos? Esta acción es irreversible.`);
     if (!confirm) return;
 
+    setProjectDeleting(true);
     try {
       await api.deleteProject(slug);
       router.push("/dashboard/projects");
     } catch (err: unknown) {
       setProjectError(err instanceof Error ? err.message : "Error al eliminar");
+    } finally {
+      setProjectDeleting(false);
     }
   };
 
@@ -514,13 +536,16 @@ export default function ProjectDetailPage() {
                     </Button>
                     {deletingEnv === env.name ? (
                       <div className="flex items-center gap-1">
-                        <Button variant="destructive" size="sm" className="h-7 text-xs"
-                          onClick={() => handleDeleteEnv(env.name)}>Sí, eliminar</Button>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs"
+                        <Button variant="destructive" size="sm" className="h-7 text-xs" disabled={envDeleting}
+                          onClick={() => handleDeleteEnv(env.name)}>
+                          {envDeleting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                          Sí, eliminar
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" disabled={envDeleting}
                           onClick={() => setDeletingEnv(null)}>No</Button>
                       </div>
                     ) : (
-                      <Button variant="ghost" size="sm"
+                      <Button variant="ghost" size="sm" disabled={envDeleting}
                         className="h-7 text-xs text-destructive hover:text-destructive"
                         onClick={() => setDeletingEnv(env.name)}>
                         <Trash2 className="h-3 w-3" />
@@ -581,14 +606,14 @@ export default function ProjectDetailPage() {
                               {profile.region && ` · ${profile.region}`}
                             </div>
                           </div>
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover/profile:opacity-100 transition-opacity">
-                            <button onClick={() => openEditProfile(env.name, profile, idx)}
-                              className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                          <div className={`flex items-center gap-0.5 transition-opacity ${deletingProfileKey === `${env.name}-${idx}` ? "opacity-100" : "opacity-0 group-hover/profile:opacity-100"}`}>
+                            <button onClick={() => openEditProfile(env.name, profile, idx)} disabled={deletingProfileKey !== null}
+                              className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
                               <Pencil className="h-3 w-3" />
                             </button>
-                            <button onClick={() => handleDeleteProfile(env.name, idx)}
-                              className="rounded p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                              <Trash2 className="h-3 w-3" />
+                            <button onClick={() => handleDeleteProfile(env.name, idx)} disabled={deletingProfileKey !== null}
+                              className={`rounded p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 ${deletingProfileKey === `${env.name}-${idx}` ? "text-destructive" : ""}`}>
+                              {deletingProfileKey === `${env.name}-${idx}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                             </button>
                           </div>
                         </div>
@@ -1162,13 +1187,14 @@ export default function ProjectDetailPage() {
               )}
 
               <div className="flex justify-between items-center pt-4 border-t border-border/40 mt-4">
-                <Button type="button" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive text-sm"
+                <Button type="button" variant="ghost" disabled={projectDeleting || projectSaving} className="text-destructive hover:bg-destructive/10 hover:text-destructive text-sm"
                   onClick={handleProjectDelete}>
-                  <Trash2 className="h-4 w-4 mr-2" /> Eliminar Proyecto
+                  {projectDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                  Eliminar Proyecto
                 </Button>
                 <div className="flex gap-3">
-                  <Button type="button" variant="outline" onClick={() => setShowProjectModal(false)}>Cancelar</Button>
-                  <Button type="submit" disabled={projectSaving || !projectForm.name.trim()}
+                  <Button type="button" variant="outline" disabled={projectDeleting || projectSaving} onClick={() => setShowProjectModal(false)}>Cancelar</Button>
+                  <Button type="submit" disabled={projectSaving || projectDeleting || !projectForm.name.trim()}
                     className="gap-2 gradient-violet text-white hover:opacity-90 border-0">
                     {projectSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                     Guardar

@@ -48,6 +48,8 @@ export default function TeamPage() {
   const [inviteRole, setInviteRole] = useState("member");
   const [inviting, setInviting] = useState(false);
   const [planLimits, setPlanLimits] = useState<{ plan: string; limits: Record<string, unknown>; usage: { projects: number; members: number } } | null>(null);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -86,22 +88,28 @@ export default function TeamPage() {
 
   const handleRemove = async (userId: string, email: string) => {
     if (!confirm(`¿Eliminar a ${email} del equipo?`)) return;
+    setRemovingMemberId(userId);
     try {
       await api.removeMember(userId);
       toast.success(`${email} fue eliminado del equipo`);
       await loadData();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al eliminar");
+    } finally {
+      setRemovingMemberId(null);
     }
   };
 
   const handleRoleChange = async (userId: string, role: string) => {
+    setUpdatingMemberId(userId);
     try {
       await api.updateMemberRole(userId, role);
       toast.success("Rol actualizado");
       await loadData();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al cambiar rol");
+    } finally {
+      setUpdatingMemberId(null);
     }
   };
 
@@ -241,9 +249,16 @@ export default function TeamPage() {
 
                 {/* Actions */}
                 {isPaidPlan && !isOwner && !isSelf && (
-                  <div className="flex items-center gap-1">
-                    <Select value={member.role} onValueChange={(v) => v && handleRoleChange(member.user_id, v)}>
-                      <SelectTrigger className="w-[110px] h-8 text-xs rounded border border-border bg-background focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none">
+                  <div className="flex items-center gap-1.5">
+                    {updatingMemberId === member.user_id && (
+                      <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
+                    )}
+                    <Select 
+                      value={member.role} 
+                      onValueChange={(v) => v && handleRoleChange(member.user_id, v)}
+                      disabled={updatingMemberId !== null || removingMemberId !== null}
+                    >
+                      <SelectTrigger className="w-[110px] h-8 text-xs rounded border border-border bg-background focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none disabled:opacity-50">
                         <SelectValue placeholder="Rol" />
                       </SelectTrigger>
                       <SelectContent>
@@ -253,10 +268,15 @@ export default function TeamPage() {
                     </Select>
                     <button
                       onClick={() => handleRemove(member.user_id, member.email)}
-                      className="p-1.5 rounded-lg text-red-400/60 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                      disabled={updatingMemberId !== null || removingMemberId !== null}
+                      className="p-1.5 rounded-lg text-red-400/60 hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-50"
                       title="Eliminar miembro"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      {removingMemberId === member.user_id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-red-400" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                     </button>
                   </div>
                 )}

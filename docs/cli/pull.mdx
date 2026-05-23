@@ -1,0 +1,44 @@
+---
+title: "nexus pull"
+sidebarTitle: "pull"
+description: "Descargar la configuración de un proyecto desde la nube a tu archivo nexus.yaml local."
+---
+
+```bash
+nexus pull <project-slug>
+```
+
+## Descripción
+
+El comando `nexus pull` descarga la estructura de configuración completa de un proyecto desde la plataforma en la nube de Nexus y la escribe en un archivo local `nexus.yaml` en tu directorio actual.
+
+Es de gran utilidad para:
+1. Descargar la configuración de un proyecto creado en el Dashboard en una carpeta local limpia de desarrollo.
+2. Versionar el archivo de configuración `nexus.yaml` en tu repositorio Git.
+
+<Info>
+  Requiere autenticación activa a través de `nexus login`.
+</Info>
+
+## Parámetros
+
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `project-slug` | string | ✅ | El slug identificador único del proyecto en la nube |
+
+## Ejemplo de salida
+
+```bash
+nexus pull michicondrias
+```
+
+```
+☁️ Nexus Pull — Fetching 'michicondrias'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Successfully downloaded configuration to nexus.yaml
+```
+
+## Ver también
+
+- [nexus login](/cli/login) — Autenticar el CLI con tu cuenta
+- [nexus sync](/cli/sync) — Actualizar configuraciones del cache local sin sobreescribir el archivo yaml

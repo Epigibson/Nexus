@@ -6,6 +6,8 @@ import (
 
 	"github.com/nexus-dev/nexus/internal/adapter/config"
 	"github.com/nexus-dev/nexus/internal/adapter/executor"
+	"github.com/nexus-dev/nexus/internal/adapter/repository"
+	"github.com/nexus-dev/nexus/internal/domain"
 	"github.com/spf13/cobra"
 )
 
@@ -94,10 +96,35 @@ and show which profiles are configured for each project environment.`,
 
 			// If a project is specified, show its profiles
 			if len(args) > 0 {
+				projectName := args[0]
+				var project *domain.Project
+
+				// 1. Try local YAML config discovery
 				reader := config.NewYAMLReader()
-				project, err := reader.ReadProject(cfgFile)
-				if err != nil {
-					return err
+				projects, err := reader.ListProjects()
+				if err == nil {
+					for _, p := range projects {
+						if p.Name == projectName || p.Slug == projectName {
+							project = &p
+							break
+						}
+					}
+				}
+
+				// 2. Try loading from cloud cache
+				if project == nil {
+					cached, err := repository.LoadProjectCache(projectName)
+					if err == nil && cached != nil {
+						project = config.ProjectDTOToDomain(cached)
+					}
+				}
+
+				// 3. Fallback: try loading default config
+				if project == nil {
+					project, err = reader.ReadProject(cfgFile)
+					if err != nil {
+						return fmt.Errorf("project '%s' not found locally or in cache. Error: %w", projectName, err)
+					}
 				}
 
 				fmt.Printf("\n  📦 Profiles for \033[1;36m%s\033[0m:\n", project.Name)

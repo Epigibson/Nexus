@@ -8,30 +8,86 @@ description: "Inicializar un nuevo proyecto con configuración interactiva."
 nexus init
 ```
 
-Genera un archivo `nexus.yaml` con configuración interactiva:
+Genera un archivo de plantilla `nexus.yaml` preconfigurado en el directorio actual para que lo edites con los detalles de tu proyecto. 
 
-1. Nombre del proyecto
-2. Descripción
-3. URL del repositorio
-4. Entornos (development, staging, production)
-5. CLI profiles por entorno
+Si ya existe un archivo `nexus.yaml`, el comando fallará para evitar sobreescribir tus datos. Puedes forzar la sobreescritura usando el flag `--force`.
 
-## Ejemplo de salida
+## Parámetros
+
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `--force`, `-f` | flag | No | Sobreescribir el archivo `nexus.yaml` si ya existe |
+
+## Ejemplo de salida (`nexus.yaml` generado)
 
 ```yaml
-name: my-saas-app
-description: Plataforma SaaS principal
-repo_url: https://github.com/acme/saas
+version: "1"
+
+project:
+  name: "my-project"
+  slug: "my-project"
+  repo: "https://github.com/your-user/my-project"
 
 environments:
-  - name: development
-    branch: develop
-    env_vars:
-      NODE_ENV: development
+  development:
+    branch: "develop"
+    env:
+      NODE_ENV: "development"
+      DATABASE_URL: "postgresql://localhost:5432/myapp_dev"
     cli_profiles:
-      - tool: gh
-        account: dev-personal
-      - tool: aws
-        account: acme-dev
-        region: us-east-1
+      - tool: "gh"
+        account: "your-github-username"
+      - tool: "aws"
+        account: "dev-profile"
+        region: "us-east-1"
+      - tool: "supabase"
+        account: "your-project-ref"
+      - tool: "vercel"
+        account: "my-project-dev"
+        org: "your-team"
+
+  staging:
+    branch: "staging"
+    env:
+      NODE_ENV: "staging"
+      DATABASE_URL: "postgresql://staging-host:5432/myapp_stg"
+    cli_profiles:
+      - tool: "gh"
+        account: "your-github-username"
+      - tool: "aws"
+        account: "staging-profile"
+        region: "us-east-1"
+      - tool: "supabase"
+        account: "your-staging-project-ref"
+
+  production:
+    branch: "main"
+    env:
+      NODE_ENV: "production"
+      DATABASE_URL: "postgresql://prod-host:5432/myapp"
+    cli_profiles:
+      - tool: "aws"
+        account: "production-profile"
+        region: "us-east-1"
+      - tool: "supabase"
+        account: "your-production-project-ref"
+      - tool: "vercel"
+        account: "my-project-prod"
+        org: "your-team"
+
+skills:
+  - name: "context-injection"
+    category: "context-injection"
+    enabled: true
+    priority: 1
+
+  - name: "git-state"
+    category: "git-state"
+    enabled: true
+    priority: 2
+
+  - name: "cli-switching"
+    category: "cli-switching"
+    enabled: true
+    priority: 3
 ```

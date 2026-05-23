@@ -1,0 +1,84 @@
+---
+title: "nexus sync"
+sidebarTitle: "sync"
+description: "Sincronizar configuraciones de proyectos desde la nube al cache local."
+---
+
+```bash
+nexus sync [project-slug] [--all]
+```
+
+## Descripción
+
+Descarga y cachea las configuraciones de tus proyectos desde la nube para que `nexus switch` funcione de forma instantánea sin necesidad de conectarse al API.
+
+El cache **nunca expira automáticamente** — solo se actualiza cuando ejecutas `nexus sync` manualmente o usas `nexus switch --refresh`.
+
+## Parámetros
+
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `project-slug` | string | No | Slug del proyecto a sincronizar. Si se omite, sincroniza el proyecto activo |
+| `--all`, `-a` | flag | No | Sincronizar todos los proyectos del usuario |
+
+## Uso
+
+### Sincronizar un proyecto específico
+
+```bash
+nexus sync michicondrias
+```
+
+```
+  📦 Syncing project 'michicondrias' from cloud...
+  ✅ Project 'michicondrias' cached locally (2340ms)
+  💡 Future switches will use this cached config for instant startup.
+```
+
+### Sincronizar el proyecto activo
+
+```bash
+nexus sync
+```
+
+Sincroniza el proyecto que está actualmente activo (el último que usaste con `nexus switch`).
+
+### Sincronizar todos los proyectos
+
+```bash
+nexus sync --all
+```
+
+```
+  📦 Syncing all projects from cloud...
+  ✅ 3 projects cached locally (5120ms)
+```
+
+## ¿Cuándo usar sync?
+
+Ejecuta `nexus sync` cuando hagas cambios en el Dashboard que necesites que se reflejen en el CLI:
+
+- Agregaste o quitaste **variables de entorno**
+- Cambiaste **CLI profiles** (nueva cuenta de GitHub, AWS, etc.)
+- Modificaste **hooks** o **skills**
+- Agregaste un **nuevo proyecto** o entorno
+
+<Tip>
+  `nexus login` ejecuta automáticamente `nexus sync --all`, así que no necesitas hacerlo manualmente después de autenticarte por primera vez.
+</Tip>
+
+## Cache local
+
+Las configuraciones se almacenan en `~/.nexus/cache/<slug>.json`. Contienen las credenciales descifradas necesarias para los CLI profiles.
+
+```
+~/.nexus/cache/
+├── michicondrias.json
+├── auto-hotel-luxor.json
+└── project-switcher.json
+```
+
+## Ver también
+
+- [nexus switch](/cli/switch) — Cambiar contexto (usa el cache)
+- [nexus switch --refresh](/cli/switch) — Forzar fetch fresco

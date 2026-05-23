@@ -51,11 +51,11 @@ Verifica la instalación:
 
 ```bash
 nexus version
-# → Nexus v0.1.0
+# → Nexus v1.1.0
 ```
 
 <Check>
-  Si ves `Nexus v0.1.0`, la instalación fue exitosa.
+  Si ves `Nexus v1.1.0`, la instalación fue exitosa.
 </Check>
 
 ## Paso 2: Crear cuenta y API Key
@@ -93,35 +93,20 @@ Generate an API key from your Dashboard:
 Paste your API key: ag_live_xxxxxxxxxx...
 
 ✅ Authenticated as Ricardo (hackminor@live.com.mx)
-📋 Plan: free
+📋 Plan: pro
 
-Run 'nexus sync' to pull your projects from the cloud.
+  📦 Syncing projects to local cache...
+  ✅ 3 projects cached for instant switching
 ```
 
-## Paso 4: Sincronizar proyectos
+<Tip>
+  Al hacer login, el CLI automáticamente descarga y cachea todos tus proyectos.
+  Esto permite que los switches futuros sean instantáneos (~5 segundos).
+</Tip>
 
-```bash
-nexus sync
-```
+## Paso 4: ¡Hacer switch!
 
-```
-🔄 Nexus Sync
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Authenticating... ✅ hackminor@live.com.mx
-  Pulling projects... ✅ 2 projects found
-
-📦 Cloud Projects:
-  ✅ Auto Hotel Luxor (auto-hotel-luxor)
-      └─ production (branch: main, 3 tools)
-      └─ development (branch: develop, 2 tools)
-  ✅ Natura Inventory (natura-inventory)
-      └─ production (branch: main, 2 tools)
-
-✅ Sync complete!
-```
-
-## Paso 5: ¡Hacer switch!
+Tus proyectos ya están cacheados localmente. Ahora solo cambia de contexto:
 
 ```bash
 # Desde CUALQUIER directorio
@@ -129,42 +114,57 @@ nexus switch auto-hotel-luxor --env production
 ```
 
 ```
-   ___         __  _                       _ __       
-  / _ | ___   / /_(_)__ _______ __  _____ (_) /___ __ 
- / __ |/ _ \ / __/ / _ '/ __/ _ '/ |/ / -_) / __/ // /
-/_/ |_/_//_/ \__/_/\_, /_/  \_,_/|___/\__/_/\__/\_, / 
-                  /___/                         /___/  
-
-  ☁️  Cloud mode — fetching project 'auto-hotel-luxor'
-  🚀 Switching context → Auto Hotel Luxor / production
-
+    _   __
+   / | / /__  _  ____  _______
+  /  |/ / _ \| |/_/ / / / ___/
+ / /|  /  __/>  </ /_/ (__  )
+/_/ |_/\___/_/|_|\__,_/____/
+  📦 Using cached config for 'auto-hotel-luxor'
+  🧩 Skills: 12/12 enabled
   ─────────────────────────────────────────
-  ✅ gh → epigibson
-  ✅ aws → luxor-prod
-  ✅ supabase → linked
-  ✅ env vars → 4 variables set
-  📌 git branch — main
+  ✨ cli:aws — Switched aws → 'luxor-prod' (2108ms)
+  ✨ cli:gh — Switched gh → 'epigibson' (617ms)
+  ✨ cli:supabase — Switched supabase → linked (4002ms)
+  ✨ ⚡ Parallel Switch — Executed 11 skills in parallel (0ms)
   ─────────────────────────────────────────
 
-  ✅ Context switch complete!
+  ✨ Context switch complete! (5467ms)
 ```
 
 <Check>
-  Ahora tu GitHub CLI, AWS, Supabase y todas las variables de entorno están configuradas para el proyecto correcto. Listo para desarrollar.
+  Ahora tu GitHub CLI, AWS, Supabase, Vercel, Expo y todas las variables de entorno están configuradas para el proyecto correcto. Todo en ~5 segundos.
 </Check>
+
+### Actualizar cache después de cambios en el dashboard
+
+Si modificaste variables de entorno, CLI profiles o hooks en el dashboard:
+
+```bash
+# Sincronizar un proyecto específico
+nexus sync auto-hotel-luxor
+
+# O sincronizar todos
+nexus sync --all
+```
 
 ## Comandos disponibles
 
 | Comando | Descripción |
 |---------|-------------|
-| `nexus login` | Autenticarte con tu API key |
-| `nexus sync` | Sincronizar proyectos del cloud |
-| `nexus status` | Ver estado de conexión |
-| `nexus switch <proyecto> --env <env>` | Cambiar contexto completo |
-| `nexus list` | Listar proyectos locales |
-| `nexus init` | Crear nexus.yaml local |
-| `nexus logout` | Desconectar del cloud |
-| `nexus version` | Ver versión |
+| `nexus login` | Autenticarte con tu API key (auto-sync incluido) |
+| `nexus sync [slug]` | Sincronizar proyectos del cloud al cache local |
+| `nexus sync --all` | Sincronizar todos los proyectos |
+| `nexus switch [proyecto] --env <env>` | Cambiar contexto completo (~5s) |
+| `nexus switch [proyecto] --refresh` | Switch con descarga fresca del API |
+| `nexus current` | Ver el contexto activo global y detectar desalineaciones en la shell |
+| `nexus status` | Ver estado de conexión al servidor API y proyectos |
+| `nexus list` | Listar todos los proyectos locales descubiertos |
+| `nexus profiles [proyecto]` | Ver perfiles activos del sistema o configuraciones de un proyecto |
+| `nexus init` | Inicializar una plantilla de `nexus.yaml` local (no interactiva) |
+| `nexus setup-shell` | Instalar wrapper para sincronizar variables en la shell activa |
+| `nexus pull <slug>` | Descargar configuración del cloud al archivo `nexus.yaml` local |
+| `nexus logout` | Eliminar credenciales guardadas localmente |
+| `nexus version` | Ver la versión del CLI |
 
 ## Troubleshooting
 

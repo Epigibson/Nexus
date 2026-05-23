@@ -5,56 +5,117 @@ description: "Cambiar toda tu identidad de desarrollo a un proyecto y entorno es
 ---
 
 ```bash
-nexus switch <project-name> --env <environment>
+nexus switch [project-name] --env <environment> [--refresh]
 ```
 
 ## Parámetros
 
 | Parámetro | Tipo | Requerido | Descripción |
 |-----------|------|-----------|-------------|
-| `project-name` | string | ✅ | Nombre del proyecto (del YAML) |
-| `--env` | string | ✅ | Entorno objetivo |
+| `project-name` | string | No | Slug o nombre del proyecto a activar. Requerido en modo nube. Opcional en modo local si existe un archivo `nexus.yaml` en el directorio de trabajo actual. |
+| `--env`, `-e` | string | No | Entorno objetivo (opciones: `development`, `staging`, `production`; default: `development`) |
+| `--refresh`, `-r` | flag | No | Forzar descarga fresca desde la nube (bypass cache local) |
 
-## Lo que hace
+## Cómo funciona
+
+El switch ejecuta todas las operaciones **en paralelo** para máxima velocidad:
 
 <Steps>
-  <Step title="1. Context Injection">
-    Genera un script (PowerShell/Bash) con todas las variables de entorno y lo ejecuta.
+  <Step title="1. Cargar configuración">
+    Busca el proyecto en el **cache local** (`~/.nexus/cache/`). Si no existe, lo descarga del API y lo cachea para futuros switches.
+
+    <Tip>
+      Usa `--refresh` si hiciste cambios en el dashboard y necesitas la configuración más reciente.
+    </Tip>
   </Step>
-  <Step title="2. Git State">
-    Ejecuta `git checkout {branch}` para la rama configurada del entorno.
+  <Step title="2. Skills (paralelo)">
+    Ejecuta todos los skills habilitados simultáneamente:
+    - **Context Injection** — Variables de entorno
+    - **Git State** — Checkout a la rama correcta
+    - **Auto Documentation** — Genera `NEXUS_CONTEXT.md`
+    - **Sandbox Environments** — Provisiona sandbox efímero
   </Step>
-  <Step title="3. CLI Switching">
-    Cambia los perfiles en cada herramienta CLI configurada:
-    - `gh auth switch --user {account}`
-    - `aws sso login --profile {account}`
-    - `supabase link --project-ref {account}`
-    - `vercel switch {account}`
-    - MongoDB connection string
+  <Step title="3. CLI Profiles (paralelo)">
+    Cambia todos los CLI tools simultáneamente:
+    - `gh auth switch` → GitHub CLI
+    - `aws sts` → AWS CLI
+    - `supabase link` → Supabase CLI
+    - `vercel whoami` → Vercel CLI
+    - `eas whoami` → Expo/EAS CLI
+    - Y más (MongoDB, Stripe, Railway, Fly.io)
   </Step>
   <Step title="4. Audit Log">
-    Registra el resultado en `~/.nexus/audit.jsonl`.
+    Registra el resultado localmente (`~/.nexus/audit.jsonl`) y sincroniza al cloud en background sin bloquear.
   </Step>
 </Steps>
 
-## Ejemplo
+## Ejemplos
+
+### Switch básico
 
 ```bash
-$ nexus switch saas-platform --env development
-
-🚀 Nexus — Context Switch
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📋 Project: saas-platform
-🌍 Environment: development
-
-✅ Context Injection: 12 variables inyectadas
-✅ Git State: Rama cambiada → develop
-✅ CLI Switch: GitHub → dev-personal
-✅ CLI Switch: AWS → acme-dev (us-east-1)
-✅ CLI Switch: Supabase → saas-dev-ref
-✅ CLI Switch: Vercel → saas-dev
-✅ CLI Switch: MongoDB → local-dev
-
-⏱️ Completado en 1.24s
+nexus switch michicondrias --env production
 ```
+
+```
+    _   __
+   / | / /__  _  ____  _______
+  /  |/ / _ \| |/_/ / / / ___/
+ / /|  /  __/>  </ /_/ (__  )
+/_/ |_/\___/_/|_|\__,_/____/
+  📦 Using cached config for 'michicondrias'
+  🧩 Skills: 12/12 enabled
+  ─────────────────────────────────────────
+  ✨ Auto Documentation — Generated NEXUS_CONTEXT.md (0ms)
+  ✨ Branch Switcher — Already on branch 'main' (1ms)
+  ✨ Sandbox Environments — Provisioned (TTL: 60 mins) (300ms)
+  ✨ cli:aws — Switched aws: 'none' → 'github-actions-deployer' (2108ms)
+  ✨ cli:expo — Switched expo: 'none' → 'Michicondrias' (1564ms)
+  ✨ cli:gh — Switched gh → 'epigibson-michicondrias' (617ms)
+  ✨ cli:supabase — Switched supabase → 'zaegmfufrzjmjiemrvvp' (4002ms)
+  ✨ cli:vercel — Switched vercel → 'epigibson-michicondrias' (1402ms)
+  ✨ ⚡ Parallel Switch — Executed 11 skills in parallel (0ms)
+  ─────────────────────────────────────────
+
+  ✨ Context switch complete! (5467ms)
+```
+
+### Con refresh forzado
+
+```bash
+nexus switch michicondrias --env production --refresh
+```
+
+Ignora el cache local y descarga la configuración más reciente del API. Útil después de hacer cambios en el dashboard.
+
+## Performance
+
+| Versión | Tiempo de switch |
+|---------|-----------------|
+| v1.0.0 (serial) | ~73 segundos |
+| v1.1.0 (paralelo + cache) | **~5 segundos** |
+
+Las optimizaciones de v1.1.0 incluyen:
+- **Cache local** — elimina el fetch del API en cada switch
+- **CLI profiles en paralelo** — todos los tools se cambian simultáneamente
+- **Audit logging asíncrono** — los logs remotos no bloquean la ejecución
+
+## CLI Tools soportados
+
+| Tool | Binario | Autenticación |
+|------|---------|---------------|
+| GitHub | `gh` | `gh auth switch` o `GH_TOKEN` |
+| AWS | `aws` | Named profiles o Access Keys |
+| Supabase | `supabase` | `SUPABASE_ACCESS_TOKEN` |
+| Vercel | `vercel` | `VERCEL_TOKEN` |
+| Expo/EAS | `eas` / `expo` | `EXPO_TOKEN` |
+| MongoDB | `mongosh` / `atlas` | Connection URI |
+| Stripe | `stripe` | API Keys |
+| Railway | `railway` | `RAILWAY_TOKEN` |
+| Fly.io | `fly` / `flyctl` | `FLY_API_TOKEN` |
+
+## Ver también
+
+- [nexus sync](/cli/sync) — Actualizar el cache local
+- [nexus current](/cli/current) — Ver el contexto activo
+- [nexus profiles](/cli/profiles) — Ver estado de los CLI profiles

@@ -1,0 +1,56 @@
+---
+title: "nexus setup-shell"
+sidebarTitle: "setup-shell"
+description: "Configurar la integración automática de variables de entorno en tu consola."
+---
+
+```bash
+nexus setup-shell
+```
+
+## Descripción
+
+El comando `nexus setup-shell` instala el wrapper del CLI de Nexus en los archivos de inicialización de tu shell. 
+
+Dado que un binario ejecutable corre en su propio subproceso aislado, no puede modificar directamente las variables de entorno del proceso padre (tu terminal activa). Para resolver esto, `nexus switch` genera un script de shell temporal en `~/.nexus/last_switch.sh` (o `.ps1` en Windows) que contiene las declaraciones `export KEY=VALUE`. 
+
+Al ejecutar `nexus setup-shell`, se añade una función wrapper a tu archivo de configuración de terminal que detecta cuando ejecutas `nexus switch` y automáticamente ejecuta `source` sobre el archivo temporal, permitiendo inyectar variables de entorno de forma transparente e instantánea.
+
+## Archivos soportados automáticamente
+
+El CLI es capaz de detectar y escribir automáticamente en:
+* **Bash**: `~/.bashrc`
+* **Zsh**: `~/.zshrc`
+
+Si el comando no puede encontrar ninguno de estos archivos de inicialización en tu directorio local, imprimirá el código del wrapper para que puedas copiarlo y pegarlo manualmente en tu configuración.
+
+## El Wrapper de Shell
+
+Este es el bloque de código que se inserta:
+
+```bash
+# Nexus CLI Wrapper
+# Automates environment variable injections upon switching contexts
+nexus() {
+    command nexus "$@"
+    if [[ "$1" == "switch" && -f "$HOME/.nexus/last_switch.sh" ]]; then
+        source "$HOME/.nexus/last_switch.sh"
+    fi
+}
+```
+
+## Ejemplo de salida
+
+```
+  ✅ Successfully installed wrapper in .bashrc
+  ✅ Successfully installed wrapper in .zshrc
+
+  🎉 Setup Complete!
+  Please restart your terminal or run this command in your current window:
+  source ~/.bashrc (o ~/.zshrc)
+```
+
+## Ver también
+
+- [nexus switch](/cli/switch) — Cambiar de proyecto y entorno
+- [nexus current](/cli/current) — Validar si la shell activa cargó correctamente las variables

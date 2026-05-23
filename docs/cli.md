@@ -6,7 +6,7 @@
 cd core/
 
 # Compilar
-go build -o nexus ./cmd/main.go
+go build -o nexus ./cmd/nexus/main.go
 
 # O ejecutar directamente
 go run ./cmd/main.go --help
@@ -15,18 +15,42 @@ go run ./cmd/main.go --help
 ## Comandos
 
 ```bash
-# Inicializar un nuevo proyecto (genera nexus.yaml interactivo)
-nexus init
+# Autenticarse con el cloud
+nexus login
 
-# Cambiar a un entorno de un proyecto
-nexus switch <project-name> --env <environment>
-nexus switch my-saas --env development
+# Sincronizar proyectos al cache local
+nexus sync                              # Proyecto activo
+nexus sync michicondrias                # Proyecto específico
+nexus sync --all                        # Todos los proyectos
 
-# Listar todos los proyectos configurados
+# Cambiar a un entorno de un proyecto (proyecto es opcional localmente)
+nexus switch [project-name] --env <environment>
+nexus switch my-saas --env production
+nexus switch my-saas --env production --refresh  # Bypass cache local
+
+# Ver contexto activo global y chequeo de terminal
+nexus current
+
+# Configurar integración en consola (inyector automático)
+nexus setup-shell
+
+# Descargar configuración de proyecto nube a nexus.yaml local
+nexus pull michicondrias
+
+# Ver estado de conexión
+nexus status
+
+# Listar todos los proyectos configurados localmente
 nexus list
 
-# Mostrar perfiles CLI de un proyecto
-nexus profiles <project-name>
+# Mostrar perfiles CLI globales o de un proyecto específico
+nexus profiles [project-name]
+
+# Inicializar una plantilla de nexus.yaml local
+nexus init
+
+# Desconectar del cloud y remover API Key
+nexus logout
 
 # Versión
 nexus version
@@ -45,27 +69,34 @@ core/internal/
 │   └── ports.go         # CLIProfiler, ConfigReader, AuditLogger, ScriptGenerator
 │
 ├── service/             # Lógica de negocio
-│   └── orchestrator.go  # Orchestrator: skills + hooks pre/post
+│   └── orchestrator.go  # Orchestrator: skills + CLI profiles (paralelo) + hooks
 │
 └── adapter/             # Implementaciones
     ├── cli/             # Comandos Cobra
     │   ├── root.go      # Root command + banner
     │   ├── init.go      # Interactive project init
-    │   ├── switch.go    # Context switch (main flow)
+    │   ├── switch.go    # Context switch (cache-first, parallel)
+    │   ├── sync.go      # Cache sync command
+    │   ├── cloud.go     # Login, status, logout, pull
     │   ├── list.go      # List projects from YAML
-    │   └── profiles.go  # Show CLI profiles
+    │   ├── current.go   # Show active context
+    │   └── setup_shell.go # Shell integration
     ├── config/
     │   └── yaml_reader.go  # Lee nexus.yaml (flat structure)
-    ├── executor/        # CLI Profilers
-    │   ├── github.go    # gh auth switch
-    │   ├── aws.go       # aws sso login
-    │   ├── supabase.go  # supabase link
-    │   ├── vercel.go    # vercel switch
-    │   └── mongo.go     # atlas config set
+    ├── executor/        # Skills + CLI Profilers
+    │   ├── cli_profilers.go     # Todos los profilers (git, gh, aws, supabase, vercel, expo, etc.)
+    │   ├── parallel_executor.go # Ejecución concurrente de skills
+    │   ├── env_injector.go      # Variables de entorno
+    │   ├── doc_generator.go     # NEXUS_CONTEXT.md
+    │   └── sandbox.go           # Ephemeral sandbox
+    ├── repository/
+    │   ├── api_client.go    # HTTP client para el backend
+    │   └── project_cache.go # Cache local de proyectos (~/.nexus/cache/)
     ├── audit/
-    │   └── jsonl_logger.go  # Append-only JSONL file
-    └── script/
-        └── env_generator.go # PowerShell/Bash env injection
+    │   ├── file_logger.go   # Append-only JSONL local
+    │   └── multi_logger.go  # Local (sync) + Remote (async)
+    └── state/
+        └── state_manager.go # Contexto activo global
 ```
 
 ## Interface CLIProfiler
@@ -75,12 +106,27 @@ Para agregar un nuevo CLI tool, implementa esta interfaz:
 ```go
 type CLIProfiler interface {
     ToolName() string
+    IsInstalled() bool
+    CurrentProfile() (string, error)
     Switch(profile domain.CLIProfile) error
-    Verify(profile domain.CLIProfile) (bool, error)
+    ListProfiles() ([]string, error)
 }
 ```
 
-### Ejemplo: Agregar kubectl
+### Profilers disponibles
+
+| Tool | Binario | Archivo |
+|------|---------|----------|
+| Git | `git` | `cli_profilers.go` |
+| GitHub | `gh` | `cli_profilers.go` |
+| AWS | `aws` | `cli_profilers.go` |
+| Supabase | `supabase` | `cli_profilers.go` |
+| Vercel | `vercel` | `cli_profilers.go` |
+| Expo/EAS | `eas` / `expo` | `cli_profilers.go` |
+| MongoDB | `mongosh` / `atlas` | `cli_profilers.go` |
+| Stripe | `stripe` | `cli_profilers.go` |
+| Railway | `railway` | `cli_profilers.go` |
+| Fly.io | `fly` / `flyctl` | `cli_profilers.go` |
 
 ```go
 type KubectlProfiler struct{}
@@ -104,14 +150,17 @@ func (k *KubectlProfiler) Verify(p domain.CLIProfile) (bool, error) {
 ## Configuración (nexus.yaml)
 
 ```yaml
-name: my-saas-app
-description: SaaS Platform principal
-repo_url: https://github.com/acme/saas
+version: "1"
+
+project:
+  name: my-saas-app
+  slug: my-saas-app
+  repo: https://github.com/acme/saas
 
 environments:
-  - name: development
+  development:
     branch: develop
-    env_vars:
+    env:
       NODE_ENV: development
       DATABASE_URL: postgresql://localhost:5432/saas_dev
     cli_profiles:
@@ -124,9 +173,9 @@ environments:
         account: saas-dev-ref
         org: acme
 
-  - name: production
+  production:
     branch: main
-    env_vars:
+    env:
       NODE_ENV: production
     cli_profiles:
       - tool: gh
@@ -146,12 +195,15 @@ environments:
 
 skills:
   - name: context-injection
+    category: context-injection
     enabled: true
     priority: 1
   - name: git-state
+    category: git-state
     enabled: true
     priority: 2
   - name: cli-switching
+    category: cli-switching
     enabled: true
     priority: 3
 ```

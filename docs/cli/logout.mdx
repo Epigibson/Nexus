@@ -1,0 +1,33 @@
+---
+title: "nexus logout"
+sidebarTitle: "logout"
+description: "Cerrar sesión en el CLI y eliminar credenciales locales."
+---
+
+```bash
+nexus logout
+```
+
+## Descripción
+
+El comando `nexus logout` elimina de forma segura las credenciales y llaves de acceso almacenadas en tu máquina local (`~/.nexus/credentials`). 
+
+Al cerrar sesión:
+* Se desactiva la comunicación automática con los endpoints de la nube.
+* Se deshabilitan los switches rápidos basados en el caché de la nube (`~/.nexus/cache/`).
+* **Nota**: Podrás seguir usando Nexus en "Modo Local" en directorios que contengan archivos físicos `nexus.yaml` válidos.
+
+## Ejemplo de salida
+
+```bash
+nexus logout
+```
+
+```
+✅ Credentials removed. Run 'nexus login' to re-authenticate.
+```
+
+## Ver también
+
+- [nexus login](/cli/login) — Iniciar sesión y autenticar el CLI
+- [nexus status](/cli/status) — Inspeccionar el estado de sesión actual

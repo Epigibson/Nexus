@@ -1,0 +1,62 @@
+---
+title: "nexus login"
+sidebarTitle: "login"
+description: "Autenticarte con el CLI usando tu API Key del dashboard."
+---
+
+```bash
+nexus login
+```
+
+## Descripción
+
+Conecta tu CLI con tu cuenta de Nexus. Al autenticarte, el CLI automáticamente descarga y cachea todos tus proyectos para que los switches futuros sean instantáneos.
+
+## Flujo
+
+<Steps>
+  <Step title="1. Generar API Key">
+    Ve al Dashboard → **Configuración → API Keys → Generar Nueva Key**.
+
+    <Warning>
+      La key completa (`ag_live_...`) solo se muestra **una vez**. Cópiala antes de cerrar el modal.
+    </Warning>
+  </Step>
+  <Step title="2. Ejecutar login">
+    ```bash
+    nexus login
+    ```
+    Pega tu API key cuando se solicite.
+  </Step>
+  <Step title="3. Auto-sync">
+    Después de autenticarte, el CLI sincroniza automáticamente todos tus proyectos al cache local (`~/.nexus/cache/`). Esto permite que los siguientes `nexus switch` se ejecuten sin necesidad de conectarse al API.
+  </Step>
+</Steps>
+
+## Ejemplo
+
+```
+🔐 Nexus CLI — Login
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generate an API key from your Dashboard:
+  → Settings → API Keys → Generate New Key
+
+Paste your API key: ag_live_xxxxxxxxxx...
+
+✅ Authenticated as Ricardo (hackminor@live.com.mx)
+📋 Plan: pro
+
+  📦 Syncing projects to local cache...
+  ✅ 3 projects cached for instant switching
+```
+
+## Almacenamiento
+
+Las credenciales se almacenan de forma segura en `~/.nexus/credentials`, cifradas con **AES-256-GCM** usando una key derivada de la identidad de la máquina.
+
+## Ver también
+
+- [nexus sync](/cli/sync) — Actualizar el cache manualmente
+- [nexus status](/cli/status) — Verificar estado de conexión
+- [nexus logout](/cli/logout) — Desconectar del cloud

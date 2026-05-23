@@ -1,6 +1,6 @@
 # 🚀 Nexus Control Center
 
-> **Elimina la fricción del context switching.** Un solo comando para cambiar toda tu identidad de desarrollo — GitHub, AWS, Supabase, Vercel, MongoDB, y cada sesión CLI — instantáneamente.
+> **Elimina la fricción del context switching.** Un solo comando para cambiar toda tu identidad de desarrollo — GitHub, AWS, Supabase, Vercel, Expo, MongoDB, y cada sesión CLI — en ~5 segundos.
 
 ## El Problema
 
@@ -24,10 +24,12 @@ Este comando:
 - ✅ Activa el perfil correcto de **AWS**
 - ✅ Enlaza el proyecto correcto de **Supabase**
 - ✅ Cambia el scope de **Vercel**
+- ✅ Autentica tu cuenta de **Expo/EAS**
 - ✅ Configura las conexiones de **MongoDB**
 - ✅ Inyecta todas las **variables de entorno**
 - ✅ Hace checkout a la **rama de Git** correcta
 - ✅ Registra todo en un **audit trail inmutable**
+- ⚡ Todo en **paralelo** — ~5 segundos total
 
 ## Arquitectura
 
@@ -44,7 +46,8 @@ Este comando:
 │        ▼        ▼        ▼         ▼                 │
 │  ┌──────────────────────────────────────────────┐    │
 │  │      CLI Profile Adapters                    │    │
-│  │  gh · aws · supabase · vercel · mongosh      │    │
+│  │  gh · aws · supabase · vercel · expo/eas     │    │
+│  │  mongosh · stripe · railway · fly            │    │
 │  └──────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────┘
          │                              ▲
@@ -96,7 +99,7 @@ sudo mv nexus /usr/local/bin/nexus
 # 3. Activar integraciones y verificar
 nexus setup-shell
 nexus version
-# → Nexus v0.1.0
+# → Nexus v1.1.0
 ```
 
 ## Quick Start
@@ -112,29 +115,34 @@ Ve a **Configuración → API Keys → Generar Nueva Key** y copia la key (empie
 ### 3. Conectar el CLI
 
 ```bash
-# Autenticarte con tu API key
+# Autenticarte con tu API key (auto-sync incluido)
 nexus login
 # → Paste your API key: ag_live_xxxxxxxxxx...
 # → ✅ Authenticated as tu-nombre (tu@email.com)
-
-# Ver tus proyectos
-nexus sync
+# → 📦 3 projects cached for instant switching
 
 # Ver estado de conexión
 nexus status
+
+# Sincronizar después de cambios en el dashboard
+nexus sync --all
 ```
 
 ### 4. ¡Hacer switch!
 
 ```bash
-# Cambiar todo tu contexto de desarrollo
+# Cambiar todo tu contexto de desarrollo (~5 segundos)
 nexus switch mi-proyecto --env production
 
-# → ✅ gh → epigibson
-# → ✅ aws → prod-profile  
-# → ✅ supabase → linked
-# → ✅ env vars → 4 variables set
-# → ✅ Context switch complete!
+# → 📦 Using cached config for 'mi-proyecto'
+# → ✨ cli:gh — Switched gh → 'epigibson'
+# → ✨ cli:aws — Switched aws → 'prod-profile'
+# → ✨ cli:supabase — Switched supabase → linked
+# → ✨ ⚡ Parallel Switch — Executed 11 skills in parallel
+# → ✨ Context switch complete! (5467ms)
+
+# Forzar refresh desde la nube
+nexus switch mi-proyecto --env production --refresh
 ```
 
 ### 5. Desconectar (opcional)

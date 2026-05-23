@@ -1,0 +1,75 @@
+---
+title: "nexus current"
+sidebarTitle: "current"
+description: "Ver el contexto de desarrollo activo y verificar el estado de la terminal."
+---
+
+```bash
+nexus current
+```
+
+## Descripción
+
+El comando `nexus current` lee el estado global activo de Nexus para determinar qué proyecto y entorno está seleccionado en tu máquina.
+
+Además, realiza una validación en tiempo de ejecución de la terminal activa inspeccionando las variables de entorno locales de la sesión (`NEXUS_ACTIVE_WORKSPACE` y `NEXUS_ACTIVE_ENV`), comparándolas con el estado global de Nexus (`~/.nexus/state.json`). Esto ayuda a diagnosticar desajustes comunes:
+
+* **Shell Warning (Advertencia de Consola)**: Si la terminal actual no tiene cargado el inyector (por ejemplo, si no has ejecutado `nexus setup-shell` o no has inicializado la terminal con el comando switch).
+* **State Mismatch (Conflicto de Estado)**: Ocurre cuando cambias de proyecto globalmente en una terminal, pero tienes otra pestaña de terminal vieja que aún conserva las variables de entorno del proyecto anterior.
+
+## Ejemplos de salida
+
+### Estado correcto y sincronizado
+
+```
+    _   __                     
+   / | / /__  _  ____  _______ 
+  /  |/ / _ \| |/_/ / / / ___/ 
+ / /|  /  __/>  </ /_/ (__  )  
+/_/ |_/\___/_/|_|\__,_/____/   
+  🎯 Current Active Context
+  ─────────────────────────────────────────
+  Global Project:      Project Switcher
+  Global Environment:  production
+  Last Switched:       34s ago
+  ─────────────────────────────────────────
+  Status:              ✅ Shell and Global state match perfectly
+  ─────────────────────────────────────────
+  Run 'nexus profiles' to see live CLI status.
+```
+
+### Consola no inicializada (Shell Warning)
+
+```
+  🎯 Current Active Context
+  ─────────────────────────────────────────
+  Global Project:      Project Switcher
+  Global Environment:  production
+  Last Switched:       1h12m ago
+  ─────────────────────────────────────────
+  ⚠️  Shell Warning: Your current terminal session is NOT initialized.
+      Environment variables for this project are missing.
+      Run 'nexus switch' again or open a new initialized terminal.
+  ─────────────────────────────────────────
+```
+
+### Consola desincronizada (State Mismatch)
+
+```
+  🎯 Current Active Context
+  ─────────────────────────────────────────
+  Global Project:      Project Switcher
+  Global Environment:  production
+  Last Switched:       5m10s ago
+  ─────────────────────────────────────────
+  ⚠️  State Mismatch: Your terminal session differs from the global state.
+      Terminal Project: old-saas-app
+      Terminal Env:     development
+  ─────────────────────────────────────────
+```
+
+## Ver también
+
+- [nexus switch](/cli/switch) — Cambiar de proyecto y entorno
+- [nexus setup-shell](/cli/setup-shell) — Configurar la integración automática de variables
+- [nexus profiles](/cli/profiles) — Inspeccionar perfiles CLI del contexto activo

@@ -1,0 +1,42 @@
+---
+title: "nexus status"
+sidebarTitle: "status"
+description: "Ver el estado de conexión y autenticación del CLI."
+---
+
+```bash
+nexus status
+```
+
+## Descripción
+
+Muestra el estado actual de autenticación del CLI, la conexión al API, y un resumen de tus proyectos en la nube.
+
+## Ejemplo
+
+```
+📊 Nexus Status
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  API Key: configured ✅
+  API Server: https://qegsj4k7m5.execute-api.us-east-1.amazonaws.com
+  Connection: connected ✅
+
+  👤 User: Ricardo (hackminor@live.com.mx)
+  📋 Plan: pro
+  📦 Projects: 3
+```
+
+## Estados posibles
+
+| Estado | Significado |
+|--------|-------------|
+| `API Key: configured ✅` | Hay una API key almacenada en `~/.nexus/credentials` |
+| `Connection: connected ✅` | El CLI puede comunicarse con el API |
+| `Connection: ❌ offline` | No se puede conectar al API (verifica tu conexión a internet) |
+| `🔴 Not authenticated` | No hay API key configurada — ejecuta `nexus login` |
+
+## Ver también
+
+- [nexus login](/cli/login) — Autenticarte con el CLI
+- [nexus logout](/cli/logout) — Desconectar

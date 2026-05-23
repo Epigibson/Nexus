@@ -1,11 +1,59 @@
 ---
 title: "nexus profiles"
 sidebarTitle: "profiles"
-description: "Ver los perfiles CLI configurados para un proyecto."
+description: "Ver el estado de perfiles de herramientas CLI y configuraciones de un proyecto."
 ---
 
 ```bash
-nexus profiles <project-name>
+nexus profiles [project-name]
 ```
 
-Muestra los CLI profiles de todas las herramientas configuradas para cada entorno del proyecto.
+## Descripción
+
+El comando `nexus profiles` cumple dos funciones:
+
+1. **Sin argumentos**: Muestra el estado de instalación actual de todas las herramientas CLI compatibles globales de la máquina y sus perfiles de autenticación activos en el sistema (por ejemplo, qué cuenta de GitHub o AWS está activa actualmente en tu terminal).
+2. **Con argumento (`project-name`)**: Busca el proyecto especificado (en los archivos YAML locales, la carpeta `~/.nexus/projects/`, o en el caché de la nube si está autenticado) y muestra qué perfiles de CLI (`gh`, `aws`, `supabase`, etc.) están asignados para cada uno de sus entornos.
+
+## Parámetros
+
+| Parámetro | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `project-name` | string | No | Nombre o slug del proyecto a inspeccionar |
+
+## Ejemplos
+
+### Ver herramientas instaladas globales y perfiles activos
+
+```bash
+nexus profiles
+```
+
+```
+    _   __                     
+   / | / /__  _  ____  _______ 
+  /  |/ / _ \| |/_/ / / / ___/ 
+ / /|  /  __/>  </ /_/ (__  )  
+/_/ |_/\___/_/|_|\__,_/____/   
+  🔑 CLI Tool Profiles:
+  ─────────────────────────────────────────
+  aws          ✨ installed → dev-profile
+  gh           ✨ installed → your-github-username
+  supabase     ✨ installed → your-project-ref
+  vercel       ✨ installed → my-project-dev
+  ─────────────────────────────────────────
+```
+
+### Ver perfiles detallados de un proyecto específico
+
+```bash
+nexus profiles project-switcher
+```
+
+```
+  📦 Profiles for Project Switcher:
+
+  production (branch: main):
+    ▸ supabase     account: jtsmgwjiccgprzkvpoal  region: us-east-2
+    ▸ gh           account: epigibson
+```

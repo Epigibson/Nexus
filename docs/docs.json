@@ -115,10 +115,14 @@
               "cli/login",
               "cli/switch",
               "cli/sync",
+              "cli/current",
               "cli/status",
-              "cli/init",
               "cli/list",
               "cli/profiles",
+              "cli/setup-shell",
+              "cli/init",
+              "cli/pull",
+              "cli/logout",
               "cli/configuration"
             ]
           }

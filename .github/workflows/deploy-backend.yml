@@ -55,6 +55,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.ACCESS_TOKEN_EXPIRE_MINUTES }}
           CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
           DEBUG: ${{ secrets.DEBUG }}

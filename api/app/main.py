@@ -139,6 +139,56 @@ async def health():
 async def api_health():
     return {"status": "ok", "api": "v1"}
 
+
+@app.post("/api/v1/admin/seed-skills", tags=["Admin"])
+async def admin_seed_skills(request: Request):
+    """Admin endpoint to seed/update skills in production database.
+    Requires X-Admin-Secret header matching the SECRET_KEY."""
+    # Verify admin secret
+    admin_secret = request.headers.get("X-Admin-Secret")
+    if not admin_secret or admin_secret != settings.secret_key:
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Invalid admin secret"}
+        )
+    
+    try:
+        from app.database import async_session
+        from app.services.seed_skills import seed_skills
+        async with async_session() as db:
+            count = await seed_skills(db)
+            return {"status": "ok", "skills_added": count}
+    except Exception as e:
+        logger.error(f"Seed failed: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Seed failed: {str(e)}"}
+        )
+
+
+@app.post("/api/v1/admin/init-db", tags=["Admin"])
+async def admin_init_db(request: Request):
+    """Admin endpoint to initialize database tables in production.
+    Requires X-Admin-Secret header matching the SECRET_KEY."""
+    # Verify admin secret
+    admin_secret = request.headers.get("X-Admin-Secret")
+    if not admin_secret or admin_secret != settings.secret_key:
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Invalid admin secret"}
+        )
+    
+    try:
+        from app.database import init_db
+        await init_db()
+        return {"status": "ok", "message": "Database initialized"}
+    except Exception as e:
+        logger.error(f"Init DB failed: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Init failed: {str(e)}"}
+        )
+
 # ─── AWS Lambda Handler ───
 from mangum import Mangum
 handler = Mangum(app, lifespan="on")

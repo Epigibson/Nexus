@@ -97,17 +97,13 @@ export default function SkillsPage() {
 
   const loadData = async () => {
     try {
-      const [catalogData, projectsData, limitsData] = await Promise.all([
-        api.getSkillCatalog(),
-        api.listProjects(),
-        api.getPlanLimits(),
-      ]);
-      setCatalog(catalogData);
-      setProjects(projectsData);
-      setPlanLimits(limitsData);
-      if (projectsData.length > 0) {
-        setSelectedProject(projectsData[0].slug);
-        setProjectSkills(projectsData[0].skills || []);
+      const overview = await api.getSkillsOverview();
+      setCatalog(overview.catalog);
+      setProjects(overview.projects);
+      setPlanLimits({ plan: overview.plan, limits: overview.limits });
+      if (overview.projects.length > 0) {
+        setSelectedProject(overview.projects[0].slug);
+        setProjectSkills(overview.projects[0].skills || []);
       }
     } catch (err) {
       console.error("Error loading skills:", err);

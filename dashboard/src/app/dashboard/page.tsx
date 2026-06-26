@@ -50,18 +50,15 @@ export default function DashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [s, a, r, p, pl] = await Promise.all([
-          api.getStats(),
-          api.getActivity(),
-          api.getRecentSwitches(5),
-          api.listProjects(),
-          api.getPlanLimits(),
-        ]);
-        setStats(s);
-        setActivity(a);
-        setRecent(r);
+        const overview = await api.getDashboardOverview();
+        setStats(overview.stats);
+        setActivity(overview.activity);
+        setRecent(overview.recent);
+        setPlanLimits({ plan: overview.plan, limits: overview.limits, usage: { projects: overview.projects_count, members: 1 } });
+        
+        // Load projects separately (needed for quick access section)
+        const p = await api.listProjects();
         setProjects(p);
-        setPlanLimits(pl);
       } catch (err) {
         console.error("Error loading dashboard:", err);
       } finally {

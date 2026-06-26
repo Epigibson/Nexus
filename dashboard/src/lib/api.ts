@@ -361,6 +361,30 @@ export const api = {
     return handleResponse<RecentSwitch[]>(res);
   },
 
+  // ─── Combined Endpoints (Performance Optimization) ───
+
+  async getDashboardOverview(): Promise<{
+    stats: DashboardStats;
+    activity: ActivityPoint[];
+    recent: RecentSwitch[];
+    projects_count: number;
+    plan: string;
+    limits: Record<string, unknown>;
+  }> {
+    const res = await fetch(`${API_BASE}/dashboard/overview`, { headers: authHeaders() });
+    return handleResponse(res);
+  },
+
+  async getSkillsOverview(): Promise<{
+    catalog: SkillResponse[];
+    projects: ProjectResponse[];
+    plan: string;
+    limits: Record<string, unknown>;
+  }> {
+    const res = await fetch(`${API_BASE}/skills/overview`, { headers: authHeaders() });
+    return handleResponse(res);
+  },
+
   // Billing
   async getStripeConfig(): Promise<{ publishable_key: string }> {
     const res = await fetch(`${API_BASE}/billing/config`, { headers: authHeaders() });

@@ -32,6 +32,15 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   "sandbox": { label: "Sandbox", color: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
   "scripts": { label: "Scripts", color: "text-cyan-400 bg-cyan-400/10 border-cyan-400/20" },
   "parallel": { label: "Parallel", color: "text-violet-400 bg-violet-400/10 border-violet-400/20" },
+  "cloud-audit": { label: "Audit", color: "text-sky-400 bg-sky-400/10 border-sky-400/20" },
+  "team-sync": { label: "Team", color: "text-rose-400 bg-rose-400/10 border-rose-400/20" },
+  "secret-rotation": { label: "Secrets", color: "text-indigo-400 bg-indigo-400/10 border-indigo-400/20" },
+  "container": { label: "Containers", color: "text-sky-400 bg-sky-400/10 border-sky-400/20" },
+  "monitoring": { label: "Monitoring", color: "text-teal-400 bg-teal-400/10 border-teal-400/20" },
+  "ci-cd": { label: "CI/CD", color: "text-purple-400 bg-purple-400/10 border-purple-400/20" },
+  "database": { label: "Database", color: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20" },
+  "notification": { label: "Notify", color: "text-red-400 bg-red-400/10 border-red-400/20" },
+  "security": { label: "Security", color: "text-green-400 bg-green-400/10 border-green-400/20" },
 };
 
 export default function SkillsPage() {

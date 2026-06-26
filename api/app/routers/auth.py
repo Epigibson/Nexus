@@ -92,8 +92,9 @@ async def login(request: Request, response: Response, body: LoginRequest, db: As
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(db: AsyncSession = Depends(get_db), nexus_refresh_token: str | None = Cookie(default=None)):
-    """Refrescar el access token usando la cookie HttpOnly."""
+@limiter.limit("10/minute")
+async def refresh_token(request: Request, response: Response, db: AsyncSession = Depends(get_db), nexus_refresh_token: str | None = Cookie(default=None)):
+    """Refrescar el access token usando la cookie HttpOnly. Rota el refresh token por seguridad."""
     if not nexus_refresh_token:
         raise HTTPException(status_code=401, detail="Refresh token missing")
     
@@ -105,8 +106,20 @@ async def refresh_token(db: AsyncSession = Depends(get_db), nexus_refresh_token:
     user = await get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
-        
+    
+    # Generate new tokens (rotation)
     new_access_token = create_access_token(user.id, user.email)
+    new_refresh_token = create_refresh_token(user.id, user.email)
+    
+    # Set new refresh token cookie (rotation)
+    response.set_cookie(
+        key="nexus_refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=settings.is_production,
+        samesite="lax",
+        max_age=7 * 24 * 60 * 60
+    )
     
     return TokenResponse(
         access_token=new_access_token,
@@ -182,9 +195,10 @@ async def generate_api_key(
             created_at=api_key.created_at.isoformat() if api_key.created_at else "",
         )
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error generating API key: {str(e)}")
+        import logging
+        logger = logging.getLogger("nexus")
+        logger.error(f"Error generating API key: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error generating API key")
 
 
 @router.get("/api-keys", response_model=list[ApiKeyResponse])

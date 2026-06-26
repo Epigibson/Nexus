@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { QRCodeSVG } from "qrcode.react";
 
 type SettingsTab = "profile" | "security" | "appearance";
 
@@ -274,10 +275,11 @@ export default function SettingsPage() {
                       <div className="relative">
                         <div className="absolute -inset-3 rounded-3xl border-2 border-dashed border-violet-500/20 animate-[spin_20s_linear_infinite]" />
                         <div className="rounded-2xl bg-white p-4 shadow-2xl shadow-violet-500/10 relative z-10">
-                          <img
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(mfaQrUri)}`}
-                            alt="QR Code para 2FA"
-                            className="h-[180px] w-[180px]"
+                          <QRCodeSVG
+                            value={mfaQrUri}
+                            size={180}
+                            level="H"
+                            includeMargin={true}
                           />
                         </div>
                       </div>

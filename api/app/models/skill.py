@@ -21,6 +21,12 @@ class SkillCategory(str, enum.Enum):
     cloud_audit = "cloud-audit"
     team_sync = "team-sync"
     secret_rotation = "secret-rotation"
+    container = "container"
+    monitoring = "monitoring"
+    ci_cd = "ci-cd"
+    database = "database"
+    notification = "notification"
+    security = "security"
 
 
 class SkillDefinition(Base):

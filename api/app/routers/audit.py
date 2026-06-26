@@ -115,6 +115,7 @@ async def create_audit(
             created_at=entry.created_at.isoformat() if entry.created_at else "",
         )
     except Exception as e:
-        from fastapi import HTTPException
-        import traceback
-        raise HTTPException(status_code=500, detail=f"Error inserting audit: {str(e)}\n{traceback.format_exc()}")
+        import logging
+        logger = logging.getLogger("nexus")
+        logger.error(f"Error inserting audit: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error inserting audit log")

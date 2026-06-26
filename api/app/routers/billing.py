@@ -180,9 +180,10 @@ async def create_embedded_subscription(
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        print(f"💳 ❌ ERROR: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Error creando suscripción: {str(e)}")
+        import logging
+        logger = logging.getLogger("nexus")
+        logger.error(f"Error creating subscription: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error creating subscription")
 
 
 class ConfirmSubscriptionRequest(BaseModel):
@@ -258,13 +259,14 @@ async def confirm_subscription(
             u.plan = "premium"
 
         await db.commit()
-        print(f"💳 ✅ User {user.id} + Org {org_id} upgraded to Premium!")
+        logger.info(f"User {user.id} + Org {org_id} upgraded to Premium")
 
         return {"status": "active", "subscription_id": subscription.id}
     except Exception as e:
-        import traceback
-        print(f"💳 ❌ Confirm error: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Error activando suscripción: {str(e)}")
+        import logging
+        logger = logging.getLogger("nexus")
+        logger.error(f"Confirm subscription error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error activating subscription")
 
 @router.post("/checkout", response_model=CheckoutResponse)
 async def create_checkout(
@@ -301,7 +303,10 @@ async def create_checkout(
         )
         return CheckoutResponse(checkout_url=checkout_url)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creando sesión de pago: {str(e)}")
+        import logging
+        logger = logging.getLogger("nexus")
+        logger.error(f"Error creating checkout session: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error creating checkout session")
 
 
 @router.post("/portal", response_model=PortalResponse)
@@ -330,7 +335,10 @@ async def create_portal(
         )
         return PortalResponse(portal_url=portal_url)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error abriendo portal: {str(e)}")
+        import logging
+        logger = logging.getLogger("nexus")
+        logger.error(f"Error opening portal: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error opening customer portal")
 
 
 @router.get("/subscription", response_model=SubscriptionResponse)

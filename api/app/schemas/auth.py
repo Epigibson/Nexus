@@ -1,12 +1,20 @@
 """Auth schemas — register, login, token."""
 
-from pydantic import BaseModel, EmailStr, Field
+import re
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
     email: str = Field(..., min_length=5, max_length=255, examples=["dev@acme.com"])
-    password: str = Field(..., min_length=6, max_length=128)
+    password: str = Field(..., min_length=8, max_length=128)
     display_name: str | None = Field(None, max_length=100, examples=["Carlos Dev"])
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v):
+        if not re.match(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$", v):
+            raise ValueError("Password must be at least 8 characters with 1 uppercase, 1 lowercase, and 1 number")
+        return v
 
 
 class LoginRequest(BaseModel):

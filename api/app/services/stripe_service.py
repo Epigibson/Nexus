@@ -103,12 +103,18 @@ def handle_webhook_event(payload: bytes, sig_header: str) -> dict:
 
     webhook_secret = settings.stripe_webhook_secret
 
-    if webhook_secret and webhook_secret != "whsec_placeholder":
+    # Always require signature verification in production
+    if settings.is_production:
+        if not webhook_secret or webhook_secret == "whsec_placeholder":
+            raise ValueError("STRIPE_WEBHOOK_SECRET must be configured in production")
         event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
     else:
-        # Dev mode — parse without signature verification
-        import json
-        event = stripe.Event.construct_from(json.loads(payload), stripe.api_key)
+        # Dev mode — parse without signature verification only if no secret configured
+        if webhook_secret and webhook_secret != "whsec_placeholder":
+            event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+        else:
+            import json
+            event = stripe.Event.construct_from(json.loads(payload), stripe.api_key)
 
     event_type = event.type
     data = event.data.object

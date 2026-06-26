@@ -1,10 +1,27 @@
 """Nexus API — Configuration via Pydantic BaseSettings."""
 
 import json
+import logging
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from typing import List, Optional
 import os
+
+logger = logging.getLogger("nexus.config")
+
+# Placeholder patterns that should NEVER be used in production
+INSECURE_PATTERNS = [
+    "CHANGE_ME", "YOUR_", "placeholder", "example", "test-",
+    "dev-secret-key", "sk_test_YOUR", "pk_test_YOUR", "whsec_YOUR"
+]
+
+
+def _is_placeholder(value: str) -> bool:
+    """Check if a value looks like an insecure placeholder."""
+    if not value:
+        return True
+    value_lower = value.lower()
+    return any(pattern.lower() in value_lower for pattern in INSECURE_PATTERNS)
 
 
 class Settings(BaseSettings):
@@ -64,6 +81,42 @@ class Settings(BaseSettings):
     # Frontend
     frontend_url: str = "http://localhost:3000"
 
+    # Admin
+    admin_email: str = "admin@nexus.dev"
+
+    @model_validator(mode="after")
+    def validate_production_security(self):
+        """Validate that critical credentials are not placeholders in production."""
+        is_prod = self.environment.lower() == "production" or "AWS_LAMBDA_FUNCTION_NAME" in os.environ
+
+        if is_prod:
+            errors = []
+
+            # SECRET_KEY must not be placeholder
+            if _is_placeholder(self.secret_key):
+                errors.append("SECRET_KEY is a placeholder — generate with: python -c \"import secrets; print(secrets.token_urlsafe(64))\"")
+
+            # ENCRYPTION_KEY must not be placeholder
+            if _is_placeholder(self.encryption_key):
+                errors.append("ENCRYPTION_KEY is a placeholder — generate with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\"")
+
+            # DATABASE_URL must not be placeholder
+            if _is_placeholder(self.database_url):
+                errors.append("DATABASE_URL is a placeholder — set your Supabase connection string")
+
+            # Stripe webhook secret must be real if Stripe is configured
+            if self.stripe_secret_key and not self.stripe_secret_key.startswith("sk_test_YOUR") and not self.stripe_secret_key.startswith("sk_live_YOUR"):
+                # Stripe is configured with a real key, require webhook secret
+                if not self.stripe_webhook_secret or _is_placeholder(self.stripe_webhook_secret):
+                    errors.append("STRIPE_WEBHOOK_SECRET is required when Stripe is configured — get from Stripe Dashboard → Webhooks")
+
+            if errors:
+                error_msg = "Production security validation FAILED:\n" + "\n".join(f"  - {e}" for e in errors)
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+
+        return self
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors(cls, v):
@@ -83,10 +136,12 @@ class Settings(BaseSettings):
         else:
             origins = v if isinstance(v, list) else []
 
-        # Always allow localhost for development
-        for local in ["http://localhost:3000", "http://127.0.0.1:3000"]:
-            if local not in origins:
-                origins.append(local)
+        # Only add localhost in development mode
+        environment = os.environ.get("ENVIRONMENT", "development").lower()
+        if environment != "production" and "AWS_LAMBDA_FUNCTION_NAME" not in os.environ:
+            for local in ["http://localhost:3000", "http://127.0.0.1:3000"]:
+                if local not in origins:
+                    origins.append(local)
         return origins
 
     @property

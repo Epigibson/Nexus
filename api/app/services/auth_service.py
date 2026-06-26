@@ -1,5 +1,7 @@
 """Auth service — JWT tokens + password hashing."""
 
+import re
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -10,6 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.user import User
 from app.models.organization import Organization, OrganizationMember, OrgRole
+
+
+# Password validation regex: min 8 chars, 1 uppercase, 1 lowercase, 1 number
+PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$")
+
+
+def validate_password_strength(password: str) -> bool:
+    """Validate password meets minimum complexity requirements."""
+    return bool(PASSWORD_PATTERN.match(password))
 
 
 def hash_password(password: str) -> str:
@@ -26,6 +37,8 @@ def create_access_token(user_id: str, email: str) -> str:
         "sub": user_id,
         "email": email,
         "exp": expire,
+        "type": "access",
+        "jti": secrets.token_hex(16),  # Unique token ID for revocation
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
@@ -36,7 +49,8 @@ def create_refresh_token(user_id: str, email: str) -> str:
         "sub": user_id,
         "email": email,
         "exp": expire,
-        "type": "refresh"
+        "type": "refresh",
+        "jti": secrets.token_hex(16),  # Unique token ID for rotation tracking
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
@@ -51,6 +65,10 @@ def decode_token(token: str) -> dict | None:
 
 async def register_user(db: AsyncSession, email: str, password: str, display_name: str | None = None, user_id: str | None = None) -> User:
     """Register a new user and create their personal org."""
+    # Validate password strength
+    if not validate_password_strength(password):
+        raise ValueError("Password must be at least 8 characters with 1 uppercase, 1 lowercase, and 1 number")
+
     # Check if email already exists
     result = await db.execute(select(User).where(User.email == email))
     if result.scalar_one_or_none():

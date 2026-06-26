@@ -13,8 +13,9 @@ from sqlalchemy.pool import NullPool
 from app.config import settings
 
 # ─── Engine configuration ───
+# Only echo SQL in development, never in production
 engine_kwargs = {
-    "echo": settings.debug,
+    "echo": settings.debug and not settings.is_production,
 }
 
 if settings.is_postgres:
@@ -23,8 +24,9 @@ if settings.is_postgres:
     # Verify connections before use — prevents stale connection errors on Lambda resume
     engine_kwargs["pool_pre_ping"] = True
     # SSL required for Supabase, and bulletproof PgBouncer transaction mode configuration
+    ssl_mode = "require" if settings.is_production else "prefer"
     engine_kwargs["connect_args"] = {
-        "ssl": "prefer",
+        "ssl": ssl_mode,
         "statement_cache_size": 0,
         "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4().hex}__",
         # Reduce connection timeout for faster failure detection
@@ -87,10 +89,22 @@ async def _auto_migrate():
     async with engine.begin() as conn:
         for table, column, sql_type, default in migrations:
             try:
-                await conn.execute(
-                    text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {sql_type} DEFAULT {default}")
-                )
-                print(f"  ✅ Migration: {table}.{column} ensured")
+                if settings.is_postgres:
+                    # PostgreSQL supports IF NOT EXISTS
+                    await conn.execute(
+                        text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {sql_type} DEFAULT {default}")
+                    )
+                else:
+                    # SQLite: check if column exists first, then add
+                    result = await conn.execute(
+                        text(f"PRAGMA table_info({table})")
+                    )
+                    columns = [row[1] for row in result.fetchall()]
+                    if column not in columns:
+                        await conn.execute(
+                            text(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type} DEFAULT {default}")
+                        )
+                print(f"  Migration: {table}.{column} ensured")
             except Exception as e:
                 # Column might already exist or DB doesn't support IF NOT EXISTS
-                print(f"  ⚠️ Migration {table}.{column}: {e}")
+                print(f"  Migration {table}.{column}: {e}")

@@ -3,10 +3,13 @@
 FastAPI application with JWT auth, SQLite/PostgreSQL, and RESTful endpoints.
 """
 
+import logging
+import traceback
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import init_db
@@ -15,6 +18,12 @@ from app.limiter import limiter
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG if settings.debug else logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("nexus")
 
 
 @asynccontextmanager
@@ -23,14 +32,14 @@ async def lifespan(app: FastAPI):
     if settings.is_production:
         # Production (Lambda): skip table creation, migrations, and seeds
         # Tables already exist in Supabase — this saves ~1-3s per cold start
-        print(f"🚀 {settings.app_name} v{settings.app_version} — Production mode (skipping init_db)")
+        logger.info(f"{settings.app_name} v{settings.app_version} — Production mode (skipping init_db)")
     else:
         # Development: create tables, run migrations, seed data
         await init_db()
-        print(f"🚀 {settings.app_name} v{settings.app_version} — Database ready")
-        print(f"🌐 CORS origins: {settings.cors_origins}")
+        logger.info(f"{settings.app_name} v{settings.app_version} — Database ready")
+        logger.info(f"CORS origins: {settings.cors_origins}")
         if settings.stripe_secret_key:
-            print(f"💳 Stripe configured (test mode)")
+            logger.info("Stripe configured (test mode)")
 
         # Seed default data & admin account
         from app.database import async_session
@@ -41,7 +50,7 @@ async def lifespan(app: FastAPI):
             await bootstrap_admin(db)
 
     yield
-    print("👋 Shutting down...")
+    logger.info("Shutting down...")
 
 
 app = FastAPI(
@@ -62,14 +71,35 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key", "Accept", "Origin", "X-Requested-With"],
     max_age=86400,  # Cache preflight for 24h to reduce OPTIONS requests
 )
 
+# ─── Global Exception Handler ───
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handle all unhandled exceptions — hide internal details in production."""
+    # Log the full traceback internally
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+
+    if settings.is_production:
+        # Production: generic error message
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"}
+        )
+    else:
+        # Development: include error details
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(exc), "type": type(exc).__name__}
+        )
+
+
 # ─── Security Headers Middleware ───
 @app.middleware("http")
-async def add_security_headers(request, call_next):
+async def add_security_headers(request: Request, call_next):
     # Skip security headers for CORS preflight — CORSMiddleware handles these
     if request.method == "OPTIONS":
         response = await call_next(request)
@@ -78,7 +108,11 @@ async def add_security_headers(request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if settings.is_production:
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.amazonaws.com https://api.stripe.com"
     return response
 
 # ─── Routers ───

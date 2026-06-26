@@ -1,5 +1,6 @@
 """Service to validate AWS Cognito JWT tokens."""
 
+import time
 import json
 import httpx
 from jose import jwt, jwk
@@ -9,15 +10,21 @@ from app.config import settings
 JWKS_URL = f"https://cognito-idp.{settings.cognito_region}.amazonaws.com/{settings.cognito_user_pool_id}/.well-known/jwks.json"
 
 _jwks = None
+_jwks_last_fetch = 0
+JWKS_CACHE_TTL = 3600  # 1 hour cache TTL
 
 async def get_jwks() -> dict:
-    """Fetch and cache the JSON Web Key Set from Cognito."""
-    global _jwks
-    if _jwks is None:
+    """Fetch and cache the JSON Web Key Set from Cognito with TTL."""
+    global _jwks, _jwks_last_fetch
+    current_time = time.time()
+    
+    # Refresh JWKS if cache is empty or expired
+    if _jwks is None or (current_time - _jwks_last_fetch) > JWKS_CACHE_TTL:
         async with httpx.AsyncClient() as client:
             response = await client.get(JWKS_URL)
             response.raise_for_status()
             _jwks = response.json()
+            _jwks_last_fetch = current_time
     return _jwks
 
 async def verify_cognito_token(token: str) -> dict | None:

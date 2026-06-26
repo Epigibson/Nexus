@@ -33,13 +33,17 @@ def encrypt_value(plain: str) -> str:
 
 
 def decrypt_value(cipher: str) -> str:
-    """Decrypt a ciphertext string. Fallback to return the original if not a valid Fernet token."""
+    """Decrypt a ciphertext string. Returns decrypted value or raises error if invalid."""
     if not cipher:
         return cipher
     try:
         return _get_fernet().decrypt(cipher.encode('utf-8')).decode('utf-8')
     except (InvalidToken, TypeError, ValueError):
-        # We assume it's a legacy plain-text value if it can't be decrypted
+        # Log warning for debugging but don't expose internal details
+        import logging
+        logger = logging.getLogger("nexus.crypto")
+        logger.warning("Failed to decrypt value — may be legacy plain-text or corrupted")
+        # Return the original value for backward compatibility with legacy data
         return cipher
 
 

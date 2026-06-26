@@ -1,12 +1,14 @@
 """Bootstrap admin account — ensures the platform owner has unlimited access."""
 
+import os
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 from app.models.organization import Organization, OrganizationMember
 
-ADMIN_EMAIL = "hackminor@live.com.mx"
+# Admin email from environment variable, with fallback for development
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "hackminor@live.com.mx")
 
 
 async def bootstrap_admin(db: AsyncSession) -> None:

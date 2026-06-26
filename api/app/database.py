@@ -5,6 +5,7 @@ Switch by changing DATABASE_URL in .env.
 """
 
 import uuid
+import ssl
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -24,14 +25,19 @@ if settings.is_postgres:
     engine_kwargs["poolclass"] = NullPool
     # Verify connections before use — prevents stale connection errors on Lambda resume
     engine_kwargs["pool_pre_ping"] = True
-    # SSL required for Supabase, and bulletproof PgBouncer transaction mode configuration
-    ssl_mode = "prefer" if settings.is_production else "prefer"
+    
+    # Create SSL context for Supabase
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
+    # Connection args for asyncpg
     engine_kwargs["connect_args"] = {
-        "ssl": ssl_mode,
+        "ssl": ssl_context,
         "statement_cache_size": 0,
         "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4().hex}__",
-        # Reduce connection timeout for faster failure detection
-        "timeout": 10,
+        "timeout": 15,
+        "command_timeout": 15,
     }
 else:
     # SQLite — needs check_same_thread=False for async

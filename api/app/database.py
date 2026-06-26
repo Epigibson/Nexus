@@ -5,12 +5,24 @@ Switch by changing DATABASE_URL in .env.
 """
 
 import uuid
+import socket
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
 
 from app.config import settings
+
+
+def _force_ipv4_getaddrinfo(host, port, *args, **kwargs):
+    """Force IPv4 resolution — Lambda doesn't support IPv6 outbound."""
+    return socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM, *args[2:], **kwargs)
+
+
+# Monkey-patch socket to force IPv4 on Lambda
+if settings.is_production:
+    socket.getaddrinfo = _force_ipv4_getaddrinfo
+
 
 # ─── Engine configuration ───
 # Only echo SQL in development, never in production
@@ -24,7 +36,7 @@ if settings.is_postgres:
     # Verify connections before use — prevents stale connection errors on Lambda resume
     engine_kwargs["pool_pre_ping"] = True
     # SSL required for Supabase, and bulletproof PgBouncer transaction mode configuration
-    ssl_mode = "require" if settings.is_production else "prefer"
+    ssl_mode = "prefer" if settings.is_production else "prefer"
     engine_kwargs["connect_args"] = {
         "ssl": ssl_mode,
         "statement_cache_size": 0,

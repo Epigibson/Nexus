@@ -5,28 +5,12 @@ Switch by changing DATABASE_URL in .env.
 """
 
 import uuid
-import socket
-import functools
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
 
 from app.config import settings
-
-
-# Save original getaddrinfo before any patching
-_original_getaddrinfo = socket.getaddrinfo
-
-
-def _force_ipv4_getaddrinfo(host, port, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0, flags=0):
-    """Force IPv4 resolution — Lambda doesn't support IPv6 outbound."""
-    return _original_getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM, proto, flags)
-
-
-# Monkey-patch socket to force IPv4 on Lambda
-if settings.is_production:
-    socket.getaddrinfo = _force_ipv4_getaddrinfo
 
 
 # ─── Engine configuration ───

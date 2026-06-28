@@ -1,18 +1,5 @@
-# Nexus CLI Binary Checksums (SHA256)
-# Generated for each release platform
-# Format: <hash>  <filename>
-
-# Linux AMD64
-# <hash>  nexus-linux-amd64.tar.gz
-
-# Linux ARM64
-# <hash>  nexus-linux-arm64.tar.gz
-
-# macOS AMD64
-# <hash>  nexus-darwin-amd64.tar.gz
-
-# macOS ARM64
-# <hash>  nexus-darwin-arm64.tar.gz
-
-# Note: These checksums should be generated during the release process
-# and published alongside the binary downloads.
+d4b79bce31536fb3f410937d8ed7a45111af0175caf5612e84edbe581817a9e2  nexus-darwin-amd64.tar.gz
+4e7f0c6c0d461a62338b1e008b8a616f7ca35d229586ebbc3aaa8d28169511e1  nexus-darwin-arm64.tar.gz
+1c73dcbe489b8e95880b76d997aa1d1812e0c0561d8ef75eba835fd1c51dad29  nexus-linux-amd64.tar.gz
+a8d79ce12a8a543a47ff1d8c8629db7a1a907b2b14d9d2c9dea07c515336d5b9  nexus-linux-arm64.tar.gz
+a4e48c06c0c16396972ed24e8f3ca50a8eb496862022642c6bcba82ac6b188f6  nexus-windows-amd64.tar.gz

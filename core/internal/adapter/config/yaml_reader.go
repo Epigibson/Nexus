@@ -114,14 +114,18 @@ type projectMeta struct {
 }
 
 // readFromFile parses a single YAML file into a Project.
+// Environment variables in the form ${VAR} or $VAR are expanded.
 func (r *YAMLReader) readFromFile(path string) (*domain.Project, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read config file '%s': %w", path, err)
 	}
 
+	// Expand environment variables (${VAR} and $VAR syntax)
+	expanded := os.ExpandEnv(string(data))
+
 	var cfg configFile
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	if err := yaml.Unmarshal([]byte(expanded), &cfg); err != nil {
 		return nil, fmt.Errorf("invalid YAML in '%s': %w", path, err)
 	}
 

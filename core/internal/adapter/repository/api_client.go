@@ -93,12 +93,22 @@ type UserDTO struct {
 
 // AuditEntryDTO for pushing audit logs.
 type AuditEntryDTO struct {
+	ID          string `json:"id,omitempty"`
+	Timestamp   string `json:"timestamp,omitempty"`
 	Action      string `json:"action"`
 	ProjectName string `json:"project_name"`
 	Environment string `json:"environment"`
+	SkillName   string `json:"skill_name,omitempty"`
 	Message     string `json:"message"`
 	Success     bool   `json:"success"`
 	DurationMs  int64  `json:"duration_ms"`
+	UserAgent   string `json:"user_agent,omitempty"`
+}
+
+// AuditLogResponse represents the API response for audit log queries.
+type AuditLogResponse struct {
+	Entries []AuditEntryDTO `json:"entries"`
+	Total   int             `json:"total"`
 }
 
 // NewAPIClient creates a client configured with API key from credentials file.
@@ -248,9 +258,43 @@ func (c *APIClient) Log(entry domain.AuditEntry) error {
 	})
 }
 
-// GetLogs is currently unsupported natively via APIClient since the dashboard handles reading.
+// GetLogs retrieves audit entries from the API for a given project.
 func (c *APIClient) GetLogs(projectName string, limit int) ([]domain.AuditEntry, error) {
-	return nil, fmt.Errorf("GetLogs is not implemented on the API client")
+	if limit <= 0 {
+		limit = 50
+	}
+	path := fmt.Sprintf("/audit/?limit=%d", limit)
+	if projectName != "" {
+		path += "&project=" + projectName
+	}
+
+	var resp AuditLogResponse
+	if err := c.get(path, &resp); err != nil {
+		return nil, fmt.Errorf("failed to fetch audit logs: %w", err)
+	}
+
+	entries := make([]domain.AuditEntry, 0, len(resp.Entries))
+	for _, dto := range resp.Entries {
+		entry := domain.AuditEntry{
+			ID:          dto.ID,
+			Action:      domain.AuditAction(dto.Action),
+			ProjectName: dto.ProjectName,
+			Environment: dto.Environment,
+			SkillName:   dto.SkillName,
+			Message:     dto.Message,
+			Success:     dto.Success,
+			DurationMs:  dto.DurationMs,
+			UserAgent:   dto.UserAgent,
+		}
+		if dto.Timestamp != "" {
+			if t, err := time.Parse(time.RFC3339, dto.Timestamp); err == nil {
+				entry.Timestamp = t
+			}
+		}
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
 }
 
 // ─── Credentials file management (encrypted at rest) ───

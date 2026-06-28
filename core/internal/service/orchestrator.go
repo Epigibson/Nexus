@@ -274,6 +274,7 @@ func (o *Orchestrator) SwitchWithProject(project *domain.Project, envName string
 }
 
 // executeSkill runs a single skill and handles errors gracefully.
+// If execution fails, it attempts a best-effort rollback of the failed skill.
 func (o *Orchestrator) executeSkill(project *domain.Project, env *domain.EnvironmentConfig, skill *domain.Skill) *domain.SkillResult {
 	startTime := time.Now()
 
@@ -289,10 +290,22 @@ func (o *Orchestrator) executeSkill(project *domain.Project, env *domain.Environ
 
 	result, err := executor.Execute(project, env, skill)
 	if err != nil {
+		// Attempt best-effort rollback
+		rollbackErr := executor.Rollback(project, env)
+		rollbackMsg := ""
+		if rollbackErr != nil {
+			rollbackMsg = fmt.Sprintf(" (rollback also failed: %v)", rollbackErr)
+			o.logAudit(domain.AuditActionError, project.Name, "", skill.Name,
+				fmt.Sprintf("Rollback failed for skill '%s': %v", skill.Name, rollbackErr), false)
+		} else if executor.Name() != string(domain.SkillCategoryContext) {
+			// Log successful rollback (skip for env injector since it's session-scoped)
+			rollbackMsg = " (rolled back)"
+		}
+
 		return &domain.SkillResult{
 			SkillName: skill.Name,
 			Status:    domain.SkillStatusFailed,
-			Message:   fmt.Sprintf("Execution failed: %v", err),
+			Message:   fmt.Sprintf("Execution failed: %v%s", err, rollbackMsg),
 			Duration:  time.Since(startTime),
 			Error:     err,
 		}

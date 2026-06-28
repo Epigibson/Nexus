@@ -13,7 +13,10 @@ import (
 
 // ScriptRunner handles executing arbitrary shell commands defined in the environment profile.
 // Implements port.SkillExecutor for the "scripts" skill category.
-type ScriptRunner struct{}
+type ScriptRunner struct {
+	rollbackCmd string
+	repoDir     string
+}
 
 func NewScriptRunner() *ScriptRunner {
 	return &ScriptRunner{}
@@ -45,6 +48,12 @@ func (s *ScriptRunner) Execute(project *domain.Project, env *domain.EnvironmentC
 			Duration:  time.Since(startTime),
 		}, nil
 	}
+
+	// Save rollback command and repo dir for potential rollback
+	if rollback, ok := skill.Config["rollback_command"].(string); ok && rollback != "" {
+		s.rollbackCmd = rollback
+	}
+	s.repoDir = project.RootPath
 
 	// Resolve timeout from skill config (default: 120s)
 	timeout := 120 * time.Second
@@ -106,7 +115,31 @@ func (s *ScriptRunner) Execute(project *domain.Project, env *domain.EnvironmentC
 }
 
 func (s *ScriptRunner) Rollback(project *domain.Project, env *domain.EnvironmentConfig) error {
-	// Script rollback would require a reverse bash script, which is too unpredictable.
-	// Returning nil means no generic rollback is attempted for this skill.
+	if s.rollbackCmd == "" {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", s.rollbackCmd)
+	} else {
+		cmd = exec.CommandContext(ctx, "bash", "-c", s.rollbackCmd)
+	}
+
+	if s.repoDir != "" {
+		cmd.Dir = s.repoDir
+	} else if project.RootPath != "" {
+		cmd.Dir = project.RootPath
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("rollback command failed: %w (output: %s)", err, string(output))
+	}
+
+	s.rollbackCmd = ""
 	return nil
 }

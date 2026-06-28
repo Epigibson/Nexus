@@ -270,6 +270,10 @@ func buildOrchestrator() (*service.Orchestrator, *audit.MultiLogger, error) {
 	apiClient := repository.NewAPIClient(getAPIURL())
 	auditLogger := audit.NewMultiLogger(localLogger, apiClient)
 
+	// Inject API client into executors that need cloud connectivity
+	cloudAuditSync.SetAPIClient(apiClient)
+	teamSync.SetAPIClient(apiClient)
+
 	shellEmitter := executor.DetectShellEmitter()
 
 	// Build the base executors map

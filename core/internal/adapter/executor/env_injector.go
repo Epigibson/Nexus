@@ -111,7 +111,10 @@ func DetectShellEmitter() interface {
 
 // GitSwitcher handles checking out the correct Git branch.
 // Implements port.SkillExecutor for the "git-state" skill category.
-type GitSwitcher struct{}
+type GitSwitcher struct {
+	previousBranch string
+	repoDir        string
+}
 
 func NewGitSwitcher() *GitSwitcher {
 	return &GitSwitcher{}
@@ -137,6 +140,7 @@ func (g *GitSwitcher) Execute(project *domain.Project, env *domain.EnvironmentCo
 	if repoDir == "" {
 		repoDir, _ = os.Getwd()
 	}
+	g.repoDir = repoDir
 
 	// Get current branch
 	currentBranch, err := getCurrentBranch(repoDir)
@@ -149,6 +153,9 @@ func (g *GitSwitcher) Execute(project *domain.Project, env *domain.EnvironmentCo
 			Error:     err,
 		}, nil
 	}
+
+	// Save previous branch for rollback
+	g.previousBranch = currentBranch
 
 	// If already on the right branch, skip
 	if currentBranch == env.Branch {
@@ -220,7 +227,21 @@ func (g *GitSwitcher) Execute(project *domain.Project, env *domain.EnvironmentCo
 }
 
 func (g *GitSwitcher) Rollback(project *domain.Project, env *domain.EnvironmentConfig) error {
-	return nil // Git state is managed by git itself
+	if g.previousBranch == "" || g.repoDir == "" {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "checkout", g.previousBranch)
+	cmd.Dir = g.repoDir
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to rollback to branch '%s': %w", g.previousBranch, err)
+	}
+
+	g.previousBranch = ""
+	return nil
 }
 
 // countGitStashEntries returns the number of stash entries (locale-safe).

@@ -15,7 +15,9 @@ import (
 // Implements port.SkillExecutor for the "documentation" skill category.
 // Generates a NEXUS_CONTEXT.md file in the project root with a summary
 // of the active context: environment variables, CLI tools, Git branch, and skills.
-type DocGenerator struct{}
+type DocGenerator struct {
+	generatedFile string
+}
 
 func NewDocGenerator() *DocGenerator {
 	return &DocGenerator{}
@@ -146,6 +148,8 @@ func (d *DocGenerator) Execute(project *domain.Project, env *domain.EnvironmentC
 		}, nil
 	}
 
+	d.generatedFile = outputPath
+
 	return &domain.SkillResult{
 		SkillName: skill.Name,
 		Status:    domain.SkillStatusSuccess,
@@ -156,6 +160,12 @@ func (d *DocGenerator) Execute(project *domain.Project, env *domain.EnvironmentC
 }
 
 func (d *DocGenerator) Rollback(project *domain.Project, env *domain.EnvironmentConfig) error {
-	// Could delete the generated file, but it's harmless
+	if d.generatedFile == "" {
+		return nil
+	}
+	if err := os.Remove(d.generatedFile); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove generated file %s: %w", d.generatedFile, err)
+	}
+	d.generatedFile = ""
 	return nil
 }

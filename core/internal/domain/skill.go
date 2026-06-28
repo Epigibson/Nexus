@@ -11,7 +11,7 @@ type SkillCategory string
 const (
 	SkillCategoryContext        SkillCategory = "context-injection"
 	SkillCategoryGit            SkillCategory = "git-state"
-	SkillCategoryCLI            SkillCategory = "cli-switching"
+	SkillCategoryCLI            SkillCategory = "cli-switching" // Reserved: CLI switching is handled by CLIProfiler, not SkillExecutor
 	SkillCategoryDocs           SkillCategory = "documentation"
 	SkillCategorySandbox        SkillCategory = "sandbox"
 	SkillCategoryScripts        SkillCategory = "scripts"

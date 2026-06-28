@@ -2,6 +2,7 @@ package executor
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -138,5 +139,14 @@ func (p *ParallelExecutor) Execute(project *domain.Project, env *domain.Environm
 }
 
 func (p *ParallelExecutor) Rollback(project *domain.Project, env *domain.EnvironmentConfig) error {
+	var errs []string
+	for _, executor := range p.executors {
+		if err := executor.Rollback(project, env); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", executor.Name(), err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("parallel rollback errors: %s", strings.Join(errs, "; "))
+	}
 	return nil
 }

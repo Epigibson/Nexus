@@ -52,7 +52,7 @@ async def list_audit(
             message=e.message,
             success=e.success,
             duration_ms=e.duration_ms,
-            created_at=e.created_at.isoformat() if e.created_at else "",
+            created_at=e.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if e.created_at else "",
         )
         for e, project_name in rows
     ]
@@ -112,7 +112,7 @@ async def create_audit(
             message=entry.message,
             success=entry.success,
             duration_ms=entry.duration_ms,
-            created_at=entry.created_at.isoformat() if entry.created_at else "",
+            created_at=entry.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if entry.created_at else "",
         )
     except Exception as e:
         import logging

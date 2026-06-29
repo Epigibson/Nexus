@@ -670,6 +670,26 @@ func (e *ExpoProfiler) CurrentProfile() (string, error) {
 	if err != nil {
 		return "none", nil
 	}
+
+	// Parse the actual username from output, skipping version warnings
+	// eas CLI may print update warnings before the actual result
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Skip version warning lines
+		if strings.HasPrefix(line, "★") ||
+			strings.HasPrefix(line, "To upgrade") ||
+			strings.HasPrefix(line, "npm install") ||
+			strings.HasPrefix(line, "Proceeding") {
+			continue
+		}
+		// First non-warning line is the username
+		return line, nil
+	}
+
 	return strings.TrimSpace(string(output)), nil
 }
 

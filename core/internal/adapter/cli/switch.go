@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -48,6 +50,9 @@ Example:
 			}
 
 			fmt.Print(banner)
+
+			// Auto-install shell wrapper if not present
+			ensureShellWrapper()
 
 			// ── Try cloud mode first (if authenticated) ──
 			client := repository.NewAPIClient(getAPIURL())
@@ -344,5 +349,118 @@ func showSpinner(ctx context.Context, message string) {
 			i++
 			time.Sleep(80 * time.Millisecond)
 		}
+	}
+}
+
+// ensureShellWrapper checks if the Nexus shell wrapper is installed.
+// If not, it installs it automatically and explains why it's needed.
+func ensureShellWrapper() {
+	if isShellWrapperInstalled() {
+		return
+	}
+
+	fmt.Println("  ─────────────────────────────────────────")
+	fmt.Println("  🔧 \033[1;33mShell wrapper not detected\033[0m")
+	fmt.Println()
+	fmt.Println("  Nexus injects environment variables into your terminal when you switch")
+	fmt.Println("  projects. Without the wrapper, you'd need to manually run:")
+	fmt.Println()
+	fmt.Println("    source ~/.nexus/last_switch.sh")
+	fmt.Println()
+	fmt.Println("  after every switch. The wrapper does this automatically.")
+	fmt.Println()
+	fmt.Print("  Install it now? [Y/n] ")
+
+	reader := bufio.NewReader(os.Stdin)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(strings.ToLower(answer))
+
+	if answer == "" || answer == "y" || answer == "yes" || answer == "si" || answer == "s" {
+		installShellWrapper()
+	} else {
+		fmt.Println("  ⏭️  Skipped. You can install later with: nexus setup-shell")
+	}
+	fmt.Println("  ─────────────────────────────────────────")
+}
+
+// isShellWrapperInstalled checks if the Nexus CLI wrapper exists in ~/.bashrc or ~/.zshrc.
+func isShellWrapperInstalled() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+
+	rcFiles := []string{
+		filepath.Join(home, ".bashrc"),
+		filepath.Join(home, ".zshrc"),
+	}
+
+	for _, rcFile := range rcFiles {
+		data, err := os.ReadFile(rcFile)
+		if err != nil {
+			continue
+		}
+		if strings.Contains(string(data), "Nexus CLI Wrapper") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// installShellWrapper appends the Nexus wrapper function to ~/.bashrc and ~/.zshrc.
+func installShellWrapper() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Println("  ❌ Could not find home directory")
+		return
+	}
+
+	rcFiles := []string{
+		filepath.Join(home, ".bashrc"),
+		filepath.Join(home, ".zshrc"),
+	}
+
+	installed := 0
+	for _, rcFile := range rcFiles {
+		if _, err := os.Stat(rcFile); err != nil {
+			continue
+		}
+
+		content, err := os.ReadFile(rcFile)
+		if err != nil {
+			continue
+		}
+
+		if strings.Contains(string(content), "Nexus CLI Wrapper") {
+			fmt.Printf("  ✅ Already installed in \033[1;36m%s\033[0m\n", filepath.Base(rcFile))
+			installed++
+			continue
+		}
+
+		f, err := os.OpenFile(rcFile, os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Printf("  ❌ Failed to write to \033[1;31m%s\033[0m\n", filepath.Base(rcFile))
+			continue
+		}
+
+		_, err = f.WriteString("\n" + shellWrapperCode)
+		f.Close()
+
+		if err == nil {
+			fmt.Printf("  ✅ Installed in \033[1;32m%s\033[0m\n", filepath.Base(rcFile))
+			installed++
+		}
+	}
+
+	if installed > 0 {
+		fmt.Println()
+		fmt.Println("  🎉 \033[1;32mWrapper installed!\033[0m")
+		fmt.Println("  After this switch, run in your terminal:")
+		fmt.Println("  \033[1;33m  source ~/.bashrc\033[0m")
+		fmt.Println("  Then future switches will auto-inject env vars.")
+	} else {
+		fmt.Println("  ⚠️  No .bashrc or .zshrc found. Add the wrapper manually:")
+		fmt.Print(shellWrapperCode)
 	}
 }

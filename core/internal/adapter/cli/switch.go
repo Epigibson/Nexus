@@ -156,7 +156,7 @@ func switchFromAPI(projectDTO *repository.ProjectDTO, envName string) error {
 		_ = state.SaveActiveState(domain.ActiveState{
 			ProjectName: project.Name,
 			Environment: envName,
-			Timestamp:   time.Now().UTC(),
+			Timestamp:   time.Now(),
 		})
 	}
 
@@ -235,7 +235,7 @@ func switchLocal(args []string, envName string) error {
 		_ = state.SaveActiveState(domain.ActiveState{
 			ProjectName: result.ProjectName,
 			Environment: result.Environment,
-			Timestamp:   time.Now().UTC(),
+			Timestamp:   time.Now(),
 		})
 	}
 

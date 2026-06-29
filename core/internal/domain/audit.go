@@ -39,7 +39,7 @@ type AuditEntry struct {
 func NewAuditEntry(action AuditAction, project, env, skill, message string) AuditEntry {
 	return AuditEntry{
 		ID:          generateID(),
-		Timestamp:   time.Now().UTC(),
+		Timestamp:   time.Now(),
 		Action:      action,
 		ProjectName: project,
 		Environment: env,
@@ -51,7 +51,7 @@ func NewAuditEntry(action AuditAction, project, env, skill, message string) Audi
 
 // generateID creates a simple sortable unique ID using timestamp + random suffix.
 func generateID() string {
-	return time.Now().UTC().Format("20060102T150405.000") + "-" + randomSuffix()
+	return time.Now().Format("20060102T150405.000") + "-" + randomSuffix()
 }
 
 // randomSuffix generates a cryptographically random 8-char string for ID uniqueness.

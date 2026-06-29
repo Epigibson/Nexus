@@ -66,7 +66,7 @@ func (t *TeamContextSync) Execute(project *domain.Project, env *domain.Environme
 		"slug":        project.Slug,
 		"environment": env.Name,
 		"user":        username,
-		"timestamp":   time.Now().UTC().Format(time.RFC3339),
+		"timestamp":   time.Now().Format(time.RFC3339),
 		"event":       "context_switch",
 	}
 

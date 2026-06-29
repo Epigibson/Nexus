@@ -14,7 +14,7 @@ import {
   fetchMFAPreference,
   type SignInOutput,
 } from 'aws-amplify/auth';
-import { api, type UserResponse } from '../api/client';
+import { api, type UserResponse } from '@/api/client';
 
 const TOKEN_KEY = 'ag_token';
 const USER_KEY = 'ag_user';

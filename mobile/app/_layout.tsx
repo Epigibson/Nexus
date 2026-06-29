@@ -4,11 +4,11 @@ import { TamaguiProvider } from 'tamagui';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { AuthProvider, useAuth } from '../src/auth/provider';
-import tamaguiConfig from '../src/theme/tamagui.config';
+import { AuthProvider, useAuth } from '@/auth/provider';
+import tamaguiConfig from '@/theme/tamagui.config';
 
 // Import auth config
-import '../src/auth/config';
+import '@/auth/config';
 
 SplashScreen.preventAutoHideAsync();
 

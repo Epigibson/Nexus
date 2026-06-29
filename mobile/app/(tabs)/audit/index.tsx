@@ -1,7 +1,7 @@
 import { View, StyleSheet, ScrollView, RefreshControl, Pressable } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useEffect, useCallback } from 'react';
-import { api, type AuditEntry } from '../../src/api/client';
+import { api, type AuditEntry } from '@/api/client';
 import {
   CheckCircle2, XCircle, ChevronRight, ChevronDown, SkipForward,
   Zap, GitBranch, Terminal, Key, FileText, AlertTriangle, Clock, Search,

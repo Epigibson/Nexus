@@ -2,7 +2,7 @@ import { View, StyleSheet, ScrollView, RefreshControl, Pressable } from 'react-n
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { api, type ProjectResponse, type EnvironmentResponse, type SkillResponse } from '../../src/api/client';
+import { api, type ProjectResponse, type EnvironmentResponse, type SkillResponse } from '@/api/client';
 import {
   ArrowLeft, GitBranch, Terminal, Key, Globe, Plus, Settings, Activity,
   CheckCircle2, XCircle, ToggleLeft, ToggleRight, ExternalLink,

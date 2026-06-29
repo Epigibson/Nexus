@@ -2,7 +2,7 @@ import { View, StyleSheet, ScrollView, RefreshControl, Pressable } from 'react-n
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { api, type ProjectResponse } from '../../src/api/client';
+import { api, type ProjectResponse } from '@/api/client';
 import { FolderOpen, Plus, GitBranch, Terminal, Clock, ArrowRight } from 'lucide-react-native';
 
 export default function ProjectsScreen() {

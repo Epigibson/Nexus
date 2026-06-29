@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, TextInput } from 'react-native';
 import { Text, YStack } from 'tamagui';
 import { useRouter } from 'expo-router';
-import { api } from '../../src/api/client';
+import { api } from '@/api/client';
 import { FolderOpen, Globe, FileText, ArrowRight } from 'lucide-react-native';
 
 export default function CreateProjectModal() {
@@ -56,7 +56,7 @@ export default function CreateProjectModal() {
           <Text fontSize={13} fontWeight="600" color="#94a3b8">Nombre del Proyecto</Text>
           <View style={styles.inputContainer}>
             <FolderOpen size={18} color="#64748b" style={styles.inputIcon} />
-            <input
+            <TextInput
               style={styles.input as any}
               placeholder="Mi Proyecto"
               placeholderTextColor="#4a4a5a"
@@ -74,7 +74,7 @@ export default function CreateProjectModal() {
           <Text fontSize={13} fontWeight="600" color="#94a3b8">Slug (identificador)</Text>
           <View style={styles.inputContainer}>
             <Text fontSize={14} color="#64748b" style={styles.inputIcon}>/</Text>
-            <input
+            <TextInput
               style={styles.input as any}
               placeholder="mi-proyecto"
               placeholderTextColor="#4a4a5a"
@@ -90,7 +90,7 @@ export default function CreateProjectModal() {
           <Text fontSize={13} fontWeight="600" color="#94a3b8">Descripción (opcional)</Text>
           <View style={styles.inputContainer}>
             <FileText size={18} color="#64748b" style={styles.inputIcon} />
-            <input
+            <TextInput
               style={styles.input as any}
               placeholder="Descripción breve..."
               placeholderTextColor="#4a4a5a"
@@ -105,7 +105,7 @@ export default function CreateProjectModal() {
           <Text fontSize={13} fontWeight="600" color="#94a3b8">Repository URL (opcional)</Text>
           <View style={styles.inputContainer}>
             <Globe size={18} color="#64748b" style={styles.inputIcon} />
-            <input
+            <TextInput
               style={styles.input as any}
               placeholder="https://github.com/..."
               placeholderTextColor="#4a4a5a"

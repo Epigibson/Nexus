@@ -1,8 +1,8 @@
 import { View, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../../src/auth/provider';
-import { api } from '../../../src/api/client';
+import { useAuth } from '@/auth/provider';
+import { api } from '@/api/client';
 import {
   CreditCard, CheckCircle2, Zap, Crown, Building2, ExternalLink,
   FolderOpen, Terminal, Users, ArrowRight,

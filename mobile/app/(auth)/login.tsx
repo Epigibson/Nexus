@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable, TextInput } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../src/auth/provider';
+import { useAuth } from '@/auth/provider';
 import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 
 export default function LoginScreen() {
@@ -70,7 +70,7 @@ export default function LoginScreen() {
               </Text>
               <View style={styles.inputContainer}>
                 <Mail size={18} color="#64748b" style={styles.inputIcon} />
-                <input
+                <TextInput
                   style={styles.input as any}
                   placeholder="tu@email.com"
                   placeholderTextColor="#4a4a5a"
@@ -90,7 +90,7 @@ export default function LoginScreen() {
               </Text>
               <View style={styles.inputContainer}>
                 <Lock size={18} color="#64748b" style={styles.inputIcon} />
-                <input
+                <TextInput
                   style={styles.input as any}
                   placeholder="••••••••"
                   placeholderTextColor="#4a4a5a"

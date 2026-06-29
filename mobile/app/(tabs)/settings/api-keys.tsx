@@ -1,8 +1,8 @@
 import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../../src/auth/provider';
-import { api, type ApiKeyResponse } from '../../../src/api/client';
+import { useAuth } from '@/auth/provider';
+import { api, type ApiKeyResponse } from '@/api/client';
 import { Key, Plus, Copy, Trash2, CheckCircle2, Eye, EyeOff } from 'lucide-react-native';
 
 export default function ApiKeysScreen() {

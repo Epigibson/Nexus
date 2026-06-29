@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, TextInput } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { api } from '../../src/api/client';
+import { api } from '@/api/client';
 import { GitBranch, Tag, ArrowRight } from 'lucide-react-native';
 
 const ENV_PRESETS = [
@@ -83,7 +83,7 @@ export default function CreateEnvironmentModal() {
           <Text fontSize={13} fontWeight="600" color="#94a3b8">Nombre del Entorno</Text>
           <View style={styles.inputContainer}>
             <Tag size={18} color="#64748b" style={styles.inputIcon} />
-            <input
+            <TextInput
               style={styles.input as any}
               placeholder="mi-entorno"
               placeholderTextColor="#4a4a5a"
@@ -99,7 +99,7 @@ export default function CreateEnvironmentModal() {
           <Text fontSize={13} fontWeight="600" color="#94a3b8">Git Branch (opcional)</Text>
           <View style={styles.inputContainer}>
             <GitBranch size={18} color="#64748b" style={styles.inputIcon} />
-            <input
+            <TextInput
               style={styles.input as any}
               placeholder="main"
               placeholderTextColor="#4a4a5a"

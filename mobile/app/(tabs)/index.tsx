@@ -1,8 +1,8 @@
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../src/auth/provider';
-import { api, type DashboardStats, type RecentSwitch, type ActivityPoint } from '../../src/api/client';
+import { useAuth } from '@/auth/provider';
+import { api, type DashboardStats, type RecentSwitch, type ActivityPoint } from '@/api/client';
 import { Zap, FolderOpen, Terminal, Activity, Clock, CheckCircle2, XCircle } from 'lucide-react-native';
 
 export default function OverviewScreen() {

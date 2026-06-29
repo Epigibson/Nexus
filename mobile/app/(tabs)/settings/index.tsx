@@ -1,6 +1,6 @@
 import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
-import { useAuth } from '../../src/auth/provider';
+import { useAuth } from '@/auth/provider';
 import { useRouter } from 'expo-router';
 import {
   User, Shield, Key, CreditCard, Users, LogOut, ChevronRight, Moon, Zap,

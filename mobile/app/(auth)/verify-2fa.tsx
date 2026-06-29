@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text, YStack } from 'tamagui';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '../../src/auth/provider';
-import { OTPInput } from '../../src/components/ui/OTPInput';
+import { useAuth } from '@/auth/provider';
+import { OTPInput } from '@/components/ui/OTPInput';
 import { ShieldCheck, Zap, ArrowLeft } from 'lucide-react-native';
 
 export default function Verify2FAScreen() {

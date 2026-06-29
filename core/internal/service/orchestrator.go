@@ -175,9 +175,9 @@ func (o *Orchestrator) SwitchWithProject(project *domain.Project, envName string
 				shellLines = append(shellLines, "")
 			}
 
-			// Log the skill result to audit
+			// Log the skill result to audit (skipped is not an error)
 			o.logAudit(domain.AuditAction("skill_"+string(skill.Category)), project.Name, envName,
-				skill.Name, result.Message, result.IsSuccess())
+				skill.Name, result.Message, result.IsSuccess() || result.Status == domain.SkillStatusSkipped)
 		}
 	}
 

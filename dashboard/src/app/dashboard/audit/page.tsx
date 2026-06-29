@@ -60,7 +60,8 @@ function getSkillStatus(entry: AuditEntry): SkillStatus {
     msg.includes("disabled") ||
     msg.includes("no commands") ||
     msg.includes("no branch") ||
-    msg.includes("no env")
+    msg.includes("no env") ||
+    msg.includes("no executor")
   ) {
     return "warning";
   }

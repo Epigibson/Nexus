@@ -1,0 +1,34 @@
+{
+  "cli": {
+    "version": ">= 12.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://qegsj4k7m5.execute-api.us-east-1.amazonaws.com",
+        "EXPO_PUBLIC_COGNITO_USER_POOL_ID": "YOUR_COGNITO_USER_POOL_ID",
+        "EXPO_PUBLIC_COGNITO_CLIENT_ID": "YOUR_COGNITO_CLIENT_ID"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://qegsj4k7m5.execute-api.us-east-1.amazonaws.com",
+        "EXPO_PUBLIC_COGNITO_USER_POOL_ID": "YOUR_COGNITO_USER_POOL_ID",
+        "EXPO_PUBLIC_COGNITO_CLIENT_ID": "YOUR_COGNITO_CLIENT_ID"
+      }
+    },
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://qegsj4k7m5.execute-api.us-east-1.amazonaws.com",
+        "EXPO_PUBLIC_COGNITO_USER_POOL_ID": "YOUR_COGNITO_USER_POOL_ID",
+        "EXPO_PUBLIC_COGNITO_CLIENT_ID": "YOUR_COGNITO_CLIENT_ID"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

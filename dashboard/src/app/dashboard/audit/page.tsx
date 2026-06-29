@@ -16,6 +16,8 @@ import {
   Key,
   FileText,
   AlertTriangle,
+  Clock,
+  SkipForward,
 } from "lucide-react";
 import {
   Card,
@@ -33,32 +35,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { api } from "@/lib/api";
 import type { AuditEntry } from "@/lib/api";
 
 const actionConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  context_switch: { label: "Context Switch", color: "bg-primary/10 text-primary", icon: Zap },
-  env_inject: { label: "Env Inject", color: "bg-success/10 text-success", icon: Key },
-  git_switch: { label: "Git Switch", color: "bg-chart-3/10 text-chart-3", icon: GitBranch },
-  cli_switch: { label: "CLI Switch", color: "bg-warning/10 text-warning", icon: Terminal },
-  project_init: { label: "Init", color: "bg-muted text-muted-foreground", icon: FileText },
-  error: { label: "Error", color: "bg-destructive/10 text-destructive", icon: AlertTriangle },
+  context_switch: { label: "Context Switch", color: "bg-violet-500/10 text-violet-400 border-violet-500/20", icon: Zap },
+  env_inject: { label: "Env Inject", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: Key },
+  git_switch: { label: "Git Switch", color: "bg-sky-500/10 text-sky-400 border-sky-500/20", icon: GitBranch },
+  cli_switch: { label: "CLI Switch", color: "bg-amber-500/10 text-amber-400 border-amber-500/20", icon: Terminal },
+  project_init: { label: "Init", color: "bg-slate-500/10 text-slate-400 border-slate-500/20", icon: FileText },
+  error: { label: "Error", color: "bg-red-500/10 text-red-400 border-red-500/20", icon: AlertTriangle },
 };
+
+type SkillStatus = "success" | "warning" | "error";
+
+function getSkillStatus(entry: AuditEntry): SkillStatus {
+  if (entry.success) return "success";
+  const msg = entry.message.toLowerCase();
+  if (
+    msg.includes("skipped") ||
+    msg.includes("not installed") ||
+    msg.includes("not authenticated") ||
+    msg.includes("not defined") ||
+    msg.includes("disabled") ||
+    msg.includes("no commands") ||
+    msg.includes("no branch") ||
+    msg.includes("no env")
+  ) {
+    return "warning";
+  }
+  return "error";
+}
 
 interface SwitchGroup {
   id: string;
   entry: AuditEntry;
   children: AuditEntry[];
   totalDuration: number;
-  hasErrors: boolean;
+  successCount: number;
+  warningCount: number;
+  errorCount: number;
 }
 
 function groupBySwitches(entries: AuditEntry[]): SwitchGroup[] {
@@ -72,9 +88,16 @@ function groupBySwitches(entries: AuditEntry[]): SwitchGroup[] {
       return Math.abs(eTime - swTime) < 15000 && e.project_name === sw.project_name;
     });
     const totalDuration = children.reduce((sum, c) => sum + (c.duration_ms || 0), 0);
-    const hasErrors = !sw.success || children.some((c) => !c.success);
 
-    return { id: sw.id, entry: sw, children, totalDuration, hasErrors };
+    let successCount = 0, warningCount = 0, errorCount = 0;
+    for (const c of children) {
+      const s = getSkillStatus(c);
+      if (s === "success") successCount++;
+      else if (s === "warning") warningCount++;
+      else errorCount++;
+    }
+
+    return { id: sw.id, entry: sw, children, totalDuration, successCount, warningCount, errorCount };
   });
 }
 
@@ -89,112 +112,115 @@ function formatTimestamp(iso: string): string {
   });
 }
 
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function StatusIcon({ status, size = "md" }: { status: SkillStatus; size?: "sm" | "md" }) {
+  const cls = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
+  if (status === "success") return <CheckCircle2 className={`${cls} text-emerald-400`} />;
+  if (status === "warning") return <SkipForward className={`${cls} text-amber-400`} />;
+  return <XCircle className={`${cls} text-red-400`} />;
+}
+
 function ExpandableRow({ group }: { group: SwitchGroup }) {
   const [expanded, setExpanded] = useState(false);
-  const { entry, children, totalDuration, hasErrors } = group;
-  const action = actionConfig[entry.action] || { label: entry.action, color: "bg-muted text-muted-foreground", icon: FileText };
+  const { entry, children, totalDuration, successCount, warningCount, errorCount } = group;
+  const action = actionConfig[entry.action] || { label: entry.action, color: "bg-slate-500/10 text-slate-400 border-slate-500/20", icon: FileText };
   const Icon = action.icon;
 
+  const groupStatus: SkillStatus = errorCount > 0 ? "error" : "success";
+
   return (
-    <>
-      <TableRow
-        className="cursor-pointer hover:bg-muted/50 transition-colors"
+    <div className="group/row">
+      <div
+        className="flex items-center gap-4 px-4 py-3.5 rounded-xl cursor-pointer transition-all duration-200 hover:bg-white/[0.03] border border-transparent hover:border-white/[0.06]"
         onClick={() => setExpanded(!expanded)}
       >
-        <TableCell className="w-[40px]">
+        {/* Expand chevron */}
+        <div className="w-5 flex-shrink-0">
           {expanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover/row:text-muted-foreground transition-colors" />
           )}
-        </TableCell>
-        <TableCell>
-          {hasErrors ? (
-            <XCircle className="h-4 w-4 text-destructive" />
-          ) : (
-            <CheckCircle2 className="h-4 w-4 text-success" />
-          )}
-        </TableCell>
-        <TableCell className="text-xs text-muted-foreground whitespace-nowrap font-mono">
-          {formatTimestamp(entry.created_at)}
-        </TableCell>
-        <TableCell>
-          <Badge variant="secondary" className={`text-[10px] ${action.color} gap-1`}>
-            <Icon className="h-3 w-3" />
-            {action.label}
-          </Badge>
-        </TableCell>
-        <TableCell className="text-sm font-medium">{entry.project_name}</TableCell>
-        <TableCell>
-          <Badge variant="outline" className="text-[10px] font-mono">
-            {entry.environment ?? "—"}
-          </Badge>
-        </TableCell>
-        <TableCell className="max-w-[250px] truncate text-sm text-muted-foreground">
-          {entry.message}
-        </TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-2">
-            {children.length > 0 && (
-              <Badge variant="outline" className="text-[10px]">
-                {children.length} skills
-              </Badge>
-            )}
-            <span className="text-xs font-mono text-muted-foreground">
-              {totalDuration > 0 ? `${totalDuration}ms` : `${entry.duration_ms ?? 0}ms`}
-            </span>
-          </div>
-        </TableCell>
-      </TableRow>
+        </div>
 
+        {/* Status */}
+        <StatusIcon status={groupStatus} />
+
+        {/* Timestamp */}
+        <div className="flex items-center gap-1.5 w-[160px] flex-shrink-0">
+          <Clock className="h-3 w-3 text-muted-foreground/40" />
+          <span className="text-xs text-muted-foreground font-mono">{formatTimestamp(entry.created_at)}</span>
+        </div>
+
+        {/* Project + Env */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">{entry.project_name}</span>
+            <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 h-5 border-white/10">
+              {entry.environment ?? "—"}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground/60 truncate mt-0.5">{entry.message}</p>
+        </div>
+
+        {/* Skills summary */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {successCount > 0 && (
+            <span className="flex items-center gap-1 text-[11px] text-emerald-400/80">
+              <CheckCircle2 className="h-3 w-3" /> {successCount}
+            </span>
+          )}
+          {warningCount > 0 && (
+            <span className="flex items-center gap-1 text-[11px] text-amber-400/80">
+              <SkipForward className="h-3 w-3" /> {warningCount}
+            </span>
+          )}
+          {errorCount > 0 && (
+            <span className="flex items-center gap-1 text-[11px] text-red-400/80">
+              <XCircle className="h-3 w-3" /> {errorCount}
+            </span>
+          )}
+        </div>
+
+        {/* Duration */}
+        <div className="w-[70px] text-right flex-shrink-0">
+          <span className="text-xs font-mono text-muted-foreground">
+            {formatDuration(totalDuration > 0 ? totalDuration : entry.duration_ms ?? 0)}
+          </span>
+        </div>
+      </div>
+
+      {/* Expanded children */}
       {expanded && children.length > 0 && (
-        <TableRow className="bg-muted/20">
-          <TableCell colSpan={8} className="p-0">
-            <div className="pl-12 pr-4 py-3">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border/30">
-                    <TableHead className="w-[40px]"></TableHead>
-                    <TableHead className="text-xs">Skill</TableHead>
-                    <TableHead className="text-xs">Mensaje</TableHead>
-                    <TableHead className="text-xs text-right">Duración</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {children.map((child) => {
-                    const childAction = actionConfig[child.action] || { label: child.action, color: "bg-muted text-muted-foreground", icon: FileText };
-                    const ChildIcon = childAction.icon;
-                    return (
-                      <TableRow key={child.id} className="border-border/20">
-                        <TableCell>
-                          {child.success ? (
-                            <CheckCircle2 className="h-3 w-3 text-success" />
-                          ) : (
-                            <XCircle className="h-3 w-3 text-destructive" />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className={`text-[9px] ${childAction.color} gap-1`}>
-                            <ChildIcon className="h-2.5 w-2.5" />
-                            {child.skill_name || childAction.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[400px] truncate">
-                          {child.message}
-                        </TableCell>
-                        <TableCell className="text-right text-xs font-mono text-muted-foreground">
-                          {child.duration_ms ?? 0}ms
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </TableCell>
-        </TableRow>
+        <div className="ml-9 mr-4 mb-2 rounded-lg border border-white/[0.04] bg-white/[0.01] overflow-hidden">
+          {children.map((child) => {
+            const childAction = actionConfig[child.action] || { label: child.action, color: "bg-slate-500/10 text-slate-400 border-slate-500/20", icon: FileText };
+            const ChildIcon = childAction.icon;
+            const childStatus = getSkillStatus(child);
+            return (
+              <div
+                key={child.id}
+                className="flex items-center gap-3 px-3 py-2 border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] transition-colors"
+              >
+                <StatusIcon status={childStatus} size="sm" />
+                <Badge variant="outline" className={`text-[10px] gap-1 px-1.5 py-0 h-4 border-white/10 ${childAction.color}`}>
+                  <ChildIcon className="h-2.5 w-2.5" />
+                  {child.skill_name || childAction.label}
+                </Badge>
+                <span className="flex-1 text-[11px] text-muted-foreground/70 truncate">{child.message}</span>
+                <span className="text-[10px] font-mono text-muted-foreground/40 w-[50px] text-right">
+                  {formatDuration(child.duration_ms ?? 0)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -245,37 +271,39 @@ export default function AuditPage() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Audit Log</h1>
-          <p className="mt-1 text-muted-foreground">
+          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
+            Audit Log
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground/60">
             Registro inmutable de todos los context switches ejecutados.
           </p>
         </div>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button variant="outline" size="sm" className="gap-2 border-white/10 hover:bg-white/[0.04]">
           <Download className="h-3.5 w-3.5" />
           Exportar CSV
         </Button>
       </div>
 
       {/* Filters */}
-      <Card className="glass bg-card/40 border-border/50 transition-all duration-300 hover:shadow-xl hover:shadow-violet-900/10 hover:border-primary/20">
+      <Card className="border-white/[0.06] bg-white/[0.02] backdrop-blur-sm">
         <CardContent className="pt-6">
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
               <Input
                 placeholder="Buscar por proyecto, skill o mensaje..."
-                className="pl-9"
+                className="pl-9 border-white/[0.08] bg-white/[0.02] focus:border-white/20"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <Select value={filterAction} onValueChange={(v) => v && setFilterAction(v)}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <Filter className="mr-2 h-3.5 w-3.5" />
+              <SelectTrigger className="w-full sm:w-[180px] border-white/[0.08] bg-white/[0.02]">
+                <Filter className="mr-2 h-3.5 w-3.5 text-muted-foreground/40" />
                 <SelectValue placeholder="Acción" />
               </SelectTrigger>
               <SelectContent>
@@ -286,7 +314,7 @@ export default function AuditPage() {
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={(v) => v && setFilterStatus(v)}>
-              <SelectTrigger className="w-full sm:w-[150px]">
+              <SelectTrigger className="w-full sm:w-[150px] border-white/[0.08] bg-white/[0.02]">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
@@ -299,43 +327,35 @@ export default function AuditPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
-      <Card className="glass bg-card/40 border-border/50 transition-all duration-300 hover:shadow-xl hover:shadow-violet-900/10 hover:border-primary/20">
-        <CardHeader>
-          <CardTitle className="text-base">
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-            ) : null}
-            {filtered.length} switch{filtered.length !== 1 && "es"}
-          </CardTitle>
+      {/* Audit List */}
+      <Card className="border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden">
+        <CardHeader className="border-b border-white/[0.04] pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground/70">
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+              ) : null}
+              {filtered.length} switch{filtered.length !== 1 && "es"}
+            </CardTitle>
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground/40">
+              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-400/50" /> OK</span>
+              <span className="flex items-center gap-1"><SkipForward className="h-3 w-3 text-amber-400/50" /> Skipped</span>
+              <span className="flex items-center gap-1"><XCircle className="h-3 w-3 text-red-400/50" /> Error</span>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[40px]"></TableHead>
-                <TableHead className="w-[40px]"></TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Acción</TableHead>
-                <TableHead>Proyecto</TableHead>
-                <TableHead>Entorno</TableHead>
-                <TableHead>Mensaje</TableHead>
-                <TableHead className="text-right">Skills / Duración</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        <CardContent className="p-2">
+          {filtered.length === 0 && !loading ? (
+            <div className="text-center text-muted-foreground/40 py-12 text-sm">
+              No se encontraron registros.
+            </div>
+          ) : (
+            <div className="space-y-0.5">
               {filtered.map((group) => (
                 <ExpandableRow key={group.id} group={group} />
               ))}
-              {filtered.length === 0 && !loading && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                    No se encontraron registros.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

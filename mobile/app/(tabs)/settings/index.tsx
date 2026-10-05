@@ -2,6 +2,7 @@ import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
 import { useAuth } from '@/auth/provider';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import {
   User, Shield, Key, CreditCard, Users, LogOut, ChevronRight, Moon, Zap,
 } from 'lucide-react-native';
@@ -95,7 +96,7 @@ export default function SettingsScreen() {
         <YStack alignItems="center" padding="$8" gap="$1">
           <Zap size={16} color="#3a3a4a" />
           <Text fontSize={11} color="#3a3a4a">
-            Nexus Mobile v1.2.0
+            Nexus Mobile v{Constants.expoConfig?.version}
           </Text>
         </YStack>
       </ScrollView>

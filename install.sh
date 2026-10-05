@@ -79,8 +79,10 @@ echo "⚙️  Extrayendo binario..."
 tar -xzf "$TMP_DIR/$FILENAME" -C "$TMP_DIR"
 
 echo "🔑 Instalando en /usr/local/bin (puede requerir tu contraseña)..."
-sudo mv "$TMP_DIR/nexus" /usr/local/bin/nexus
-sudo chmod +x /usr/local/bin/nexus
+SUDO="sudo"
+[ "$(id -u)" -eq 0 ] && SUDO=""   # root (contenedores, servidores) no necesita sudo
+$SUDO mv "$TMP_DIR/nexus" /usr/local/bin/nexus
+$SUDO chmod +x /usr/local/bin/nexus
 
 echo "🔧 Configurando la inyección de entorno en tu shell..."
 # Ejecutamos el comando automático de inyección

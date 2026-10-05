@@ -7,6 +7,7 @@ Switch by changing DATABASE_URL in .env.
 import uuid
 import ssl
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
@@ -21,24 +22,34 @@ engine_kwargs = {
 }
 
 if settings.is_postgres:
-    # PostgreSQL (Supabase) — use NullPool for serverless-friendly connections
-    engine_kwargs["poolclass"] = NullPool
-    # Verify connections before use — prevents stale connection errors
-    engine_kwargs["pool_pre_ping"] = True
-    
+    # Long-running server (uvicorn on the VM): keep a pool of open connections. Opening one per
+    # request costs TLS + pooler auth (~500 ms to Supabase). DB_POOL_SIZE=0 falls back to NullPool.
+    if settings.db_pool_size > 0:
+        engine_kwargs["pool_size"] = settings.db_pool_size
+        engine_kwargs["max_overflow"] = settings.db_pool_size
+        engine_kwargs["pool_recycle"] = 300  # renew before the pooler drops idle connections
+    else:
+        engine_kwargs["poolclass"] = NullPool
+        engine_kwargs["pool_pre_ping"] = True
+
     # Create SSL context for Supabase
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
-    
+
     # Connection args for asyncpg
     engine_kwargs["connect_args"] = {
         "ssl": ssl_context,
-        "statement_cache_size": 0,
-        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4().hex}__",
         "timeout": 15,
         "command_timeout": 15,
     }
+    # Supabase transaction-mode pooler (port 6543) can't keep prepared statements between
+    # transactions; session mode (5432) and direct connections can, saving a round trip per query.
+    if make_url(settings.database_url).port == 6543:
+        engine_kwargs["connect_args"] |= {
+            "statement_cache_size": 0,
+            "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4().hex}__",
+        }
 else:
     # SQLite — needs check_same_thread=False for async
     engine_kwargs["connect_args"] = {"check_same_thread": False}

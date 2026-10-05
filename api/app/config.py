@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     # Database — supports both SQLite (local) and PostgreSQL (Supabase)
     database_url: str = "sqlite+aiosqlite:///./nexus.db"
+    db_pool_size: int = 5  # PostgreSQL only; 0 = no pool (new connection per request)
 
     @field_validator("database_url", mode="before")
     @classmethod

@@ -13,6 +13,7 @@ import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { Inter_800ExtraBold } from '@expo-google-fonts/inter/800ExtraBold';
 import { AuthProvider, useAuth } from '@/auth/provider';
 import { DialogProvider } from '@/components/Dialog';
+import { LockScreen } from '@/components/LockScreen';
 import tamaguiConfig from '@/theme/tamagui.config';
 import { colors } from '@/theme/tokens';
 
@@ -31,7 +32,7 @@ const modalOptions = {
 };
 
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, locked } = useAuth();
   const ready = fontsReady && !isLoading;
 
   // El splash nativo se queda hasta tener la tipografía y saber si hay sesión:
@@ -43,6 +44,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   if (!ready) return null;
 
   return (
+    <>
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'fade' }}>
       <Stack.Protected guard={isAuthenticated}>
         <Stack.Screen name="(tabs)" />
@@ -53,6 +55,9 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
     </Stack>
+    {/* Encima de la app (no la desmonta): al desbloquear sigues donde estabas */}
+    {isAuthenticated && locked ? <LockScreen /> : null}
+    </>
   );
 }
 

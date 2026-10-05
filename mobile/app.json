@@ -3,7 +3,7 @@
     "name": "Nexus",
     "slug": "nexus-mobile",
     "owner": "nexus-app-epigibson",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -41,7 +41,13 @@
       "expo-font",
       "expo-secure-store",
       "expo-updates",
-      "./plugins/withReleaseSigning"
+      "./plugins/withReleaseSigning",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Nexus usa Face ID para desbloquear la app."
+        }
+      ]
     ],
     "extra": {
       "router": {},

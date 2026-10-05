@@ -12,7 +12,7 @@ import { colors, space, gradients } from '@/theme/tokens';
 const PLAN_LABEL: Record<string, string> = { free: 'Free', premium: 'Premium', enterprise: 'Enterprise' };
 
 export default function SettingsScreen() {
-  const { user, logout, getMfaStatus } = useAuth();
+  const { user, logout, getMfaStatus, biometric } = useAuth();
   const router = useRouter();
   const [mfaEnabled, setMfaEnabled] = useState<boolean | null>(null);
   const dialog = useDialog();
@@ -66,7 +66,10 @@ export default function SettingsScreen() {
           <ListRow
             icon={<ShieldCheck size={17} color={mfaEnabled ? colors.success : colors.textSecondary} />}
             label="Seguridad"
-            detail={mfaEnabled === null ? 'Verificación en dos pasos' : mfaEnabled ? 'Verificación en dos pasos activada' : 'Activa la verificación en dos pasos'}
+            detail={[
+              biometric.enabled ? 'Huella activada' : null,
+              mfaEnabled === null ? null : mfaEnabled ? '2FA activado' : 'Activa el 2FA',
+            ].filter(Boolean).join(' · ') || 'Huella y verificación en dos pasos'}
             onPress={() => router.push('/(tabs)/settings/security')}
           />
           <RowDivider />

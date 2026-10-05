@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import {
   api,
@@ -12,6 +13,13 @@ import {
   type TokenResponse,
   type LoginResponse,
 } from '@/api/client';
+import {
+  authenticate, biometricAvailable, biometricEnabled, biometricKind, setBiometricEnabled,
+  type BiometricKind,
+} from '@/auth/biometric';
+
+/** Tras este tiempo en segundo plano, la app pide la huella otra vez. */
+const RELOCK_AFTER_MS = 60_000;
 
 interface MfaSetupResult {
   qrCodeUri: string;
@@ -39,6 +47,12 @@ interface AuthState {
   verifyTotp: (code: string) => Promise<void>;
   getMfaStatus: () => Promise<{ enabled: boolean; preferred: string | null }>;
   disableMfa: () => Promise<void>;
+  /** La sesión existe pero la app espera la huella para mostrarse. */
+  locked: boolean;
+  unlock: () => Promise<boolean>;
+  biometric: { available: boolean; enabled: boolean; kind: BiometricKind };
+  /** Activa (pidiendo la huella para confirmar) o desactiva el desbloqueo biométrico. */
+  setBiometric: (enabled: boolean) => Promise<boolean>;
 }
 
 class AuthError extends Error {
@@ -75,6 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const mfaToken = useRef<string | null>(null);
+  const [locked, setLocked] = useState(false);
+  const [biometric, setBiometricState] = useState<{ available: boolean; enabled: boolean; kind: BiometricKind }>({
+    available: false, enabled: false, kind: 'huella',
+  });
+  const backgroundAt = useRef<number | null>(null);
 
   const startSession = useCallback(async (session: TokenResponse) => {
     await saveSession(session);
@@ -95,6 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         const profile = await api.getProfile();
         await SecureStore.setItemAsync(USER_KEY, JSON.stringify(profile));
+        // Con la huella activada, la sesión se restaura pero la app arranca bloqueada
+        if ((await biometricEnabled()) && (await biometricAvailable())) setLocked(true);
         setUser(profile);
         setToken(accessToken);
       } catch (e) {
@@ -106,6 +127,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     loadSession();
+  }, []);
+
+  // Estado de la biometría del teléfono (sensor, huella registrada, preferencia del usuario)
+  useEffect(() => {
+    (async () => {
+      const [available, enabled, kind] = await Promise.all([biometricAvailable(), biometricEnabled(), biometricKind()]);
+      setBiometricState({ available, enabled: enabled && available, kind });
+    })();
+  }, []);
+
+  // Volver a bloquear si la app pasó más de RELOCK_AFTER_MS en segundo plano.
+  // Solo cuenta "background": el diálogo de huella del sistema no manda la app a segundo plano.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') {
+        backgroundAt.current = Date.now();
+      } else if (state === 'active' && backgroundAt.current) {
+        const away = Date.now() - backgroundAt.current;
+        backgroundAt.current = null;
+        if (away > RELOCK_AFTER_MS && token && biometric.enabled) setLocked(true);
+      }
+    });
+    return () => sub.remove();
+  }, [token, biometric.enabled]);
+
+  const unlock = useCallback(async () => {
+    const ok = await authenticate('Desbloquea Nexus');
+    if (ok) setLocked(false);
+    return ok;
+  }, []);
+
+  const setBiometric = useCallback(async (enabled: boolean) => {
+    if (enabled) {
+      if (!(await biometricAvailable())) return false;
+      if (!(await authenticate('Confirma tu huella para activarla'))) return false;
+    }
+    await setBiometricEnabled(enabled);
+    setBiometricState((b) => ({ ...b, enabled }));
+    return true;
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
@@ -152,6 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    setLocked(false);
     await clearSession();
     setToken(null);
     setUser(null);
@@ -222,6 +283,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         verifyTotp,
         getMfaStatus,
         disableMfa,
+        locked,
+        unlock,
+        biometric,
+        setBiometric,
       }}
     >
       {children}

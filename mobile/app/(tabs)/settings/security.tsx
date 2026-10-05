@@ -1,9 +1,9 @@
-import { View, Pressable, Linking, StyleSheet } from 'react-native';
+import { View, Pressable, Linking, Switch, StyleSheet } from 'react-native';
 import { useDialog } from '@/components/Dialog';
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useEffect } from 'react';
 import * as Clipboard from 'expo-clipboard';
-import { ShieldCheck, ShieldOff, Smartphone, Copy, Check } from 'lucide-react-native';
+import { ShieldCheck, ShieldOff, Smartphone, Copy, Check, Fingerprint } from 'lucide-react-native';
 import { useAuth } from '@/auth/provider';
 import { OTPInput } from '@/components/ui/OTPInput';
 import { Screen, ScreenHeader, Section, Card, IconTile, Button, LoadingState } from '@/components/ui';
@@ -12,7 +12,7 @@ import { colors, radius, space } from '@/theme/tokens';
 type Step = 'idle' | 'setup';
 
 export default function SecurityScreen() {
-  const { getMfaStatus, setupTotp, verifyTotp, disableMfa } = useAuth();
+  const { getMfaStatus, setupTotp, verifyTotp, disableMfa, biometric, setBiometric } = useAuth();
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [step, setStep] = useState<Step>('idle');
   const [secret, setSecret] = useState('');
@@ -98,7 +98,41 @@ export default function SecurityScreen() {
 
   return (
     <Screen>
-      <ScreenHeader back title="Seguridad" subtitle="Verificación en dos pasos (2FA)" />
+      <ScreenHeader back title="Seguridad" subtitle="Cómo proteges tu cuenta y esta app" />
+
+      <Section title="Este teléfono">
+        <Card>
+          <XStack alignItems="center" gap={space.lg}>
+            <IconTile size={48} color={biometric.enabled ? colors.successSoft : colors.primarySoft}>
+              <Fingerprint size={24} color={biometric.enabled ? colors.success : colors.primaryBright} />
+            </IconTile>
+            <YStack flex={1} gap={3}>
+              <Text fontSize={16} fontWeight="700" color={colors.text}>
+                Entrar con {biometric.kind === 'rostro' ? 'rostro' : 'huella'}
+              </Text>
+              <Text fontSize={13} color={colors.textMuted} lineHeight={18}>
+                {biometric.available
+                  ? 'Al abrir Nexus te pedimos tu huella en lugar de mostrar la app directo.'
+                  : 'Registra una huella o rostro en los ajustes del teléfono para usar esta opción.'}
+              </Text>
+            </YStack>
+            <Switch
+              value={biometric.enabled}
+              disabled={!biometric.available}
+              onValueChange={async (v) => {
+                const ok = await setBiometric(v);
+                if (!ok && v) dialog.notify({ title: 'No se activó', message: 'No pudimos verificar tu huella.' });
+              }}
+              trackColor={{ false: colors.borderStrong, true: colors.primary }}
+              thumbColor="#ffffff"
+            />
+          </XStack>
+        </Card>
+      </Section>
+
+      <Text fontSize={13} fontWeight="700" color={colors.textMuted} textTransform="uppercase" letterSpacing={0.8} paddingHorizontal={space.xl} marginBottom={space.md}>
+        Verificación en dos pasos (2FA)
+      </Text>
 
       {enabled === null ? (
         <LoadingState />

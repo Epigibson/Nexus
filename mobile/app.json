@@ -31,13 +31,26 @@
       "expo-status-bar",
       "expo-splash-screen",
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-updates",
+      "./plugins/withReleaseSigning"
     ],
     "extra": {
       "router": {},
       "eas": {
         "projectId": "52605532-6a20-47f7-b037-e67d132b512d"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/52605532-6a20-47f7-b037-e67d132b512d",
+      "requestHeaders": {
+        "expo-channel-name": "preview"
+      },
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     }
   }
 }

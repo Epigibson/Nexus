@@ -8,7 +8,7 @@ Aplicación móvil de Nexus para gestionar proyectos, hacer context switches y m
 - **Navigation**: Expo Router v4
 - **UI**: Tamagui v1
 - **State**: Zustand
-- **Auth**: AWS Amplify (Cognito)
+- **Auth**: Nexus API (JWT + refresh token in SecureStore, email codes, TOTP 2FA)
 - **Storage**: expo-secure-store
 
 ## Getting Started
@@ -35,9 +35,9 @@ cp .env.example .env
 ```
 
 Required variables:
-- `EXPO_PUBLIC_API_URL` - Backend API URL
-- `EXPO_PUBLIC_COGNITO_USER_POOL_ID` - AWS Cognito User Pool ID
-- `EXPO_PUBLIC_COGNITO_CLIENT_ID` - AWS Cognito Client ID
+- `EXPO_PUBLIC_API_URL` - Backend API URL (`https://api.nexusproject.pro`)
+
+The local APK build and `eas update` read this `.env`, not the `env` in `eas.json`.
 
 ### Running
 
@@ -55,18 +55,20 @@ npm run android
 npm run web
 ```
 
-### Building
+### Building and updating
 
-```bash
-# Build for development
-eas build --profile development
+The app ships with **expo-updates** (EAS Update, channel `preview`, `runtimeVersion` = app `version`).
 
-# Build for preview
-eas build --profile preview
+| Change | Command | Reinstall? |
+|---|---|---|
+| JS / screens / styles / API calls | `npm run update -- --message "what changed"` | No, the app downloads it on next launch |
+| Native (new native package, permissions, icons, `version` bump) | `npm run apk` | Yes, install `mobile/nexus-<version>.apk` |
 
-# Build for production
-eas build --profile production
-```
+**Rule:** whenever you change something native, bump `version` in `app.json` before `npm run apk`. Updates only reach APKs with the same runtime version, so an update can never land on an incompatible APK.
+
+`npm run apk` runs `expo prebuild --clean` + `./gradlew assembleRelease` (`android/` is generated, not committed). It needs JDK 17, the Android SDK and the release keystore configured in `~/.gradle/gradle.properties` (see `plugins/withReleaseSigning.js`). The keystore is the one EAS generated for `@nexus-app-epigibson/nexus-mobile`; to set it up on a new machine: `npx eas-cli credentials -p android` → `preview` → Download credentials to credentials.json.
+
+Cloud builds still work: `eas build --profile preview --platform android`.
 
 ## Project Structure
 
@@ -119,7 +121,7 @@ mobile/
 ## API Integration
 
 The app uses the same API as the web dashboard:
-- Auth: JWT tokens via AWS Cognito
+- Auth: JWT access token (15 min) renewed with a refresh token (`X-Client: mobile`)
 - Projects: CRUD operations
 - Audit: Read-only audit log
 - Billing: Stripe integration

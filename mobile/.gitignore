@@ -26,3 +26,8 @@ web-build/
 *.apk
 *.aab
 *.ipa
+
+# Código nativo generado por `expo prebuild` (se regenera con npm run apk)
+/android
+/ios
+credentials.json

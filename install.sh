@@ -86,7 +86,14 @@ $SUDO chmod +x /usr/local/bin/nexus
 
 echo "🔧 Configurando la inyección de entorno en tu shell..."
 # Ejecutamos el comando automático de inyección
-nexus setup-shell || true
+/usr/local/bin/nexus setup-shell || true
+
+# Una instalación vieja en otra carpeta del PATH (p. ej. ~/.local/bin) taparía a esta
+SHADOW="$(command -v nexus 2>/dev/null || true)"
+if [ -n "$SHADOW" ] && [ "$SHADOW" != "/usr/local/bin/nexus" ]; then
+    echo "⚠️  Hay otro 'nexus' antes en tu PATH: $SHADOW ($("$SHADOW" version 2>/dev/null || echo 'versión desconocida'))"
+    echo "   Bórralo para usar esta versión: rm \"$SHADOW\""
+fi
 
 echo "──────────────────────────────────────────"
 echo "✅ Instalación completada con éxito."

@@ -85,7 +85,7 @@ jobs:
           --exclude '__pycache__' --exclude '*.pyc' --exclude '.env' --exclude '.env.*' --exclude 'venv' --exclude '.venv' \
           --exclude 'node_modules' --exclude 'tests' --exclude '*.db' --exclude 'serverless.yml' \
           api/ "$TARGET:/opt/nexus/api/"
-        $RSYNC_RSH "$TARGET" /opt/nexus/deploy-remote.sh api
+        $RSYNC_RSH "$TARGET" bash /opt/nexus/deploy-remote.sh api
 
     # El dashboard se compila en la VM: así sharp/SWC son de su arquitectura (ARM en Ampere)
     - name: Deploy dashboard
@@ -94,7 +94,7 @@ jobs:
         rsync -az --delete \
           --exclude 'node_modules' --exclude '.next' --exclude '.env*' \
           dashboard/ "$TARGET:/opt/nexus/dashboard-src/"
-        $RSYNC_RSH "$TARGET" /opt/nexus/deploy-remote.sh dashboard
+        $RSYNC_RSH "$TARGET" bash /opt/nexus/deploy-remote.sh dashboard
 
     - uses: actions/setup-node@v4
       if: steps.what.outputs.landing == 'true'

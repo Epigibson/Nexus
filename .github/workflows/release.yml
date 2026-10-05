@@ -23,7 +23,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
 
       - name: Build Binary
         working-directory: ./core
@@ -36,8 +37,8 @@ jobs:
             BINARY_NAME=nexus.exe
           fi
           
-          # Compilar
-          go build -ldflags="-s -w" -o dist/$BINARY_NAME ./cmd/nexus
+          # Compilar (CGO desactivado: binarios estáticos, sin depender de la glibc del usuario)
+          CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/$BINARY_NAME ./cmd/nexus
           
           # Comprimir en formato adecuado
           cd dist
@@ -66,6 +67,11 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+
+      # install.sh / install.ps1 verifican la descarga contra este archivo
+      - name: Generate checksums
+        working-directory: artifacts
+        run: sha256sum *.tar.gz *.zip > checksums.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

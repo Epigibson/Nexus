@@ -101,7 +101,7 @@ func newStatusCmd() *cobra.Command {
 			fmt.Println("configured ✅")
 
 			fmt.Print("  API Server: ")
-			fmt.Printf("%s\n", defaultAPIURL)
+			fmt.Printf("%s\n", getAPIURL())
 
 			fmt.Print("  Connection: ")
 			user, err := client.GetProfile()

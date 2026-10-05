@@ -30,8 +30,7 @@ logger = logging.getLogger("nexus")
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle — creates tables on boot (dev only)."""
     if settings.is_production:
-        # Production (Lambda): skip table creation, migrations, and seeds
-        # Tables already exist in Supabase — this saves ~1-3s per cold start
+        # Production: skip table creation, migrations, and seeds (tables are managed in Supabase via api/migrations)
         logger.info(f"{settings.app_name} v{settings.app_version} — Production mode (skipping init_db)")
     else:
         # Development: create tables, run migrations, seed data
@@ -112,7 +111,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     if settings.is_production:
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.amazonaws.com https://api.stripe.com"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.stripe.com"
     return response
 
 # ─── Routers ───
@@ -188,7 +187,3 @@ async def admin_init_db(request: Request):
             status_code=500,
             content={"detail": f"Init failed: {str(e)}"}
         )
-
-# ─── AWS Lambda Handler ───
-from mangum import Mangum
-handler = Mangum(app, lifespan="on")

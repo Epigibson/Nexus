@@ -53,10 +53,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15  # 15 minutes (was 24 hours)
     algorithm: str = "HS256"
 
-    # AWS Cognito
-    cognito_region: str = "us-east-1"
-    cognito_user_pool_id: Optional[str] = None
-    cognito_client_id: Optional[str] = None
+    # Correo (códigos de verificación, recuperación de contraseña). Cualquier SMTP: Resend, OCI Email Delivery...
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587  # 465 = TLS implícito, otro = STARTTLS
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    email_from: str = "Nexus <no-reply@nexusproject.pro>"
 
     # CORS
     cors_origins: List[str] = ["http://localhost:3000"]
@@ -87,7 +89,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_production_security(self):
         """Validate that critical credentials are not placeholders in production."""
-        is_prod = self.environment.lower() == "production" or "AWS_LAMBDA_FUNCTION_NAME" in os.environ
+        is_prod = self.environment.lower() == "production"
 
         if is_prod:
             errors = []
@@ -109,6 +111,9 @@ class Settings(BaseSettings):
                 # Stripe is configured with a real key, require webhook secret
                 if not self.stripe_webhook_secret or _is_placeholder(self.stripe_webhook_secret):
                     errors.append("STRIPE_WEBHOOK_SECRET is required when Stripe is configured — get from Stripe Dashboard → Webhooks")
+
+            if not self.smtp_host:
+                logger.warning("SMTP_HOST no configurado — no se podrán enviar códigos de verificación ni de recuperación")
 
             if errors:
                 error_msg = "Production security validation FAILED:\n" + "\n".join(f"  - {e}" for e in errors)
@@ -138,7 +143,7 @@ class Settings(BaseSettings):
 
         # Only add localhost in development mode
         environment = os.environ.get("ENVIRONMENT", "development").lower()
-        if environment != "production" and "AWS_LAMBDA_FUNCTION_NAME" not in os.environ:
+        if environment != "production":
             for local in ["http://localhost:3000", "http://127.0.0.1:3000"]:
                 if local not in origins:
                     origins.append(local)
@@ -151,8 +156,8 @@ class Settings(BaseSettings):
 
     @property
     def is_production(self) -> bool:
-        """Check if running in production (AWS Lambda)."""
-        return self.environment.lower() == "production" or "AWS_LAMBDA_FUNCTION_NAME" in os.environ
+        """Check if running in production."""
+        return self.environment.lower() == "production"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

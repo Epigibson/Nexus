@@ -15,7 +15,6 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
   const handleRegister = async () => {
     if (!email || !password || !displayName) {
@@ -23,8 +22,8 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres');
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) {
+      setError('Mínimo 8 caracteres, con mayúscula, minúscula y número');
       return;
     }
 
@@ -33,36 +32,13 @@ export default function RegisterScreen() {
 
     try {
       await register(email, password, displayName);
-      setSuccess(true);
+      router.replace({ pathname: '/(auth)/verify-email', params: { email } });
     } catch (err: any) {
       setError(err.message || 'Error al registrarse');
     } finally {
       setLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <View style={styles.container}>
-        <YStack flex={1} justifyContent="center" alignItems="center" padding="$6" gap="$4">
-          <View style={styles.logoContainer}>
-            <Zap size={28} color="#10b981" />
-          </View>
-          <Text fontSize={22} fontWeight="700" color="#f8fafc" textAlign="center">
-            ¡Cuenta creada!
-          </Text>
-          <Text fontSize={14} color="#94a3b8" textAlign="center" maxWidth={280}>
-            Revisa tu correo para verificar tu cuenta, luego inicia sesión.
-          </Text>
-          <Pressable style={styles.button} onPress={() => router.replace('/(auth)/login')}>
-            <Text fontSize={15} fontWeight="700" color="#ffffff">
-              Ir a Iniciar Sesión
-            </Text>
-          </Pressable>
-        </YStack>
-      </View>
-    );
-  }
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>

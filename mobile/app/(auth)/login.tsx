@@ -27,12 +27,12 @@ export default function LoginScreen() {
     try {
       const result = await login(email, password);
 
-      if (result.nextStep?.signInStep === 'CONFIRM_SIGN_IN_WITH_TOTP_CODE') {
+      if (result === 'mfa') {
         router.push({ pathname: '/(auth)/verify-2fa', params: { email } });
-      } else if (result.nextStep?.signInStep === 'CONFIRM_SIGN_IN_WITH_SMS_CODE') {
-        router.push({ pathname: '/(auth)/verify-2fa', params: { email } });
+      } else if (result === 'verify-email') {
+        router.push({ pathname: '/(auth)/verify-email', params: { email } });
       }
-      // If DONE, the AuthGate will redirect to tabs
+      // If 'ok', the AuthGate will redirect to tabs
     } catch (err: any) {
       setError(err.message || 'Error de autenticación');
     } finally {
@@ -105,6 +105,12 @@ export default function LoginScreen() {
               </View>
             </YStack>
 
+            <Pressable onPress={() => router.push('/(auth)/forgot-password')} style={{ alignSelf: 'flex-end' }}>
+              <Text fontSize={13} fontWeight="600" color="#7c3aed">
+                ¿Olvidaste tu contraseña?
+              </Text>
+            </Pressable>
+
             {/* Error */}
             {error ? (
               <Text fontSize={13} color="#ef4444" textAlign="center">
@@ -135,6 +141,11 @@ export default function LoginScreen() {
                 </Text>
               </Pressable>
             </XStack>
+
+            {/* Usuarios que venían de Cognito: su primera vez entran restableciendo la contraseña */}
+            <Text fontSize={12} color="#64748b" textAlign="center">
+              ¿Ya tenías cuenta y es tu primer ingreso tras la actualización? Usa «¿Olvidaste tu contraseña?»
+            </Text>
           </YStack>
         </YStack>
       </ScrollView>

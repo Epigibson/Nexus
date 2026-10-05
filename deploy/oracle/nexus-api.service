@@ -1,0 +1,23 @@
+[Unit]
+Description=Nexus API (FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=nexus
+Group=nexus
+WorkingDirectory=/opt/nexus/api
+# slowapi guarda los límites en memoria por proceso: con más workers el límite efectivo se multiplica
+Environment=API_WORKERS=1
+EnvironmentFile=/etc/nexus/api.env
+ExecStart=/opt/nexus/venv/bin/uvicorn app.main:app \
+  --host 127.0.0.1 --port 8100 --workers ${API_WORKERS} \
+  --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -7,9 +7,6 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '@/auth/provider';
 import tamaguiConfig from '@/theme/tamagui.config';
 
-// Import auth config
-import '@/auth/config';
-
 SplashScreen.preventAutoHideAsync();
 
 function AuthGate() {

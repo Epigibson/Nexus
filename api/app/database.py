@@ -23,7 +23,7 @@ engine_kwargs = {
 if settings.is_postgres:
     # PostgreSQL (Supabase) — use NullPool for serverless-friendly connections
     engine_kwargs["poolclass"] = NullPool
-    # Verify connections before use — prevents stale connection errors on Lambda resume
+    # Verify connections before use — prevents stale connection errors
     engine_kwargs["pool_pre_ping"] = True
     
     # Create SSL context for Supabase
@@ -91,6 +91,14 @@ async def _auto_migrate():
     migrations = [
         # (table, column, sql_type, default)
         ("environment_profiles", "hooks", "JSON", "'[]'"),
+        # Autenticación propia (ver migrations/002_local_auth.sql)
+        ("users", "email_verified", "BOOLEAN", "TRUE"),
+        ("users", "totp_secret", "VARCHAR(255)", "NULL"),
+        ("users", "totp_enabled", "BOOLEAN", "FALSE"),
+        ("users", "auth_code_hash", "VARCHAR(128)", "NULL"),
+        ("users", "auth_code_purpose", "VARCHAR(20)", "NULL"),
+        ("users", "auth_code_expires_at", "TIMESTAMP", "NULL"),
+        ("users", "auth_code_attempts", "INTEGER", "0"),
     ]
 
     async with engine.begin() as conn:

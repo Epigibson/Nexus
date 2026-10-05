@@ -2,7 +2,7 @@
  * Nexus API Client — Typed HTTP client with JWT auth.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
   : "http://localhost:8000/api/v1";
 
@@ -19,6 +19,41 @@ function authHeaders(): HeadersInit {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
+}
+
+// ─── Session refresh ───
+// El access token dura 15 min; el refresh token vive en una cookie HttpOnly (path /api/v1/auth).
+
+let refreshing: Promise<string | null> | null = null;
+
+/** Pide un access token nuevo con la cookie de refresh. Una sola petición aunque haya varias llamadas en paralelo. */
+export function refreshAccessToken(): Promise<string | null> {
+  if (!refreshing) {
+    refreshing = (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/refresh`, { method: "POST", credentials: "include" });
+        if (!res.ok) return null;
+        const data: TokenResponse = await res.json();
+        localStorage.setItem("ag_token", data.access_token);
+        return data.access_token;
+      } catch {
+        return null;
+      } finally {
+        refreshing = null;
+      }
+    })();
+  }
+  return refreshing;
+}
+
+/** fetch con renovación automática: si el access token expiró (401), lo renueva y reintenta una vez. */
+async function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const res = await fetch(url, init);
+  const headers = init.headers as Record<string, string> | undefined;
+  if (res.status !== 401 || !headers?.Authorization || typeof window === "undefined") return res;
+  const token = await refreshAccessToken();
+  if (!token) return res;
+  return fetch(url, { ...init, headers: { ...headers, Authorization: `Bearer ${token}` } });
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
@@ -59,6 +94,11 @@ export interface TokenResponse {
   user_id: string;
   email: string;
   display_name: string | null;
+}
+
+export interface LoginResponse extends Partial<TokenResponse> {
+  mfa_required: boolean;
+  mfa_token: string | null;
 }
 
 export interface UserResponse {
@@ -173,32 +213,14 @@ export interface ApiKeyCreatedResponse extends ApiKeyResponse {
 // ─── API Methods ───
 
 export const api = {
-  // Auth
-  async login(email: string, password: string): Promise<TokenResponse> {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    return handleResponse<TokenResponse>(res);
-  },
-
-  async register(email: string, password: string, displayName?: string): Promise<TokenResponse> {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, display_name: displayName }),
-    });
-    return handleResponse<TokenResponse>(res);
-  },
-
+  // Auth (sesión: ver auth-context.tsx)
   async getProfile(): Promise<UserResponse> {
-    const res = await fetch(`${API_BASE}/auth/me`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/auth/me`, { headers: authHeaders() });
     return handleResponse<UserResponse>(res);
   },
 
   async updateProfile(data: { display_name?: string; avatar_url?: string }): Promise<UserResponse> {
-    const res = await fetch(`${API_BASE}/auth/me`, {
+    const res = await authFetch(`${API_BASE}/auth/me`, {
       method: "PUT",
       headers: authHeaders(),
       body: JSON.stringify(data),
@@ -208,7 +230,7 @@ export const api = {
 
   // API Keys
   async generateApiKey(name: string = "CLI Key"): Promise<ApiKeyCreatedResponse> {
-    const res = await fetch(`${API_BASE}/auth/api-keys`, {
+    const res = await authFetch(`${API_BASE}/auth/api-keys`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({ name }),
@@ -217,12 +239,12 @@ export const api = {
   },
 
   async listApiKeys(): Promise<ApiKeyResponse[]> {
-    const res = await fetch(`${API_BASE}/auth/api-keys`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/auth/api-keys`, { headers: authHeaders() });
     return handleResponse<ApiKeyResponse[]>(res);
   },
 
   async revokeApiKey(keyId: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/auth/api-keys/${keyId}`, {
+    const res = await authFetch(`${API_BASE}/auth/api-keys/${keyId}`, {
       method: "DELETE",
       headers: authHeaders(),
     });
@@ -231,17 +253,17 @@ export const api = {
 
   // Projects
   async listProjects(): Promise<ProjectResponse[]> {
-    const res = await fetch(`${API_BASE}/projects/`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/projects/`, { headers: authHeaders() });
     return handleResponse<ProjectResponse[]>(res);
   },
 
   async getProject(slug: string): Promise<ProjectResponse> {
-    const res = await fetch(`${API_BASE}/projects/${slug}`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/projects/${slug}`, { headers: authHeaders() });
     return handleResponse<ProjectResponse>(res);
   },
 
   async updateProject(slug: string, data: { name?: string; description?: string; repo_url?: string }): Promise<ProjectResponse> {
-    const res = await fetch(`${API_BASE}/projects/${slug}`, {
+    const res = await authFetch(`${API_BASE}/projects/${slug}`, {
       method: "PUT",
       headers: authHeaders(),
       body: JSON.stringify(data),
@@ -250,7 +272,7 @@ export const api = {
   },
 
   async createProject(data: { name: string; slug: string; description?: string; repo_url?: string }): Promise<ProjectResponse> {
-    const res = await fetch(`${API_BASE}/projects/`, {
+    const res = await authFetch(`${API_BASE}/projects/`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify(data),
@@ -259,7 +281,7 @@ export const api = {
   },
 
   async deleteProject(slug: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/projects/${slug}`, {
+    const res = await authFetch(`${API_BASE}/projects/${slug}`, {
       method: "DELETE",
       headers: authHeaders(),
     });
@@ -276,7 +298,7 @@ export const api = {
       cli_profiles?: Array<{ tool: string; account: string; org?: string; region?: string; status?: string }>;
     }
   ): Promise<unknown> {
-    const res = await fetch(`${API_BASE}/projects/${projectSlug}/environments`, {
+    const res = await authFetch(`${API_BASE}/projects/${projectSlug}/environments`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify(data),
@@ -293,7 +315,7 @@ export const api = {
       cli_profiles?: Array<{ tool: string; account: string; org?: string; region?: string; status?: string }>;
     }
   ): Promise<unknown> {
-    const res = await fetch(`${API_BASE}/projects/${projectSlug}/environments/${envName}`, {
+    const res = await authFetch(`${API_BASE}/projects/${projectSlug}/environments/${envName}`, {
       method: "PUT",
       headers: authHeaders(),
       body: JSON.stringify(data),
@@ -302,7 +324,7 @@ export const api = {
   },
 
   async deleteEnvironment(projectSlug: string, envName: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/projects/${projectSlug}/environments/${envName}`, {
+    const res = await authFetch(`${API_BASE}/projects/${projectSlug}/environments/${envName}`, {
       method: "DELETE",
       headers: authHeaders(),
     });
@@ -313,7 +335,7 @@ export const api = {
   async toggleSkill(projectSlug: string, skillId: string, enabled: boolean, priority?: number): Promise<unknown> {
     const params = new URLSearchParams({ enabled: String(enabled) });
     if (priority !== undefined) params.set("priority", String(priority));
-    const res = await fetch(`${API_BASE}/skills/projects/${projectSlug}/${skillId}?${params}`, {
+    const res = await authFetch(`${API_BASE}/skills/projects/${projectSlug}/${skillId}?${params}`, {
       method: "PUT",
       headers: authHeaders(),
     });
@@ -322,7 +344,7 @@ export const api = {
 
   // Skills
   async getSkillCatalog(): Promise<SkillResponse[]> {
-    const res = await fetch(`${API_BASE}/skills/catalog`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/skills/catalog`, { headers: authHeaders() });
     return handleResponse<SkillResponse[]>(res);
   },
 
@@ -341,23 +363,23 @@ export const api = {
     if (params?.limit) query.set("limit", String(params.limit));
     if (params?.offset) query.set("offset", String(params.offset));
 
-    const res = await fetch(`${API_BASE}/audit/?${query}`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/audit/?${query}`, { headers: authHeaders() });
     return handleResponse<AuditEntry[]>(res);
   },
 
   // Dashboard
   async getStats(): Promise<DashboardStats> {
-    const res = await fetch(`${API_BASE}/dashboard/stats`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/dashboard/stats`, { headers: authHeaders() });
     return handleResponse<DashboardStats>(res);
   },
 
   async getActivity(days = 7): Promise<ActivityPoint[]> {
-    const res = await fetch(`${API_BASE}/dashboard/activity?days=${days}`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/dashboard/activity?days=${days}`, { headers: authHeaders() });
     return handleResponse<ActivityPoint[]>(res);
   },
 
   async getRecentSwitches(limit = 10): Promise<RecentSwitch[]> {
-    const res = await fetch(`${API_BASE}/dashboard/recent?limit=${limit}`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/dashboard/recent?limit=${limit}`, { headers: authHeaders() });
     return handleResponse<RecentSwitch[]>(res);
   },
 
@@ -371,7 +393,7 @@ export const api = {
     plan: string;
     limits: Record<string, unknown>;
   }> {
-    const res = await fetch(`${API_BASE}/dashboard/overview`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/dashboard/overview`, { headers: authHeaders() });
     return handleResponse(res);
   },
 
@@ -381,18 +403,18 @@ export const api = {
     plan: string;
     limits: Record<string, unknown>;
   }> {
-    const res = await fetch(`${API_BASE}/skills/overview`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/skills/overview`, { headers: authHeaders() });
     return handleResponse(res);
   },
 
   // Billing
   async getStripeConfig(): Promise<{ publishable_key: string }> {
-    const res = await fetch(`${API_BASE}/billing/config`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/billing/config`, { headers: authHeaders() });
     return handleResponse<{ publishable_key: string }>(res);
   },
 
   async createSubscription(): Promise<{ client_secret: string; subscription_id: string; customer_id: string }> {
-    const res = await fetch(`${API_BASE}/billing/create-subscription`, {
+    const res = await authFetch(`${API_BASE}/billing/create-subscription`, {
       method: "POST",
       headers: authHeaders(),
     });
@@ -400,7 +422,7 @@ export const api = {
   },
 
   async confirmSubscription(setupIntentId: string): Promise<{ status: string; subscription_id: string }> {
-    const res = await fetch(`${API_BASE}/billing/confirm-subscription`, {
+    const res = await authFetch(`${API_BASE}/billing/confirm-subscription`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({ setup_intent_id: setupIntentId }),
@@ -409,7 +431,7 @@ export const api = {
   },
 
   async createCheckout(successUrl: string, cancelUrl: string): Promise<{ checkout_url: string }> {
-    const res = await fetch(`${API_BASE}/billing/checkout`, {
+    const res = await authFetch(`${API_BASE}/billing/checkout`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({ success_url: successUrl, cancel_url: cancelUrl }),
@@ -418,7 +440,7 @@ export const api = {
   },
 
   async createPortal(): Promise<{ portal_url: string }> {
-    const res = await fetch(`${API_BASE}/billing/portal`, {
+    const res = await authFetch(`${API_BASE}/billing/portal`, {
       method: "POST",
       headers: authHeaders(),
     });
@@ -432,7 +454,7 @@ export const api = {
     stripe_subscription_id: string | null;
     current_period_end: string | null;
   }> {
-    const res = await fetch(`${API_BASE}/billing/subscription`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/billing/subscription`, { headers: authHeaders() });
     return handleResponse(res);
   },
 
@@ -443,7 +465,7 @@ export const api = {
     limits: Record<string, unknown>;
     usage: { projects: number; members: number };
   }> {
-    const res = await fetch(`${API_BASE}/billing/plan-limits`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/billing/plan-limits`, { headers: authHeaders() });
     return handleResponse(res);
   },
 
@@ -456,7 +478,7 @@ export const api = {
     role: string;
     joined_at: string;
   }>> {
-    const res = await fetch(`${API_BASE}/teams/members`, { headers: authHeaders() });
+    const res = await authFetch(`${API_BASE}/teams/members`, { headers: authHeaders() });
     return handleResponse(res);
   },
 
@@ -467,7 +489,7 @@ export const api = {
     role: string;
     joined_at: string;
   }> {
-    const res = await fetch(`${API_BASE}/teams/members`, {
+    const res = await authFetch(`${API_BASE}/teams/members`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({ email, role }),
@@ -476,7 +498,7 @@ export const api = {
   },
 
   async updateMemberRole(userId: string, role: string): Promise<unknown> {
-    const res = await fetch(`${API_BASE}/teams/members/${userId}`, {
+    const res = await authFetch(`${API_BASE}/teams/members/${userId}`, {
       method: "PUT",
       headers: authHeaders(),
       body: JSON.stringify({ role }),
@@ -485,7 +507,7 @@ export const api = {
   },
 
   async removeMember(userId: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/teams/members/${userId}`, {
+    const res = await authFetch(`${API_BASE}/teams/members/${userId}`, {
       method: "DELETE",
       headers: authHeaders(),
     });

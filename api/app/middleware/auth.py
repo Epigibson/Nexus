@@ -10,10 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.user import User
 from app.models.api_key import ApiKey
-from app.services.auth_service import get_user_by_id, register_user, decode_token
-from app.services.cognito_service import verify_cognito_token
-from app.config import settings
-import secrets
+from app.services.auth_service import get_user_by_id, decode_token
 
 security = HTTPBearer(auto_error=False)
 
@@ -51,58 +48,24 @@ async def get_current_user(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
         return user
 
-    # ── Try JWT Bearer token (Dashboard auth) ──
+    # ── Try JWT Bearer token (Dashboard / mobile auth) ──
     if credentials:
-        token = credentials.credentials
-        payload = None
-
-        # Try Cognito first (production with AWS Cognito configured)
-        if settings.cognito_user_pool_id:
-            payload = await verify_cognito_token(token)
-
-        # Fallback to local JWT (development or when Cognito not configured)
-        if payload is None:
-            payload = decode_token(token)
-
-        if payload is None:
+        payload = decode_token(credentials.credentials)
+        # Only access tokens grant API access (refresh and MFA tokens have their own endpoints)
+        if payload is None or payload.get("type") != "access":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token inválido o expirado",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token corrupto")
-
-        user = await get_user_by_id(db, user_id)
+        user = await get_user_by_id(db, payload.get("sub") or "")
         if not user:
-            # User not found — check if they exist by email
-            email = payload.get("email")
-            if not email:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token missing email")
-            
-            try:
-                # First, try to find existing user by email (migrated from old auth system)
-                result = await db.execute(select(User).where(User.email == email))
-                existing_user = result.scalar_one_or_none()
-                
-                if existing_user:
-                    # Return existing user — their DB ID differs from token sub but that's OK
-                    user = existing_user
-                else:
-                    # Truly new user — auto-register from token
-                    dummy_password = secrets.token_urlsafe(32)
-                    display_name = payload.get("name") or payload.get("preferred_username") or email.split("@")[0]
-                    user = await register_user(db, email, dummy_password, display_name, user_id=user_id)
-                    await db.commit()
-            except Exception as e:
-                await db.rollback()
-                import logging
-                logger = logging.getLogger("nexus")
-                logger.error(f"Failed to sync user: {e}", exc_info=True)
-                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to sync user account")
-                
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuario no encontrado",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         return user
 
     # ── No auth provided ──

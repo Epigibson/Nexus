@@ -1,57 +1,29 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { api, type UserResponse } from "@/lib/api";
-import { Amplify } from 'aws-amplify';
-import { 
-  signIn, 
-  signUp, 
-  signOut as amplifySignOut, 
-  fetchAuthSession, 
-  getCurrentUser,
-  confirmSignIn,
-  confirmSignUp,
-  setUpTOTP,
-  verifyTOTPSetup,
-  updateMFAPreference,
-  fetchMFAPreference,
-  type SignInOutput
-} from 'aws-amplify/auth';
-
-// Configure Amplify
-Amplify.configure({
-  Auth: {
-    Cognito: {
-      userPoolId: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || '',
-      userPoolClientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || '',
-      loginWith: {
-        email: true,
-      },
-      signUpVerificationMethod: 'code',
-      userAttributes: {
-        email: {
-          required: true,
-        },
-      },
-    }
-  }
-});
+import { api, API_BASE, refreshAccessToken, type UserResponse, type TokenResponse, type LoginResponse } from "@/lib/api";
 
 interface MfaSetupResult {
   qrCodeUri: string;
   secretKey: string;
 }
 
+/** "ok" = sesión iniciada · "mfa" = falta el código TOTP · "verify-email" = falta verificar el correo (se envió código) */
+export type LoginResult = "ok" | "mfa" | "verify-email";
+
 interface AuthState {
   user: UserResponse | null;
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<SignInOutput>;
-  confirmMfa: (challengeResponse: string) => Promise<SignInOutput>;
+  login: (email: string, password: string) => Promise<LoginResult>;
+  confirmMfa: (code: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
   confirmRegistration: (email: string, code: string) => Promise<void>;
+  resendVerification: (email: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   setupTotp: () => Promise<MfaSetupResult>;
@@ -60,134 +32,129 @@ interface AuthState {
   disableMfa: () => Promise<void>;
 }
 
+class AuthError extends Error {
+  constructor(message: string, public status: number, public code: string | null) {
+    super(message);
+  }
+}
+
+/** POST a un endpoint de /auth con la cookie de refresh incluida. */
+async function authPost<T>(path: string, body?: unknown, token?: string | null): Promise<T> {
+  const res = await fetch(`${API_BASE}/auth${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const detail = Array.isArray(data.detail)
+      ? data.detail.map((e: { msg?: string }) => e.msg?.replace(/^Value error, /, "")).join(". ")
+      : data.detail;
+    throw new AuthError(detail || `Error ${res.status}`, res.status, res.headers.get("X-Auth-Error"));
+  }
+  return res.status === 204 ? (undefined as T) : res.json();
+}
+
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const mfaToken = useRef<string | null>(null);
   const router = useRouter();
 
-  // Load session on mount
+  const clearSession = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem("ag_token");
+  }, []);
+
+  const startSession = useCallback(async (session: Pick<TokenResponse, "access_token">) => {
+    localStorage.setItem("ag_token", session.access_token);
+    setToken(session.access_token);
+    const profile = await api.getProfile();
+    setUser(profile);
+    router.push("/dashboard");
+  }, [router]);
+
+  // Restaurar la sesión con la cookie de refresh
   useEffect(() => {
     const loadSession = async () => {
       try {
-        const session = await fetchAuthSession();
-        if (session.tokens?.idToken) {
-          const jwtToken = session.tokens.idToken.toString();
-          setToken(jwtToken);
-          localStorage.setItem("ag_token", jwtToken);
-          
-          // Fetch profile from backend using Cognito token
-          try {
-            const profile = await api.getProfile();
-            setUser(profile);
-          } catch (e) {
-            console.error("Failed to fetch profile from backend", e);
-            // Si el backend aún no tiene al usuario, tal vez debamos sincronizarlo aquí
-            // Por ahora, lo limpiamos si falla el backend
-            setUser(null);
-            setToken(null);
-            localStorage.removeItem("ag_token");
-          }
+        const accessToken = await refreshAccessToken();
+        if (!accessToken) {
+          clearSession();
+          return;
         }
+        setToken(accessToken);
+        setUser(await api.getProfile());
       } catch (e) {
-        // Not signed in
         console.log("No valid session found", e);
-        setToken(null);
-        setUser(null);
-        localStorage.removeItem("ag_token");
+        clearSession();
       } finally {
         setIsLoading(false);
       }
     };
-    
     loadSession();
-  }, []);
+  }, [clearSession]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    let result;
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     try {
-      result = await signIn({ username: email, password });
-    } catch (err: any) {
-      if (err.name === 'UserAlreadyAuthenticatedException' || (err.message && err.message.includes('already a signed in user'))) {
-        await amplifySignOut();
-        result = await signIn({ username: email, password });
-      } else {
-        throw err;
+      const result = await authPost<LoginResponse>("/login", { email, password });
+      if (result.mfa_required) {
+        mfaToken.current = result.mfa_token;
+        return "mfa";
       }
+      await startSession(result as TokenResponse);
+      return "ok";
+    } catch (err) {
+      if (err instanceof AuthError && err.code === "email_not_verified") return "verify-email";
+      throw err;
     }
-    
-    if (result.isSignedIn) {
-      const session = await fetchAuthSession();
-      const jwtToken = session.tokens?.idToken?.toString() || '';
-      setToken(jwtToken);
-      localStorage.setItem("ag_token", jwtToken);
-      
-      try {
-        const profile = await api.getProfile();
-        setUser(profile);
-        router.push("/dashboard");
-      } catch (error) {
-        console.error("Profile sync error after login", error);
-      }
-    }
-    
-    return result;
-  }, [router]);
+  }, [startSession]);
 
-  const confirmMfa = useCallback(async (challengeResponse: string) => {
-    const result = await confirmSignIn({ challengeResponse });
-    if (result.isSignedIn) {
-      const session = await fetchAuthSession();
-      const jwtToken = session.tokens?.idToken?.toString() || '';
-      setToken(jwtToken);
-      localStorage.setItem("ag_token", jwtToken);
-      
-      try {
-        const profile = await api.getProfile();
-        setUser(profile);
-        router.push("/dashboard");
-      } catch (error) {
-        console.error("Profile sync error after MFA", error);
-      }
-    }
-    return result;
-  }, [router]);
+  const confirmMfa = useCallback(async (code: string) => {
+    if (!mfaToken.current) throw new Error("La verificación expiró, inicia sesión de nuevo");
+    const session = await authPost<TokenResponse>("/mfa/challenge", { mfa_token: mfaToken.current, code });
+    mfaToken.current = null;
+    await startSession(session);
+  }, [startSession]);
 
   const register = useCallback(async (email: string, password: string, displayName?: string) => {
-    await signUp({
-      username: email,
-      password,
-      options: {
-        userAttributes: {
-          email,
-          name: displayName || email.split("@")[0]
-        }
-      }
-    });
-    // Recordar: Backend necesita crear el usuario en su base de datos. Lo haremos en confirmRegistration o vía Cognito Trigger.
+    await authPost("/register", { email, password, display_name: displayName || undefined });
   }, []);
 
   const confirmRegistration = useCallback(async (email: string, code: string) => {
-    await confirmSignUp({
-      username: email,
-      confirmationCode: code
-    });
-    // Opcionalmente, hacer auto-login aquí o redirigir a login
+    const session = await authPost<TokenResponse>("/verify-email", { email, code });
+    await startSession(session);
+  }, [startSession]);
+
+  const resendVerification = useCallback(async (email: string) => {
+    await authPost("/resend-verification", { email });
+  }, []);
+
+  const forgotPassword = useCallback(async (email: string) => {
+    await authPost("/password/forgot", { email });
+  }, []);
+
+  const resetPassword = useCallback(async (email: string, code: string, newPassword: string) => {
+    await authPost("/password/reset", { email, code, new_password: newPassword });
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      await amplifySignOut();
+      await authPost("/logout");
     } catch (error) {
       console.error("Error signing out: ", error);
     }
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem("ag_token");
+    clearSession();
     router.push("/login");
-  }, [router]);
+  }, [router, clearSession]);
 
   const refreshProfile = useCallback(async () => {
     try {
@@ -198,38 +165,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Endpoints de 2FA autenticados: pasan por authPost con el token actual (renovándolo si expiró)
+  const authedPost = useCallback(async <T,>(path: string, body?: unknown): Promise<T> => {
+    try {
+      return await authPost<T>(path, body, localStorage.getItem("ag_token"));
+    } catch (err) {
+      if (!(err instanceof AuthError) || err.status !== 401) throw err;
+      const fresh = await refreshAccessToken();
+      if (!fresh) throw err;
+      setToken(fresh);
+      return authPost<T>(path, body, fresh);
+    }
+  }, []);
+
   const setupTotp = useCallback(async (): Promise<MfaSetupResult> => {
-    const totpSetupDetails = await setUpTOTP();
-    const secret = totpSetupDetails.sharedSecret;
-    const issuer = 'Nexus';
-    const account = user?.email || 'user';
-    // Build TOTP URI manually so authenticator apps show the email, not the UUID
-    const qrCodeUri = `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(account)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}`;
-    return {
-      qrCodeUri,
-      secretKey: secret,
-    };
-  }, [user?.email]);
+    const setup = await authedPost<{ secret: string; otpauth_uri: string }>("/mfa/setup");
+    return { qrCodeUri: setup.otpauth_uri, secretKey: setup.secret };
+  }, [authedPost]);
 
   const verifyTotp = useCallback(async (code: string) => {
-    await verifyTOTPSetup({ code });
-    await updateMFAPreference({ totp: 'PREFERRED' });
-  }, []);
+    await authedPost("/mfa/enable", { code });
+  }, [authedPost]);
 
   const getMfaStatus = useCallback(async () => {
     try {
-      const output = await fetchMFAPreference();
-      const enabled = (output.enabled || []).includes('TOTP');
-      const preferred = output.preferred || null;
-      return { enabled, preferred };
+      let res = await fetch(`${API_BASE}/auth/mfa`, { headers: { Authorization: `Bearer ${localStorage.getItem("ag_token")}` } });
+      if (res.status === 401) {
+        const fresh = await refreshAccessToken();
+        if (fresh) res = await fetch(`${API_BASE}/auth/mfa`, { headers: { Authorization: `Bearer ${fresh}` } });
+      }
+      if (!res.ok) return { enabled: false, preferred: null };
+      const { enabled } = await res.json();
+      return { enabled, preferred: enabled ? "TOTP" : null };
     } catch {
       return { enabled: false, preferred: null };
     }
   }, []);
 
   const disableMfa = useCallback(async () => {
-    await updateMFAPreference({ totp: 'DISABLED' });
-  }, []);
+    await authedPost("/mfa/disable");
+  }, [authedPost]);
 
   return (
     <AuthContext.Provider
@@ -242,6 +217,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         confirmMfa,
         register,
         confirmRegistration,
+        resendVerification,
+        forgotPassword,
+        resetPassword,
         logout,
         refreshProfile,
         setupTotp,

@@ -4,7 +4,7 @@ import base64
 from cryptography.fernet import Fernet, InvalidToken
 from app.config import settings
 
-# Lazy-initialize Fernet to avoid crashing the entire Lambda on import
+# Lazy-initialize Fernet to avoid crashing the whole API on import
 # if ENCRYPTION_KEY is misconfigured. The error will surface when crypto
 # is actually used, keeping non-crypto endpoints functional.
 _fernet = None
@@ -18,8 +18,7 @@ def _get_fernet() -> Fernet:
         if not key:
             raise ValueError(
                 "ENCRYPTION_KEY is not configured. "
-                "Set it in SSM Parameter Store at /nexus/prod/encryption_key "
-                "or as an environment variable."
+                "Set it as an environment variable (/etc/nexus/api.env in production)."
             )
         _fernet = Fernet(key.encode('utf-8'))
     return _fernet

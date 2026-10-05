@@ -1,0 +1,20 @@
+[Unit]
+Description=Nexus Dashboard (Next.js standalone)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=nexus
+Group=nexus
+# "current" es un symlink a la última release; systemd lo resuelve al arrancar
+WorkingDirectory=/opt/nexus/dashboard/current
+Environment=NODE_ENV=production PORT=3100 HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

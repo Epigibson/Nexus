@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 export default function LoginPage() {
-  const { login, register, confirmMfa, confirmRegistration, isAuthenticated, isLoading } = useAuth();
-  const [mode, setMode] = useState<"login" | "register" | "mfa" | "confirm-register">("login");
+  const { login, register, confirmMfa, confirmRegistration, resendVerification, forgotPassword, resetPassword, isAuthenticated, isLoading } = useAuth();
+  const [mode, setMode] = useState<"login" | "register" | "mfa" | "confirm-register" | "forgot" | "reset">("login");
   const router = useRouter();
 
   useEffect(() => {
@@ -38,18 +38,28 @@ export default function LoginPage() {
         toast.success("Código enviado a tu correo");
       } else if (mode === "confirm-register") {
         await confirmRegistration(email, confirmCode);
-        toast.success("Cuenta verificada. Ahora inicia sesión.");
-        setMode("login");
-        setPassword("");
+        toast.success("Cuenta verificada");
       } else if (mode === "login") {
         const result = await login(email, password);
-        if (result.nextStep?.signInStep === 'CONFIRM_SIGN_IN_WITH_TOTP_CODE') {
+        if (result === "mfa") {
           setMode("mfa");
           toast.info("Introduce tu código de la app autenticadora");
-        } else if (result.nextStep?.signInStep === 'CONFIRM_SIGN_IN_WITH_SMS_CODE') {
-           setMode("mfa");
-           toast.info("Introduce el código enviado por SMS");
+        } else if (result === "verify-email") {
+          setConfirmCode("");
+          setMode("confirm-register");
+          toast.info("Verifica tu correo: te enviamos un código");
         }
+      } else if (mode === "forgot") {
+        await forgotPassword(email);
+        setConfirmCode("");
+        setPassword("");
+        setMode("reset");
+        toast.success("Si la cuenta existe, te enviamos un código");
+      } else if (mode === "reset") {
+        await resetPassword(email, confirmCode, password);
+        toast.success("Contraseña actualizada. Ya puedes iniciar sesión.");
+        setPassword("");
+        setMode("login");
       } else if (mode === "mfa") {
         await confirmMfa(mfaCode);
         toast.success("Inicio de sesión exitoso");
@@ -64,6 +74,15 @@ export default function LoginPage() {
 
   const toggleMode = () => {
     setMode(mode === "login" ? "register" : "login");
+  };
+
+  const handleResend = async () => {
+    try {
+      await resendVerification(email);
+      toast.success("Código reenviado");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "No se pudo reenviar");
+    }
   };
 
   return (
@@ -86,6 +105,8 @@ export default function LoginPage() {
             {mode === "register" && "Crea tu cuenta"}
             {mode === "mfa" && "Verificación en 2 pasos"}
             {mode === "confirm-register" && "Verifica tu correo"}
+            {mode === "forgot" && "Recupera tu contraseña"}
+            {mode === "reset" && "Crea una contraseña nueva"}
           </p>
         </div>
 
@@ -121,7 +142,7 @@ export default function LoginPage() {
             </CardHeader>
           )}
           
-          <CardContent className={mode === "mfa" || mode === "confirm-register" ? "pt-6" : ""}>
+          <CardContent className={mode === "login" || mode === "register" ? "" : "pt-6"}>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* === REGISTER FIELDS === */}
               {mode === "register" && (
@@ -143,9 +164,8 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* === LOGIN / REGISTER FIELDS === */}
-              {(mode === "login" || mode === "register") && (
-                <>
+              {/* === LOGIN / REGISTER / FORGOT FIELDS === */}
+              {(mode === "login" || mode === "register" || mode === "forgot") && (
                   <div className="space-y-2">
                     <Label htmlFor="email" className="flex items-center gap-1.5 text-sm">
                       <Mail className="h-3.5 w-3.5 text-muted-foreground" />
@@ -159,15 +179,51 @@ export default function LoginPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       className="bg-background/50 focus-visible:ring-violet-500/50 focus-visible:border-violet-500 transition-all"
                       required
-                      autoFocus={mode === "login"}
+                      autoFocus={mode === "login" || mode === "forgot"}
                     />
                   </div>
+              )}
 
+              {/* === RESET: CODE FIELD === */}
+              {mode === "reset" && (
+                <div className="space-y-4 animate-in slide-in-from-right-4 fade-in duration-300">
+                  <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20 text-sm text-center">
+                    <Mail className="w-8 h-8 text-violet-400 mx-auto mb-2" />
+                    <p className="text-muted-foreground">Si <strong>{email}</strong> tiene cuenta, le enviamos un código</p>
+                  </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="flex items-center gap-1.5 text-sm">
-                      <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                      Contraseña
+                    <Label htmlFor="resetCode" className="flex items-center gap-1.5 text-sm">
+                      Código de Verificación
                     </Label>
+                    <Input
+                      id="resetCode"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="000000"
+                      value={confirmCode}
+                      onChange={(e) => setConfirmCode(e.target.value)}
+                      className="bg-background/50 text-center text-2xl tracking-[0.25em] h-14 focus-visible:ring-violet-500/50 focus-visible:border-violet-500 transition-all"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                </div>
+              )}
+
+              {(mode === "login" || mode === "register" || mode === "reset") && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="password" className="flex items-center gap-1.5 text-sm">
+                        <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                        {mode === "reset" ? "Contraseña nueva" : "Contraseña"}
+                      </Label>
+                      {mode === "login" && (
+                        <button type="button" onClick={() => setMode("forgot")} className="text-xs text-violet-400 hover:text-violet-300 hover:underline">
+                          ¿Olvidaste tu contraseña?
+                        </button>
+                      )}
+                    </div>
                     <div className="relative">
                       <Input
                         id="password"
@@ -187,11 +243,10 @@ export default function LoginPage() {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    {mode === "register" && password.length > 0 && password.length < 8 && (
-                      <p className="text-xs text-amber-400">Cognito requiere mínimo 8 caracteres, números y símbolos</p>
+                    {(mode === "register" || mode === "reset") && password.length > 0 && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password) && (
+                      <p className="text-xs text-amber-400">Mínimo 8 caracteres, con mayúscula, minúscula y número</p>
                     )}
                   </div>
-                </>
               )}
 
               {/* === MFA FIELD === */}
@@ -270,6 +325,8 @@ export default function LoginPage() {
                     ? "Procesando..."
                     : mode === "login" ? "Ingresar" 
                     : mode === "register" ? "Crear Cuenta"
+                    : mode === "forgot" ? "Enviar Código"
+                    : mode === "reset" ? "Guardar Contraseña"
                     : "Verificar Código"}
                 </span>
               </Button>
@@ -293,7 +350,14 @@ export default function LoginPage() {
                   </button>
                 </>
               )}
-              {(mode === "mfa" || mode === "confirm-register") && (
+              {mode === "confirm-register" && (
+                <div>
+                  <button type="button" onClick={handleResend} className="text-violet-400 hover:text-violet-300 transition-colors hover:underline font-medium">
+                    Reenviar código
+                  </button>
+                </div>
+              )}
+              {mode !== "login" && mode !== "register" && (
                 <button type="button" onClick={() => setMode("login")} className="text-muted-foreground hover:text-foreground transition-colors font-medium">
                   ← Volver al login
                 </button>
@@ -302,10 +366,12 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-zinc-400 font-medium">
-          Asegurado por AWS Cognito · Autenticación en 2 Pasos
-        </p>
+        {/* Footer: los usuarios que venían de Cognito entran la primera vez restableciendo su contraseña */}
+        {mode === "login" && (
+          <p className="text-center text-xs text-zinc-400 font-medium">
+            ¿Ya tenías cuenta y es tu primer ingreso tras la actualización? Usa «¿Olvidaste tu contraseña?»
+          </p>
+        )}
       </div>
     </div>
   );

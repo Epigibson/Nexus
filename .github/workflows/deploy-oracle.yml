@@ -1,0 +1,112 @@
+name: Deploy to Oracle VM
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'api/**'
+      - 'dashboard/**'
+      - 'landing/**'
+      - 'deploy/oracle/**'
+      - '.github/workflows/deploy-oracle.yml'
+  workflow_dispatch:
+    inputs:
+      components:
+        description: 'Qué desplegar (separado por espacios): api dashboard landing'
+        required: false
+        default: 'api dashboard landing'
+
+concurrency:
+  group: deploy-oracle
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Secrets requeridos: ORACLE_HOST, ORACLE_SSH_KEY (llave privada), opcional ORACLE_USER (default: nexus)
+    env:
+      ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+      TARGET: ${{ secrets.ORACLE_USER || 'nexus' }}@${{ secrets.ORACLE_HOST }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check configuration
+      id: cfg
+      run: |
+        if [ -z "$ORACLE_HOST" ]; then
+          echo "::notice::ORACLE_HOST no está configurado; se omite el deploy a Oracle."
+          echo "enabled=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - uses: dorny/paths-filter@v3
+      id: changes
+      if: steps.cfg.outputs.enabled == 'true' && github.event_name == 'push'
+      with:
+        filters: |
+          api: [ 'api/**' ]
+          dashboard: [ 'dashboard/**' ]
+          landing: [ 'landing/**' ]
+
+    - name: Resolve components
+      id: what
+      if: steps.cfg.outputs.enabled == 'true'
+      env:
+        INPUT: ${{ github.event.inputs.components }}
+        API: ${{ steps.changes.outputs.api }}
+        DASHBOARD: ${{ steps.changes.outputs.dashboard }}
+        LANDING: ${{ steps.changes.outputs.landing }}
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          for c in api dashboard landing; do
+            if [[ " $INPUT " == *" $c "* ]]; then echo "$c=true"; else echo "$c=false"; fi
+          done >> "$GITHUB_OUTPUT"
+        else
+          { echo "api=$API"; echo "dashboard=$DASHBOARD"; echo "landing=$LANDING"; } >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Configure SSH
+      if: steps.cfg.outputs.enabled == 'true'
+      run: |
+        install -m 700 -d ~/.ssh
+        echo "${{ secrets.ORACLE_SSH_KEY }}" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+        ssh-keyscan -H "$ORACLE_HOST" >> ~/.ssh/known_hosts
+        echo "RSYNC_RSH=ssh -i $HOME/.ssh/id_deploy" >> "$GITHUB_ENV"
+
+    - name: Sync deploy scripts
+      if: steps.cfg.outputs.enabled == 'true'
+      run: rsync -az deploy/oracle/deploy-remote.sh deploy/oracle/gen-caddyfile.sh "$TARGET:/opt/nexus/"
+
+    - name: Deploy API
+      if: steps.what.outputs.api == 'true'
+      run: |
+        rsync -az --delete \
+          --exclude '__pycache__' --exclude '*.pyc' --exclude '.env' --exclude '.env.*' --exclude 'venv' --exclude '.venv' \
+          --exclude 'node_modules' --exclude 'tests' --exclude '*.db' --exclude 'serverless.yml' \
+          api/ "$TARGET:/opt/nexus/api/"
+        $RSYNC_RSH "$TARGET" /opt/nexus/deploy-remote.sh api
+
+    # El dashboard se compila en la VM: así sharp/SWC son de su arquitectura (ARM en Ampere)
+    - name: Deploy dashboard
+      if: steps.what.outputs.dashboard == 'true'
+      run: |
+        rsync -az --delete \
+          --exclude 'node_modules' --exclude '.next' --exclude '.env*' \
+          dashboard/ "$TARGET:/opt/nexus/dashboard-src/"
+        $RSYNC_RSH "$TARGET" /opt/nexus/deploy-remote.sh dashboard
+
+    - uses: actions/setup-node@v4
+      if: steps.what.outputs.landing == 'true'
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: landing/package-lock.json
+
+    - name: Deploy landing
+      if: steps.what.outputs.landing == 'true'
+      working-directory: landing
+      run: |
+        npm ci --no-audit --no-fund
+        npm run build
+        rsync -az --delete dist/ "$TARGET:/opt/nexus/landing/"

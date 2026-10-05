@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
+// Origen de la API para el CSP
+const apiOrigin = new URL(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").origin;
+
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Build autocontenido para la VM de Oracle (deploy/oracle/deploy-remote.sh)
+  output: "standalone",
   async headers() {
     return [
       {
@@ -43,7 +47,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data:",
-              "connect-src 'self' https://*.supabase.co https://*.amazonaws.com https://api.stripe.com https://api.qrserver.com",
+              `connect-src 'self' ${apiOrigin} https://*.supabase.co https://api.stripe.com https://api.qrserver.com`,
               "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
               "object-src 'none'",
               "base-uri 'self'",

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable, TextInput } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/auth/provider';
+import { KeyboardAware } from '@/components/KeyboardAware';
 import { Glow, GradientFill } from '@/components/ui';
 import { gradients } from '@/theme/tokens';
 import { Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
@@ -43,7 +44,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAware style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Glow color="#7c3aed" size={520} opacity={0.32} style={{ position: 'absolute', top: -160, left: -140 }} />
         <Glow color="#d946ef" size={420} opacity={0.18} style={{ position: 'absolute', bottom: -120, right: -160 }} />
@@ -158,7 +159,7 @@ export default function RegisterScreen() {
           </YStack>
         </YStack>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAware>
   );
 }
 

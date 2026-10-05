@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable, TextInput } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
 import { Text, YStack } from 'tamagui';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/auth/provider';
+import { KeyboardAware } from '@/components/KeyboardAware';
 import { Glow, GradientFill } from '@/components/ui';
 import { gradients } from '@/theme/tokens';
 import { KeyRound, Mail, Lock, ArrowLeft, ArrowRight } from 'lucide-react-native';
@@ -48,7 +49,7 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAware style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Glow color="#7c3aed" size={520} opacity={0.32} style={{ position: 'absolute', top: -160, left: -140 }} />
         <Pressable style={styles.backButton} onPress={() => router.back()}>
@@ -132,7 +133,7 @@ export default function ForgotPasswordScreen() {
           </YStack>
         </YStack>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAware>
   );
 }
 

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { TamaguiProvider } from 'tamagui';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 // Importadas por variante: el índice del paquete arrastra las 18 (itálicas, Thin, Black…).
@@ -16,6 +17,8 @@ import tamaguiConfig from '@/theme/tamagui.config';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync();
+// Fondo nativo de la ventana: si queda blanco, se asoma al abrir/cerrar el teclado.
+SystemUI.setBackgroundColorAsync(colors.bg);
 
 const modalOptions = {
   presentation: 'modal' as const,

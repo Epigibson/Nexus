@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 12.0.0"
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -14,12 +15,16 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.nexusproject.pro"
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.nexusproject.pro"
-      }
+      },
+      "autoIncrement": true
     }
   },
   "submit": {

@@ -50,14 +50,18 @@ api/migrations/002_local_auth.sql
 
 Agrega las columnas de verificación y 2FA. Los usuarios actuales quedan como verificados.
 
-## 4. DNS
+## 4. DNS (Route 53 → Hostinger)
 
-Baja el TTL de los registros actuales a 300 s un día antes.
+El dominio está registrado en **Hostinger**, pero sus nameservers apuntaban a Route 53. Con la cuenta de AWS suspendida esa zona ya no responde (SERVFAIL), así que:
 
-- `api.nexusproject.pro` → A → `129.213.120.99` (ya, es un nombre nuevo).
-- `nexusproject.pro` y `www.nexusproject.pro` → A → `129.213.120.99` **en el corte** (paso 7).
-
-Si el DNS está en Route 53, muévelo a Cloudflare (gratis) u OCI DNS antes de cerrar AWS: copia todos los registros (incluidos MX y los de Resend) y cambia los *nameservers* en tu registrador.
+1. En Hostinger → Dominios → `nexusproject.pro` → **DNS / Nameservers**, cambia a los nameservers de Hostinger (o a Cloudflare, gratis).
+2. Crea los registros desde cero (los de Route 53 no se pueden recuperar):
+   - `api` → A → `129.213.120.99`
+   - `@` (raíz) → A → `129.213.120.99`
+   - `www` → A → `129.213.120.99`
+   - Los registros que te pida Resend para verificar el dominio (TXT/MX/DKIM).
+   - Si el dominio tenía correo u otros servicios, vuelve a crear sus registros también.
+3. El cambio de nameservers puede tardar unas horas en propagarse. Caddy saca los certificados en cuanto el DNS apunta a la VM.
 
 ## 5. Preparar la VM
 
@@ -74,7 +78,7 @@ sudo nano /etc/nexus/dashboard.env    # guía: deploy/oracle/dashboard.env.examp
 
 El setup no toca nada de michicondrias: instala Node 22 si falta, crea el usuario `nexus`, sus servicios y `/etc/caddy/sites/nexus.caddy`, agrega el `import` al Caddyfile (con respaldo `Caddyfile.bak.*`), valida la configuración y hace `reload` de Caddy (sin cortar michicondrias).
 
-Copia `SECRET_KEY`, `ENCRYPTION_KEY`, Stripe y `DATABASE_URL` de los secrets de GitHub o de SSM (`/nexus/prod/*`) **antes de cerrar AWS**. `ENCRYPTION_KEY` tiene que ser idéntica: con otra no se pueden descifrar los secretos guardados en la BD.
+Para `api.env` usa los valores de tu `api/.env` local (`DATABASE_URL`, `SECRET_KEY`, `ENCRYPTION_KEY`, Stripe): SSM ya no es accesible. Si `ENCRYPTION_KEY` no es la misma que usaba la Lambda, los secretos que se guardaron cifrados desde producción no se podrán descifrar y hay que volver a capturarlos.
 
 ## 6. GitHub
 
@@ -93,18 +97,9 @@ Prueba: `curl https://api.nexusproject.pro/api/v1/health`.
 3. Avisa a los usuarios: **la primera vez entran con «¿Olvidaste tu contraseña?»**. Cognito no deja exportar contraseñas ni secretos de 2FA, así que también tienen que volver a activar el 2FA si lo usaban. La página de login ya lo indica.
 4. Saca una versión nueva del **CLI** (`core/`) y de la **app móvil** (EAS build): ya apuntan a `https://api.nexusproject.pro`. Los CLI viejos llaman a la URL de API Gateway y dejarán de funcionar al apagar AWS; mientras actualizan pueden usar `NEXUS_API_URL=https://api.nexusproject.pro`.
 
-## 8. Apagar AWS
+## 8. AWS
 
-Una vez que todo responde desde Oracle (y copiaste los secretos):
-
-```bash
-aws cloudformation delete-stack --stack-name nexus-backend-api-prod --region us-east-1   # Lambda + API Gateway
-aws amplify list-apps --region us-east-1                                                   # y luego delete-app por cada una
-aws cognito-idp delete-user-pool --user-pool-id us-east-1_80HMwd889 --region us-east-1
-aws ssm delete-parameters --names $(aws ssm get-parameters-by-path --path /nexus --recursive --query 'Parameters[].Name' --output text) --region us-east-1
-```
-
-Revisa también el bucket S3 de deploys de Serverless (`nexus-backend-api-prod-serverlessdeploymentbucket-*`, se borra con el stack), los logs de CloudWatch (`/aws/lambda/nexus-backend-api-prod-api`), Route 53 si ahí estaba el DNS, y la usuaria/llave IAM que usaba GitHub Actions. Al final mira **Billing → Bills** del mes siguiente para confirmar que quedó en 0.
+La cuenta de AWS está **suspendida** por saldo pendiente, así que no hay nada que apagar a mano: Lambda, API Gateway, Amplify, Cognito, SSM y Route 53 ya no responden, y AWS puede dar de baja los recursos. Lo único pendiente es el saldo con AWS (Billing / soporte), que es aparte de esta migración.
 
 ## Operación
 

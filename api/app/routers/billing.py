@@ -110,7 +110,7 @@ async def get_plan_limits_endpoint(
         "limits": limits,
         "usage": {
             "projects": proj_count.scalar() or 0,
-            "members": (member_count.scalar() or 0) + 1,  # +1 for owner
+            "members": member_count.scalar() or 0,  # el dueño ya es un OrganizationMember (rol owner)
         },
     }
 

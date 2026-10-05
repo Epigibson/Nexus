@@ -1,26 +1,41 @@
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/auth/provider';
-import { api, type DashboardStats, type RecentSwitch, type ActivityPoint } from '@/api/client';
-import { Zap, FolderOpen, Terminal, Activity, Clock, CheckCircle2, XCircle } from 'lucide-react-native';
+import { api, type DashboardStats, type RecentSwitch } from '@/api/client';
+import { Zap, FolderKanban, Terminal, Plug, CheckCircle2, XCircle, History, Plus } from 'lucide-react-native';
+import {
+  Screen, ScreenHeader, Section, Card, IconTile, Badge, ListGroup, RowDivider,
+  LoadingState, EmptyState, ErrorBanner, Button,
+} from '@/components/ui';
+import { colors, space, envColor } from '@/theme/tokens';
+import { timeAgo } from '@/lib/format';
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return 'Buenos días';
+  if (h >= 12 && h < 19) return 'Buenas tardes';
+  return 'Buenas noches';
+}
 
 export default function OverviewScreen() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recent, setRecent] = useState<RecentSwitch[]>([]);
-  const [activity, setActivity] = useState<ActivityPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
 
   const loadData = useCallback(async () => {
     try {
       const overview = await api.getDashboardOverview();
       setStats(overview.stats);
       setRecent(overview.recent);
-      setActivity(overview.activity);
-    } catch (e) {
-      console.error('Failed to load overview', e);
+      setError('');
+    } catch {
+      setError('No pudimos cargar tu resumen.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -31,175 +46,92 @@ export default function OverviewScreen() {
     loadData();
   }, [loadData]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadData();
-  };
-
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString('es-MX', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  const firstName = (user?.display_name || user?.email || '').split(/[\s@]/)[0];
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7c3aed" />}
-      >
-        {/* Header */}
-        <YStack padding="$6" paddingTop={60} gap="$1">
-          <Text fontSize={13} color="#64748b">
-            Bienvenido de vuelta
-          </Text>
-          <Text fontSize={24} fontWeight="800" color="#f8fafc">
-            {user?.display_name || user?.email || 'Usuario'}
-          </Text>
-        </YStack>
+    <Screen refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }}>
+      <ScreenHeader eyebrow={greeting()} title={firstName || 'Nexus'} />
 
-        {/* Stats Grid */}
-        <XStack flexWrap="wrap" paddingHorizontal="$4" gap="$3">
-          <StatCard
-            icon={<FolderOpen size={18} color="#a78bfa" />}
-            label="Proyectos"
-            value={stats?.total_projects ?? 0}
-            color="#7c3aed"
-          />
-          <StatCard
-            icon={<Zap size={18} color="#fcd34d" />}
-            label="Switches Hoy"
-            value={stats?.switches_today ?? 0}
-            color="#f59e0b"
-          />
-          <StatCard
-            icon={<Terminal size={18} color="#6ee7b7" />}
-            label="Skills (7d)"
-            value={stats?.skills_executed ?? 0}
-            color="#10b981"
-          />
-          <StatCard
-            icon={<Activity size={18} color="#93c5fd" />}
-            label="Herramientas"
-            value={stats?.tools_connected ?? 0}
-            color="#3b82f6"
-          />
-        </XStack>
+      {error ? <ErrorBanner message={error} onRetry={loadData} /> : null}
 
-        {/* Recent Switches */}
-        <YStack paddingHorizontal="$6" paddingTop="$8" gap="$4">
-          <Text fontSize={16} fontWeight="700" color="#f8fafc">
-            Switches Recientes
-          </Text>
+      {loading ? (
+        <LoadingState label="Cargando tu resumen…" />
+      ) : (
+        <>
+          <View style={styles.grid}>
+            <StatCard icon={<FolderKanban size={18} color={colors.primaryBright} />} tint={colors.primarySoft}
+              value={stats?.total_projects ?? 0} label="Proyectos" />
+            <StatCard icon={<Zap size={18} color={colors.warning} />} tint={colors.warningSoft}
+              value={stats?.switches_today ?? 0} label="Switches hoy" />
+            <StatCard icon={<Terminal size={18} color={colors.success} />} tint={colors.successSoft}
+              value={stats?.skills_executed ?? 0} label="Skills (7 días)" />
+            <StatCard icon={<Plug size={18} color={colors.info} />} tint={colors.infoSoft}
+              value={stats?.tools_connected ?? 0} label="Herramientas" />
+          </View>
 
-          {recent.length === 0 && !loading ? (
-            <YStack alignItems="center" padding="$8" gap="$2">
-              <Clock size={32} color="#3a3a4a" />
-              <Text fontSize={14} color="#64748b">
-                No hay switches recientes
-              </Text>
-            </YStack>
-          ) : (
-            recent.map((sw) => (
-              <View key={sw.id} style={styles.switchCard}>
-                <View style={styles.switchIcon}>
-                  {sw.success ? (
-                    <CheckCircle2 size={16} color="#10b981" />
-                  ) : (
-                    <XCircle size={16} color="#ef4444" />
+          <Section title="Switches recientes">
+            {recent.length === 0 ? (
+              <Card>
+                <EmptyState
+                  icon={<History size={28} color={colors.textMuted} />}
+                  title="Aún no hay switches"
+                  message="Cuando cambies de contexto con el CLI (nexus switch), aparecerán aquí."
+                  action={stats?.total_projects ? undefined : (
+                    <Button compact label="Crear proyecto" icon={<Plus size={16} color="#fff" />}
+                      onPress={() => router.push('/modals/create-project')} />
                   )}
-                </View>
-                <YStack flex={1} gap="$1">
-                  <XStack alignItems="center" gap="$2">
-                    <Text fontSize={14} fontWeight="600" color="#f8fafc">
-                      {sw.project_name}
-                    </Text>
-                    <View style={styles.envBadge}>
-                      <Text fontSize={10} color="#94a3b8">
-                        {sw.environment}
-                      </Text>
-                    </View>
-                  </XStack>
-                  <Text fontSize={12} color="#64748b" numberOfLines={1}>
-                    {sw.message}
-                  </Text>
-                </YStack>
-                <Text fontSize={11} color="#4a4a5a">
-                  {formatTime(sw.created_at)}
-                </Text>
-              </View>
-            ))
-          )}
-        </YStack>
-      </ScrollView>
-    </View>
+                />
+              </Card>
+            ) : (
+              <ListGroup>
+                {recent.map((sw, i) => (
+                  <View key={sw.id}>
+                    {i > 0 ? <RowDivider /> : null}
+                    <XStack alignItems="center" gap={space.md} paddingHorizontal={space.lg} paddingVertical={13}>
+                      <IconTile size={34} color={sw.success ? colors.successSoft : colors.dangerSoft}>
+                        {sw.success ? <CheckCircle2 size={17} color={colors.success} /> : <XCircle size={17} color={colors.danger} />}
+                      </IconTile>
+                      <YStack flex={1} gap={3}>
+                        <XStack alignItems="center" gap={space.sm}>
+                          <Text fontSize={15} fontWeight="600" color={colors.text} numberOfLines={1} flexShrink={1}>
+                            {sw.project_name}
+                          </Text>
+                          <Badge label={sw.environment} color={envColor(sw.environment)} />
+                        </XStack>
+                        <Text fontSize={12} color={colors.textMuted} numberOfLines={1}>{sw.message}</Text>
+                      </YStack>
+                      <Text fontSize={12} color={colors.textFaint}>{timeAgo(sw.created_at)}</Text>
+                    </XStack>
+                  </View>
+                ))}
+              </ListGroup>
+            )}
+          </Section>
+        </>
+      )}
+    </Screen>
   );
 }
 
-function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
+function StatCard({ icon, tint, value, label }: { icon: React.ReactNode; tint: string; value: number; label: string }) {
   return (
-    <View style={[styles.statCard, { borderColor: color + '20' }]}>
-      <View style={[styles.statIcon, { backgroundColor: color + '15' }]}>
-        {icon}
-      </View>
-      <Text fontSize={24} fontWeight="800" color="#f8fafc">
-        {value}
-      </Text>
-      <Text fontSize={11} color="#64748b">
-        {label}
-      </Text>
-    </View>
+    <Card style={styles.stat}>
+      <IconTile size={34} color={tint}>{icon}</IconTile>
+      <YStack gap={2} marginTop={space.md}>
+        <Text fontSize={26} fontWeight="800" color={colors.text} letterSpacing={-0.5}>{value}</Text>
+        <Text fontSize={12} color={colors.textMuted}>{label}</Text>
+      </YStack>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0a0f',
-  },
-  scroll: {
-    paddingBottom: 100,
-  },
-  statCard: {
-    width: '47%',
-    backgroundColor: '#111118',
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#1e1e2a',
-  },
-  statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  switchCard: {
+  grid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#111118',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#1e1e2a',
+    flexWrap: 'wrap',
+    gap: space.md,
+    paddingHorizontal: space.xl,
+    marginBottom: space.xxl,
   },
-  switchIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#1a1a24',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  envBadge: {
-    backgroundColor: '#1e1e2a',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
+  stat: { flexBasis: '47%', flexGrow: 1, padding: space.lg },
 });

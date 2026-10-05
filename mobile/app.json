@@ -3,7 +3,7 @@
     "name": "Nexus",
     "slug": "nexus-mobile",
     "owner": "nexus-app-epigibson",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -51,6 +51,7 @@
       },
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
-    }
+    },
+    "backgroundColor": "#09090d"
   }
 }

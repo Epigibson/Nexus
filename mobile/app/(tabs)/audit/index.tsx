@@ -1,21 +1,21 @@
-import { View, StyleSheet, ScrollView, RefreshControl, Pressable } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { api, type AuditEntry } from '@/api/client';
-import {
-  CheckCircle2, XCircle, ChevronRight, ChevronDown, SkipForward,
-  Zap, GitBranch, Terminal, Key, FileText, AlertTriangle, Clock, Search,
-} from 'lucide-react-native';
+import { CheckCircle2, XCircle, ChevronDown, ChevronRight, SkipForward, History } from 'lucide-react-native';
+import { Screen, ScreenHeader, Section, Badge, LoadingState, EmptyState, ErrorBanner } from '@/components/ui';
+import { colors, radius, space, envColor } from '@/theme/tokens';
+import { dateTime, duration, parseDate } from '@/lib/format';
 
 type SkillStatus = 'success' | 'warning' | 'error';
+type Filter = 'all' | 'ok' | 'errors';
 
-const actionConfig: Record<string, { label: string; color: string; icon: any }> = {
-  context_switch: { label: 'Context Switch', color: '#7c3aed', icon: Zap },
-  env_inject: { label: 'Env Inject', color: '#10b981', icon: Key },
-  git_switch: { label: 'Git Switch', color: '#3b82f6', icon: GitBranch },
-  cli_switch: { label: 'CLI Switch', color: '#f59e0b', icon: Terminal },
-  project_init: { label: 'Init', color: '#64748b', icon: FileText },
-  error: { label: 'Error', color: '#ef4444', icon: AlertTriangle },
+const SKILL_LABELS: Record<string, string> = {
+  env_inject: 'Variables',
+  git_switch: 'Git',
+  cli_switch: 'CLI',
+  project_init: 'Init',
 };
 
 function getSkillStatus(entry: AuditEntry): SkillStatus {
@@ -32,127 +32,90 @@ function getSkillStatus(entry: AuditEntry): SkillStatus {
 }
 
 interface SwitchGroup {
-  id: string;
   entry: AuditEntry;
   children: AuditEntry[];
   totalDuration: number;
-  successCount: number;
-  warningCount: number;
-  errorCount: number;
+  counts: Record<SkillStatus, number>;
 }
 
+/** Agrupa cada context_switch con los skills que corrieron en los 15 s alrededor del mismo proyecto. */
 function groupBySwitches(entries: AuditEntry[]): SwitchGroup[] {
   const switches = entries.filter((e) => e.action === 'context_switch');
   const others = entries.filter((e) => e.action !== 'context_switch');
-
   return switches.map((sw) => {
-    const swTime = new Date(sw.created_at).getTime();
-    const children = others.filter((e) => {
-      const eTime = new Date(e.created_at).getTime();
-      return Math.abs(eTime - swTime) < 15000 && e.project_name === sw.project_name;
-    });
-    const totalDuration = children.reduce((sum, c) => sum + (c.duration_ms || 0), 0);
-
-    let successCount = 0, warningCount = 0, errorCount = 0;
-    for (const c of children) {
-      const s = getSkillStatus(c);
-      if (s === 'success') successCount++;
-      else if (s === 'warning') warningCount++;
-      else errorCount++;
-    }
-
-    return { id: sw.id, entry: sw, children, totalDuration, successCount, warningCount, errorCount };
+    const swTime = parseDate(sw.created_at).getTime();
+    const children = others.filter(
+      (e) => Math.abs(parseDate(e.created_at).getTime() - swTime) < 15000 && e.project_name === sw.project_name,
+    );
+    const counts: Record<SkillStatus, number> = { success: 0, warning: 0, error: 0 };
+    for (const c of children) counts[getSkillStatus(c)]++;
+    if (!sw.success && counts.error === 0) counts.error = 1;
+    const totalDuration = children.reduce((sum, c) => sum + (c.duration_ms || 0), 0) || sw.duration_ms || 0;
+    return { entry: sw, children, totalDuration, counts };
   });
-}
-
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString('es-MX', {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 function StatusIcon({ status, size = 16 }: { status: SkillStatus; size?: number }) {
-  if (status === 'success') return <CheckCircle2 size={size} color="#10b981" />;
-  if (status === 'warning') return <SkipForward size={size} color="#f59e0b" />;
-  return <XCircle size={size} color="#ef4444" />;
+  if (status === 'success') return <CheckCircle2 size={size} color={colors.success} />;
+  if (status === 'warning') return <SkipForward size={size} color={colors.warning} />;
+  return <XCircle size={size} color={colors.danger} />;
 }
 
-function ExpandableRow({ group }: { group: SwitchGroup }) {
+function SwitchRow({ group }: { group: SwitchGroup }) {
   const [expanded, setExpanded] = useState(false);
-  const { entry, children, totalDuration, successCount, warningCount, errorCount } = group;
-  const config = actionConfig[entry.action] || actionConfig.error;
-  const Icon = config.icon;
+  const { entry, children, totalDuration, counts } = group;
+  const failed = counts.error > 0;
 
   return (
-    <View style={styles.groupCard}>
-      <Pressable style={styles.groupHeader} onPress={() => setExpanded(!expanded)}>
-        <View style={styles.expandIcon}>
-          {expanded ? <ChevronDown size={16} color="#64748b" /> : <ChevronRight size={16} color="#3a3a4a" />}
-        </View>
-
-        <StatusIcon status={errorCount > 0 ? 'error' : 'success'} />
-
-        <YStack flex={1} gap="$1">
-          <XStack alignItems="center" gap="$2">
-            <Text fontSize={14} fontWeight="600" color="#f8fafc">{entry.project_name}</Text>
-            <View style={[styles.envBadge, { borderColor: '#2a2a3a' }]}>
-              <Text fontSize={10} color="#94a3b8">{entry.environment}</Text>
-            </View>
+    <View style={styles.group}>
+      <Pressable
+        onPress={() => children.length && setExpanded(!expanded)}
+        style={({ pressed }) => [styles.groupHeader, pressed && children.length > 0 && { backgroundColor: colors.surfacePressed }]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+      >
+        <StatusIcon status={failed ? 'error' : 'success'} size={20} />
+        <YStack flex={1} gap={4}>
+          <XStack alignItems="center" gap={space.sm}>
+            <Text fontSize={15} fontWeight="600" color={colors.text} numberOfLines={1} flexShrink={1}>
+              {entry.project_name ?? 'Proyecto'}
+            </Text>
+            {entry.environment ? <Badge label={entry.environment} color={envColor(entry.environment)} /> : null}
           </XStack>
-          <XStack alignItems="center" gap="$1">
-            <Clock size={10} color="#4a4a5a" />
-            <Text fontSize={11} color="#4a4a5a">{formatTimestamp(entry.created_at)}</Text>
+          <XStack alignItems="center" gap={space.md}>
+            <Text fontSize={12} color={colors.textMuted}>{dateTime(entry.created_at)}</Text>
+            <Text fontSize={12} color={colors.textFaint}>{duration(totalDuration)}</Text>
           </XStack>
         </YStack>
-
-        <XStack alignItems="center" gap="$2">
-          {successCount > 0 && (
-            <XStack alignItems="center" gap="$1">
-              <CheckCircle2 size={12} color="#10b981" />
-              <Text fontSize={11} color="#10b981">{successCount}</Text>
-            </XStack>
+        <XStack alignItems="center" gap={space.sm}>
+          {(['success', 'warning', 'error'] as SkillStatus[]).map((s) =>
+            counts[s] > 0 ? (
+              <XStack key={s} alignItems="center" gap={3}>
+                <StatusIcon status={s} size={12} />
+                <Text fontSize={12} color={colors.textSecondary}>{counts[s]}</Text>
+              </XStack>
+            ) : null,
           )}
-          {warningCount > 0 && (
-            <XStack alignItems="center" gap="$1">
-              <SkipForward size={12} color="#f59e0b" />
-              <Text fontSize={11} color="#f59e0b">{warningCount}</Text>
-            </XStack>
-          )}
-          {errorCount > 0 && (
-            <XStack alignItems="center" gap="$1">
-              <XCircle size={12} color="#ef4444" />
-              <Text fontSize={11} color="#ef4444">{errorCount}</Text>
-            </XStack>
-          )}
-          <Text fontSize={11} color="#4a4a5a">
-            {formatDuration(totalDuration > 0 ? totalDuration : entry.duration_ms ?? 0)}
-          </Text>
+          {children.length > 0 ? (
+            expanded ? <ChevronDown size={18} color={colors.textMuted} /> : <ChevronRight size={18} color={colors.textFaint} />
+          ) : null}
         </XStack>
       </Pressable>
 
-      {expanded && children.length > 0 && (
-        <View style={styles.childrenContainer}>
-          {children.map((child) => {
-            const childStatus = getSkillStatus(child);
-            const childConfig = actionConfig[child.action] || actionConfig.error;
-            return (
-              <View key={child.id} style={styles.childRow}>
-                <StatusIcon status={childStatus} size={14} />
-                <View style={[styles.childBadge, { borderColor: childConfig.color + '30' }]}>
-                  <Text fontSize={10} color={childConfig.color}>{child.skill_name || childConfig.label}</Text>
-                </View>
-                <Text flex={1} fontSize={11} color="#64748b" numberOfLines={1}>{child.message}</Text>
-                <Text fontSize={10} color="#3a3a4a">{formatDuration(child.duration_ms ?? 0)}</Text>
-              </View>
-            );
-          })}
+      {expanded ? (
+        <View style={styles.children}>
+          {children.map((child) => (
+            <XStack key={child.id} alignItems="center" gap={space.sm} paddingVertical={7}>
+              <StatusIcon status={getSkillStatus(child)} size={14} />
+              <Text fontSize={12} fontWeight="700" color={colors.textSecondary} width={64} numberOfLines={1}>
+                {child.skill_name || SKILL_LABELS[child.action] || child.action}
+              </Text>
+              <Text flex={1} fontSize={12} color={colors.textMuted} numberOfLines={2}>{child.message}</Text>
+              <Text fontSize={11} color={colors.textFaint}>{duration(child.duration_ms ?? 0)}</Text>
+            </XStack>
+          ))}
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -161,130 +124,102 @@ export default function AuditScreen() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
 
   const loadData = useCallback(async () => {
     try {
-      const data = await api.listAudit({ limit: 200 });
-      setEntries(data);
-    } catch (e) {
-      console.error('Failed to load audit', e);
+      setEntries(await api.listAudit({ limit: 200 }));
+      setError('');
+    } catch {
+      setError('No pudimos cargar la actividad.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadData();
-  };
+  const groups = useMemo(() => groupBySwitches(entries), [entries]);
+  const visible = groups.filter((g) =>
+    filter === 'all' ? true : filter === 'errors' ? g.counts.error > 0 : g.counts.error === 0,
+  );
+  const errorCount = groups.filter((g) => g.counts.error > 0).length;
 
-  const groups = groupBySwitches(entries);
+  const FILTERS: { id: Filter; label: string }[] = [
+    { id: 'all', label: `Todo · ${groups.length}` },
+    { id: 'ok', label: 'Correctos' },
+    { id: 'errors', label: `Con errores${errorCount ? ` · ${errorCount}` : ''}` },
+  ];
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7c3aed" />}
-      >
-        {/* Header */}
-        <YStack padding="$6" paddingTop={60} gap="$1">
-          <Text fontSize={24} fontWeight="800" color="#f8fafc">
-            Audit Log
-          </Text>
-          <Text fontSize={14} color="#64748b">
-            {groups.length} switch{groups.length !== 1 && 'es'}
-          </Text>
-        </YStack>
+    <Screen refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }}>
+      <ScreenHeader title="Actividad" subtitle="Historial de switches y lo que ejecutó cada uno" />
 
-        {/* Legend */}
-        <XStack paddingHorizontal="$6" gap="$4" marginBottom="$2">
-          <XStack alignItems="center" gap="$1">
-            <CheckCircle2 size={12} color="#10b981" />
-            <Text fontSize={10} color="#64748b">OK</Text>
-          </XStack>
-          <XStack alignItems="center" gap="$1">
-            <SkipForward size={12} color="#f59e0b" />
-            <Text fontSize={10} color="#64748b">Skipped</Text>
-          </XStack>
-          <XStack alignItems="center" gap="$1">
-            <XCircle size={12} color="#ef4444" />
-            <Text fontSize={10} color="#64748b">Error</Text>
-          </XStack>
-        </XStack>
+      {error ? <ErrorBanner message={error} onRetry={loadData} /> : null}
 
-        {/* Groups */}
-        <YStack paddingHorizontal="$4" gap="$2">
-          {groups.length === 0 && !loading ? (
-            <YStack alignItems="center" padding="$12" gap="$2">
-              <Clock size={32} color="#3a3a4a" />
-              <Text fontSize={14} color="#64748b">No hay registros de auditoría</Text>
-            </YStack>
-          ) : (
-            groups.map((group) => (
-              <ExpandableRow key={group.id} group={group} />
-            ))
-          )}
-        </YStack>
-      </ScrollView>
-    </View>
+      {loading ? (
+        <LoadingState label="Cargando actividad…" />
+      ) : groups.length === 0 ? (
+        <EmptyState
+          icon={<History size={28} color={colors.textMuted} />}
+          title="Sin actividad todavía"
+          message="Cada vez que corras nexus switch en tu terminal, quedará registrado aquí."
+        />
+      ) : (
+        <>
+          <XStack paddingHorizontal={space.xl} gap={space.sm} marginBottom={space.xl}>
+            {FILTERS.map((f) => (
+              <Pressable
+                key={f.id}
+                onPress={() => setFilter(f.id)}
+                style={[styles.filter, filter === f.id && styles.filterActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: filter === f.id }}
+              >
+                <Text fontSize={13} fontWeight="600" color={filter === f.id ? colors.text : colors.textMuted}>{f.label}</Text>
+              </Pressable>
+            ))}
+          </XStack>
+          <Section>
+            {visible.length === 0 ? (
+              <Text fontSize={14} color={colors.textMuted} textAlign="center" paddingVertical={space.xxl}>
+                Nada que mostrar con este filtro.
+              </Text>
+            ) : (
+              visible.map((g) => <SwitchRow key={g.entry.id} group={g} />)
+            )}
+          </Section>
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0a0f',
-  },
-  scroll: {
-    paddingBottom: 100,
-  },
-  groupCard: {
-    backgroundColor: '#111118',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#1e1e2a',
+  group: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 14,
+  groupHeader: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg },
+  children: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    backgroundColor: colors.bg,
   },
-  expandIcon: {
-    width: 20,
-    alignItems: 'center',
+  filter: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
-  envBadge: {
-    borderRadius: 5,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderWidth: 1,
-  },
-  childrenContainer: {
-    borderTopWidth: 1,
-    borderTopColor: '#1a1a24',
-    padding: 10,
-    gap: 6,
-  },
-  childRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    backgroundColor: '#0e0e14',
-    borderRadius: 8,
-  },
-  childBadge: {
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderWidth: 1,
-  },
+  filterActive: { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder },
 });

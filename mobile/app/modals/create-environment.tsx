@@ -1,199 +1,96 @@
 import { useState } from 'react';
-import { View, StyleSheet, Pressable, TextInput } from 'react-native';
+import { ScrollView, Pressable, StyleSheet } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { GitBranch, Tag } from 'lucide-react-native';
 import { api } from '@/api/client';
-import { GitBranch, Tag, ArrowRight } from 'lucide-react-native';
+import { Field, Button } from '@/components/ui';
+import { colors, radius, space, envColor } from '@/theme/tokens';
 
-const ENV_PRESETS = [
-  { value: 'development', label: 'Development', color: '#10b981' },
-  { value: 'staging', label: 'Staging', color: '#f59e0b' },
-  { value: 'production', label: 'Production', color: '#ef4444' },
+const PRESETS = [
+  { value: 'development', label: 'Development', branch: 'develop' },
+  { value: 'staging', label: 'Staging', branch: 'staging' },
+  { value: 'production', label: 'Production', branch: 'main' },
 ];
 
 export default function CreateEnvironmentModal() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ projectSlug?: string }>();
-  const projectSlug = params.projectSlug || '';
-
-  const [name, setName] = useState('');
+  const { projectSlug = '' } = useLocalSearchParams<{ projectSlug?: string }>();
   const [environment, setEnvironment] = useState('development');
+  const [name, setName] = useState('');
   const [gitBranch, setGitBranch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleCreate = async () => {
-    if (!name) {
-      setError('El nombre es requerido');
-      return;
-    }
+  const preset = PRESETS.find((p) => p.value === environment)!;
 
-    if (!projectSlug) {
-      setError('No se especificó el proyecto');
-      return;
-    }
-
+  const create = async () => {
+    if (!projectSlug) return setError('No se especificó el proyecto.');
     setLoading(true);
     setError('');
-
     try {
       await api.createEnvironment(projectSlug, {
-        name,
+        name: name.trim() || environment,
         environment,
-        git_branch: gitBranch || undefined,
+        git_branch: gitBranch.trim() || undefined,
       });
       router.back();
     } catch (err: any) {
-      setError(err.message || 'Error al crear entorno');
+      setError(err.message || 'No se pudo crear el entorno.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <YStack padding="$6" gap="$5">
-        {/* Environment Type */}
-        <YStack gap="$2">
-          <Text fontSize={13} fontWeight="600" color="#94a3b8">Tipo de Entorno</Text>
-          <XStack gap="$2">
-            {ENV_PRESETS.map((preset) => (
-              <Pressable
-                key={preset.value}
-                style={[
-                  styles.presetButton,
-                  environment === preset.value && { borderColor: preset.color, backgroundColor: preset.color + '15' },
-                ]}
-                onPress={() => setEnvironment(preset.value)}
-              >
-                <Text
-                  fontSize={12}
-                  fontWeight="600"
-                  color={environment === preset.value ? preset.color : '#64748b'}
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <YStack gap={space.xl}>
+        <YStack gap={space.sm}>
+          <Text fontSize={13} fontWeight="600" color={colors.textSecondary}>Tipo</Text>
+          <XStack gap={space.sm}>
+            {PRESETS.map((p) => {
+              const selected = environment === p.value;
+              const c = envColor(p.value);
+              return (
+                <Pressable
+                  key={p.value}
+                  onPress={() => setEnvironment(p.value)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  style={[styles.preset, selected && { borderColor: c, backgroundColor: c + '1a' }]}
                 >
-                  {preset.label}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text fontSize={13} fontWeight="700" color={selected ? c : colors.textMuted}>{p.label}</Text>
+                </Pressable>
+              );
+            })}
           </XStack>
         </YStack>
 
-        {/* Name */}
-        <YStack gap="$2">
-          <Text fontSize={13} fontWeight="600" color="#94a3b8">Nombre del Entorno</Text>
-          <View style={styles.inputContainer}>
-            <Tag size={18} color="#64748b" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input as any}
-              placeholder="mi-entorno"
-              placeholderTextColor="#4a4a5a"
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="none"
-            />
-          </View>
-        </YStack>
+        <Field label="Nombre" icon={<Tag size={18} color={colors.textMuted} />}
+          placeholder={environment} value={name} onChangeText={setName}
+          autoCapitalize="none" autoCorrect={false} hint={`Si lo dejas vacío se llamará "${environment}".`} />
+        <Field label="Rama de Git (opcional)" icon={<GitBranch size={18} color={colors.textMuted} />}
+          placeholder={preset.branch} value={gitBranch} onChangeText={setGitBranch}
+          autoCapitalize="none" autoCorrect={false} hint="El CLI hará checkout de esta rama al cambiar a este entorno." />
 
-        {/* Git Branch */}
-        <YStack gap="$2">
-          <Text fontSize={13} fontWeight="600" color="#94a3b8">Git Branch (opcional)</Text>
-          <View style={styles.inputContainer}>
-            <GitBranch size={18} color="#64748b" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input as any}
-              placeholder="main"
-              placeholderTextColor="#4a4a5a"
-              value={gitBranch}
-              onChangeText={setGitBranch}
-              autoCapitalize="none"
-            />
-          </View>
-        </YStack>
+        {error ? <Text fontSize={13} color={colors.danger} textAlign="center">{error}</Text> : null}
 
-        {/* Error */}
-        {error ? (
-          <Text fontSize={13} color="#ef4444" textAlign="center">{error}</Text>
-        ) : null}
-
-        {/* Buttons */}
-        <XStack gap="$3">
-          <Pressable style={styles.cancelButton} onPress={() => router.back()}>
-            <Text fontSize={14} fontWeight="600" color="#64748b">Cancelar</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.createButton, loading && styles.buttonDisabled]}
-            onPress={handleCreate}
-            disabled={loading}
-          >
-            <Text fontSize={14} fontWeight="700" color="#ffffff">
-              {loading ? 'Creando...' : 'Crear Entorno'}
-            </Text>
-            {!loading && <ArrowRight size={16} color="#ffffff" />}
-          </Pressable>
-        </XStack>
+        <Button label="Crear entorno" onPress={create} loading={loading} />
       </YStack>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0a0f',
-  },
-  presetButton: {
+  container: { flex: 1, backgroundColor: colors.bg },
+  content: { padding: space.xl, paddingBottom: space.xxl * 2 },
+  preset: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#111118',
+    paddingVertical: 11,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#2a2a3a',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#16161f',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2a2a3a',
-    paddingHorizontal: 14,
-    height: 48,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    height: '100%',
-    fontSize: 15,
-    color: '#f8fafc',
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    outlineStyle: 'none',
-  } as any,
-  cancelButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#1e1e2a',
-    borderWidth: 1,
-    borderColor: '#2a2a3a',
-  },
-  createButton: {
-    flex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#7c3aed',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
   },
 });

@@ -1,177 +1,95 @@
-import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
-import { useAuth } from '@/auth/provider';
-import { useRouter } from 'expo-router';
+import { useState, useCallback } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
 import Constants from 'expo-constants';
-import {
-  User, Shield, Key, CreditCard, Users, LogOut, ChevronRight, Moon, Zap,
-} from 'lucide-react-native';
+import { UserRound, ShieldCheck, KeyRound, CreditCard, Users, LogOut } from 'lucide-react-native';
+import { useAuth } from '@/auth/provider';
+import { Screen, ScreenHeader, Section, Card, IconTile, Badge, ListGroup, ListRow, RowDivider } from '@/components/ui';
+import { colors, space } from '@/theme/tokens';
+
+const PLAN_LABEL: Record<string, string> = { free: 'Free', premium: 'Premium', enterprise: 'Enterprise' };
 
 export default function SettingsScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, getMfaStatus } = useAuth();
   const router = useRouter();
+  const [mfaEnabled, setMfaEnabled] = useState<boolean | null>(null);
 
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/(auth)/login');
+  useFocusEffect(useCallback(() => {
+    getMfaStatus().then((s) => setMfaEnabled(s.enabled));
+  }, [getMfaStatus]));
+
+  const confirmLogout = () => {
+    Alert.alert('Cerrar sesión', '¿Seguro que quieres salir de tu cuenta en este dispositivo?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Cerrar sesión', style: 'destructive', onPress: () => logout() },
+    ]);
   };
 
+  const plan = user?.plan ?? 'free';
+  const initial = (user?.display_name || user?.email || '?').charAt(0).toUpperCase();
+
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Header */}
-        <YStack padding="$6" paddingTop={60} gap="$1">
-          <Text fontSize={24} fontWeight="800" color="#f8fafc">
-            Configuración
-          </Text>
-          <Text fontSize={14} color="#64748b">
-            Gestiona tu cuenta y preferencias
-          </Text>
-        </YStack>
+    <Screen>
+      <ScreenHeader title="Ajustes" />
 
-        {/* User Card */}
-        <View style={styles.userCard}>
-          <View style={styles.avatar}>
-            <User size={24} color="#a78bfa" />
-          </View>
-          <YStack flex={1} gap="$1">
-            <Text fontSize={16} fontWeight="700" color="#f8fafc">
-              {user?.display_name || 'Usuario'}
-            </Text>
-            <Text fontSize={13} color="#64748b">
-              {user?.email}
-            </Text>
-          </YStack>
-          <View style={styles.planBadge}>
-            <Text fontSize={10} fontWeight="700" color="#a78bfa">
-              {user?.plan?.toUpperCase() || 'FREE'}
-            </Text>
-          </View>
-        </View>
+      <Section>
+        <Card onPress={() => router.push('/(tabs)/settings/profile')} accessibilityLabel="Editar perfil">
+          <XStack alignItems="center" gap={space.lg}>
+            <IconTile size={56}>
+              <Text fontSize={22} fontWeight="800" color={colors.primaryBright}>{initial}</Text>
+            </IconTile>
+            <YStack flex={1} gap={3}>
+              <Text fontSize={17} fontWeight="700" color={colors.text} numberOfLines={1}>
+                {user?.display_name || 'Sin nombre'}
+              </Text>
+              <Text fontSize={13} color={colors.textMuted} numberOfLines={1}>{user?.email}</Text>
+            </YStack>
+            <Badge label={(PLAN_LABEL[plan] ?? plan).toUpperCase()} color={plan === 'free' ? colors.textSecondary : colors.primaryBright} />
+          </XStack>
+        </Card>
+      </Section>
 
-        {/* Menu Items */}
-        <YStack paddingHorizontal="$4" gap="$2" marginTop="$4">
-          <MenuItem
-            icon={<User size={18} color="#94a3b8" />}
-            label="Perfil"
-            onPress={() => {}}
+      <Section title="Cuenta">
+        <ListGroup>
+          <ListRow icon={<UserRound size={17} color={colors.textSecondary} />} label="Perfil"
+            detail="Nombre visible" onPress={() => router.push('/(tabs)/settings/profile')} />
+          <RowDivider />
+          <ListRow
+            icon={<ShieldCheck size={17} color={mfaEnabled ? colors.success : colors.textSecondary} />}
+            label="Seguridad"
+            detail={mfaEnabled === null ? 'Verificación en dos pasos' : mfaEnabled ? 'Verificación en dos pasos activada' : 'Activa la verificación en dos pasos'}
+            onPress={() => router.push('/(tabs)/settings/security')}
           />
-          <MenuItem
-            icon={<Shield size={18} color="#94a3b8" />}
-            label="Seguridad & 2FA"
-            onPress={() => {}}
-          />
-          <MenuItem
-            icon={<Key size={18} color="#94a3b8" />}
-            label="API Keys"
-            onPress={() => router.push('/(tabs)/settings/api-keys')}
-          />
-          <MenuItem
-            icon={<CreditCard size={18} color="#94a3b8" />}
-            label="Facturación"
-            onPress={() => router.push('/(tabs)/settings/billing')}
-          />
-          <MenuItem
-            icon={<Users size={18} color="#94a3b8" />}
-            label="Equipo"
-            onPress={() => {}}
-          />
-          <MenuItem
-            icon={<Moon size={18} color="#94a3b8" />}
-            label="Apariencia"
-            onPress={() => {}}
-          />
+          <RowDivider />
+          <ListRow icon={<KeyRound size={17} color={colors.textSecondary} />} label="API Keys"
+            detail="Acceso del CLI a tu cuenta" onPress={() => router.push('/(tabs)/settings/api-keys')} />
+        </ListGroup>
+      </Section>
 
-          <View style={styles.separator} />
+      <Section title="Organización">
+        <ListGroup>
+          <ListRow icon={<Users size={17} color={colors.textSecondary} />} label="Equipo"
+            detail="Miembros y roles" onPress={() => router.push('/(tabs)/settings/team')} />
+          <RowDivider />
+          <ListRow icon={<CreditCard size={17} color={colors.textSecondary} />} label="Plan y facturación"
+            detail={`Plan ${PLAN_LABEL[plan] ?? plan}`} onPress={() => router.push('/(tabs)/settings/billing')} />
+        </ListGroup>
+      </Section>
 
-          <MenuItem
-            icon={<LogOut size={18} color="#ef4444" />}
-            label="Cerrar Sesión"
-            color="#ef4444"
-            onPress={handleLogout}
-          />
-        </YStack>
+      <Section>
+        <ListGroup>
+          <ListRow icon={<LogOut size={17} color={colors.danger} />} label="Cerrar sesión" destructive onPress={confirmLogout} />
+        </ListGroup>
+      </Section>
 
-        {/* Version */}
-        <YStack alignItems="center" padding="$8" gap="$1">
-          <Zap size={16} color="#3a3a4a" />
-          <Text fontSize={11} color="#3a3a4a">
-            Nexus Mobile v{Constants.expoConfig?.version}
-          </Text>
-        </YStack>
-      </ScrollView>
-    </View>
-  );
-}
-
-function MenuItem({ icon, label, color, onPress }: { icon: React.ReactNode; label: string; color?: string; onPress?: () => void }) {
-  return (
-    <Pressable style={styles.menuItem} onPress={onPress}>
-      <View style={styles.menuIcon}>{icon}</View>
-      <Text flex={1} fontSize={15} fontWeight="500" color={color || '#f8fafc'}>
-        {label}
+      <Text fontSize={12} color={colors.textFaint} textAlign="center" style={styles.version}>
+        Nexus {Constants.expoConfig?.version}
       </Text>
-      <ChevronRight size={16} color="#3a3a4a" />
-    </Pressable>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0a0f',
-  },
-  scroll: {
-    paddingBottom: 100,
-  },
-  userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: '#111118',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#1e1e2a',
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  planBadge: {
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.3)',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#111118',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#1e1e2a',
-  },
-  menuIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#1a1a24',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#1e1e2a',
-    marginVertical: 8,
-  },
+  version: { marginTop: -space.sm },
 });

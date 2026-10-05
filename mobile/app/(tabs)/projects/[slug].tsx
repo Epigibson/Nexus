@@ -1,14 +1,22 @@
-import { View, StyleSheet, ScrollView, RefreshControl, Pressable } from 'react-native';
+import { View, Pressable, Switch, Alert, Linking, StyleSheet } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { api, type ProjectResponse, type EnvironmentResponse, type SkillResponse } from '@/api/client';
+import { useState, useCallback, useEffect } from 'react';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { api, type ProjectResponse, type EnvironmentResponse, type SkillResponse, type AuditEntry } from '@/api/client';
+import { GitBranch, Terminal, KeyRound, Plus, Activity, CheckCircle2, XCircle, ExternalLink, Layers, Sparkles } from 'lucide-react-native';
 import {
-  ArrowLeft, GitBranch, Terminal, Key, Globe, Plus, Settings, Activity,
-  CheckCircle2, XCircle, ToggleLeft, ToggleRight, ExternalLink,
-} from 'lucide-react-native';
+  Screen, ScreenHeader, Section, Card, IconTile, Badge, ListGroup, RowDivider,
+  LoadingState, EmptyState, ErrorBanner, Button,
+} from '@/components/ui';
+import { colors, radius, space, envColor } from '@/theme/tokens';
+import { timeAgo } from '@/lib/format';
 
 type Tab = 'envs' | 'skills' | 'activity';
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'envs', label: 'Entornos' },
+  { id: 'skills', label: 'Skills' },
+  { id: 'activity', label: 'Actividad' },
+];
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
@@ -16,353 +24,265 @@ export default function ProjectDetailScreen() {
   const [project, setProject] = useState<ProjectResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>('envs');
+  const [error, setError] = useState('');
+  const [tab, setTab] = useState<Tab>('envs');
 
   const loadProject = useCallback(async () => {
     if (!slug) return;
     try {
-      const data = await api.getProject(slug);
-      setProject(data);
-    } catch (e) {
-      console.error('Failed to load project', e);
+      setProject(await api.getProject(slug));
+      setError('');
+    } catch {
+      setError('No pudimos cargar el proyecto.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [slug]);
 
-  useEffect(() => {
-    loadProject();
-  }, [loadProject]);
+  // Recarga al volver (p. ej. después de crear un entorno)
+  useFocusEffect(useCallback(() => { loadProject(); }, [loadProject]));
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadProject();
-  };
-
-  if (!project && !loading) {
+  if (loading) {
     return (
-      <View style={styles.container}>
-        <YStack flex={1} justifyContent="center" alignItems="center" gap="$4">
-          <Text fontSize={16} color="#64748b">Proyecto no encontrado</Text>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Text fontSize={14} color="#7c3aed">Volver</Text>
-          </Pressable>
-        </YStack>
-      </View>
+      <Screen>
+        <ScreenHeader back title="Proyecto" />
+        <LoadingState />
+      </Screen>
+    );
+  }
+
+  if (!project) {
+    return (
+      <Screen>
+        <ScreenHeader back title="Proyecto" />
+        {error ? <ErrorBanner message={error} onRetry={loadProject} /> : null}
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7c3aed" />}
-      >
-        {/* Header */}
-        <YStack padding="$6" paddingTop={60} gap="$3">
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <ArrowLeft size={20} color="#94a3b8" />
-            <Text fontSize={14} color="#94a3b8">Volver</Text>
+    <Screen refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadProject(); }}>
+      <ScreenHeader back title={project.name} subtitle={project.description || `/${project.slug}`} />
+
+      {project.repo_url ? (
+        <Pressable onPress={() => Linking.openURL(project.repo_url!)} style={styles.repo} hitSlop={8}>
+          <ExternalLink size={14} color={colors.primaryBright} />
+          <Text fontSize={13} color={colors.primaryBright} numberOfLines={1} flexShrink={1}>
+            {project.repo_url.replace(/^https?:\/\//, '')}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      <View style={styles.segmented}>
+        {TABS.map((t) => (
+          <Pressable
+            key={t.id}
+            onPress={() => setTab(t.id)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === t.id }}
+            style={[styles.segment, tab === t.id && styles.segmentActive]}
+          >
+            <Text fontSize={13} fontWeight="700" color={tab === t.id ? colors.text : colors.textMuted}>{t.label}</Text>
           </Pressable>
+        ))}
+      </View>
 
-          <XStack alignItems="center" gap="$3">
-            <View style={styles.projectIcon}>
-              <Text fontSize={20}>📦</Text>
-            </View>
-            <YStack flex={1}>
-              <Text fontSize={22} fontWeight="800" color="#f8fafc">
-                {project?.name}
-              </Text>
-              {project?.description ? (
-                <Text fontSize={13} color="#64748b">{project.description}</Text>
-              ) : null}
-            </YStack>
-          </XStack>
-
-          {project?.repo_url ? (
-            <XStack alignItems="center" gap="$2">
-              <ExternalLink size={14} color="#64748b" />
-              <Text fontSize={12} color="#7c3aed">{project.repo_url}</Text>
-            </XStack>
-          ) : null}
-        </YStack>
-
-        {/* Tabs */}
-        <XStack paddingHorizontal="$4" gap="$2">
-          {(['envs', 'skills', 'activity'] as Tab[]).map((tab) => (
-            <Pressable
-              key={tab}
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text fontSize={13} fontWeight="600" color={activeTab === tab ? '#f8fafc' : '#64748b'}>
-                {tab === 'envs' ? 'Entornos' : tab === 'skills' ? 'Skills' : 'Actividad'}
-              </Text>
-            </Pressable>
-          ))}
-        </XStack>
-
-        {/* Tab Content */}
-        <YStack paddingHorizontal="$4" paddingTop="$4" gap="$3">
-          {activeTab === 'envs' && (
-            <EnvironmentsTab environments={project?.environments ?? []} />
-          )}
-          {activeTab === 'skills' && (
-            <SkillsTab skills={project?.skills ?? []} />
-          )}
-          {activeTab === 'activity' && (
-            <ActivityTab slug={slug || ''} />
-          )}
-        </YStack>
-      </ScrollView>
-    </View>
+      {tab === 'envs' && (
+        <EnvironmentsTab
+          environments={project.environments ?? []}
+          onAdd={() => router.push({ pathname: '/modals/create-environment', params: { projectSlug: project.slug } })}
+        />
+      )}
+      {tab === 'skills' && <SkillsTab project={project} onChanged={loadProject} />}
+      {tab === 'activity' && <ActivityTab projectId={project.id} />}
+    </Screen>
   );
 }
 
-function EnvironmentsTab({ environments }: { environments: EnvironmentResponse[] }) {
+function EnvironmentsTab({ environments, onAdd }: { environments: EnvironmentResponse[]; onAdd: () => void }) {
+  const addButton = <Button compact variant="ghost" label="Agregar" icon={<Plus size={16} color={colors.primaryBright} />} onPress={onAdd} />;
+
   if (environments.length === 0) {
     return (
-      <YStack alignItems="center" padding="$8" gap="$2">
-        <GitBranch size={32} color="#3a3a4a" />
-        <Text fontSize={14} color="#64748b">No hay entornos configurados</Text>
-      </YStack>
+      <EmptyState
+        icon={<Layers size={28} color={colors.textMuted} />}
+        title="Sin entornos"
+        message="Agrega development, staging o production para poder cambiar entre ellos con el CLI."
+        action={<Button compact label="Agregar entorno" icon={<Plus size={16} color="#fff" />} onPress={onAdd} />}
+      />
     );
   }
 
   return (
-    <>
-      {environments.map((env) => (
-        <View key={env.id} style={styles.envCard}>
-          <XStack justifyContent="space-between" alignItems="center">
-            <XStack alignItems="center" gap="$2">
-              <View style={[styles.envBadge, { backgroundColor: envColor(env.environment) + '20' }]}>
-                <Text fontSize={12} fontWeight="700" color={envColor(env.environment)}>
-                  {env.environment}
-                </Text>
-              </View>
-              <Text fontSize={15} fontWeight="600" color="#f8fafc">{env.name}</Text>
+    <Section title={`${environments.length} entorno${environments.length === 1 ? '' : 's'}`} action={addButton}>
+      {environments.map((env) => {
+        const keys = env.env_var_keys?.length ? env.env_var_keys : Object.keys(env.env_vars ?? {});
+        return (
+          <Card key={env.id}>
+            <XStack alignItems="center" gap={space.sm}>
+              <View style={[styles.envDot, { backgroundColor: envColor(env.environment) }]} />
+              <Text fontSize={16} fontWeight="700" color={colors.text} flex={1} numberOfLines={1}>{env.name}</Text>
+              {env.name !== env.environment ? <Badge label={env.environment} color={envColor(env.environment)} /> : null}
             </XStack>
-          </XStack>
 
-          {env.git_branch ? (
-            <XStack alignItems="center" gap="$2" marginTop="$2">
-              <GitBranch size={12} color="#64748b" />
-              <Text fontSize={12} color="#64748b">{env.git_branch}</Text>
-            </XStack>
-          ) : null}
-
-          {env.cli_profiles.length > 0 ? (
-            <XStack flexWrap="wrap" gap="$2" marginTop="$3">
-              {env.cli_profiles.map((profile, i) => (
-                <View key={i} style={styles.profileChip}>
-                  <Terminal size={10} color="#a78bfa" />
-                  <Text fontSize={10} color="#a78bfa">{profile.tool}</Text>
-                </View>
-              ))}
-            </XStack>
-          ) : null}
-
-          {Object.keys(env.env_vars).length > 0 ? (
-            <YStack gap="$1" marginTop="$3">
-              <Text fontSize={11} color="#4a4a5a">Variables de entorno:</Text>
-              {Object.keys(env.env_vars).slice(0, 5).map((key) => (
-                <XStack key={key} alignItems="center" gap="$2">
-                  <Key size={10} color="#64748b" />
-                  <Text fontSize={11} color="#64748b" fontFamily="monospace">{key}</Text>
-                </XStack>
-              ))}
-              {Object.keys(env.env_vars).length > 5 && (
-                <Text fontSize={10} color="#4a4a5a">
-                  +{Object.keys(env.env_vars).length - 5} más
-                </Text>
-              )}
+            <YStack gap={space.sm} marginTop={space.md}>
+              {env.git_branch ? (
+                <Detail icon={<GitBranch size={14} color={colors.textMuted} />} text={env.git_branch} mono />
+              ) : null}
+              {keys.length > 0 ? (
+                <Detail
+                  icon={<KeyRound size={14} color={colors.textMuted} />}
+                  text={`${keys.length} variable${keys.length === 1 ? '' : 's'} · ${keys.slice(0, 3).join(', ')}${keys.length > 3 ? '…' : ''}`}
+                  mono
+                />
+              ) : null}
             </YStack>
-          ) : null}
-        </View>
-      ))}
-    </>
-  );
-}
 
-function SkillsTab({ skills }: { skills: SkillResponse[] }) {
-  if (skills.length === 0) {
-    return (
-      <YStack alignItems="center" padding="$8" gap="$2">
-        <Terminal size={32} color="#3a3a4a" />
-        <Text fontSize={14} color="#64748b">No hay skills configurados</Text>
-      </YStack>
-    );
-  }
-
-  return (
-    <>
-      {skills.map((skill) => (
-        <View key={skill.id} style={styles.skillCard}>
-          <XStack alignItems="center" gap="$3">
-            <View style={[styles.skillIcon, { backgroundColor: skill.is_enabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)' }]}>
-              {skill.is_enabled ? (
-                <CheckCircle2 size={16} color="#10b981" />
-              ) : (
-                <XCircle size={16} color="#64748b" />
-              )}
-            </View>
-            <YStack flex={1}>
-              <XStack alignItems="center" gap="$2">
-                <Text fontSize={14} fontWeight="600" color="#f8fafc">{skill.name}</Text>
-                {skill.is_premium && (
-                  <View style={styles.premiumBadge}>
-                    <Text fontSize={9} fontWeight="700" color="#f59e0b">PRO</Text>
+            {env.cli_profiles.length > 0 ? (
+              <XStack flexWrap="wrap" gap={space.sm} marginTop={space.md}>
+                {env.cli_profiles.map((p, i) => (
+                  <View key={`${p.tool}-${i}`} style={styles.chip}>
+                    <Terminal size={11} color={colors.primaryBright} />
+                    <Text fontSize={12} color={colors.textSecondary}>{p.tool}</Text>
+                    <Text fontSize={12} color={colors.textFaint}>· {p.account}</Text>
                   </View>
-                )}
+                ))}
               </XStack>
-              <Text fontSize={11} color="#64748b" numberOfLines={1}>{skill.description}</Text>
-            </YStack>
-            <Text fontSize={10} color="#4a4a5a">{skill.category}</Text>
-          </XStack>
-        </View>
-      ))}
-    </>
+            ) : null}
+          </Card>
+        );
+      })}
+    </Section>
   );
 }
 
-function ActivityTab({ slug }: { slug: string }) {
-  const [audit, setAudit] = useState<any[]>([]);
+function Detail({ icon, text, mono }: { icon: React.ReactNode; text: string; mono?: boolean }) {
+  return (
+    <XStack alignItems="center" gap={space.sm}>
+      {icon}
+      <Text fontSize={13} color={colors.textSecondary} fontFamily={mono ? 'monospace' : undefined} numberOfLines={1} flexShrink={1}>
+        {text}
+      </Text>
+    </XStack>
+  );
+}
+
+function SkillsTab({ project, onChanged }: { project: ProjectResponse; onChanged: () => void }) {
+  const [skills, setSkills] = useState<SkillResponse[]>(project.skills ?? []);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => setSkills(project.skills ?? []), [project.skills]);
+
+  const toggle = async (skill: SkillResponse, enabled: boolean) => {
+    setBusy(skill.id);
+    setSkills((list) => list.map((s) => (s.id === skill.id ? { ...s, is_enabled: enabled } : s)));
+    try {
+      await api.toggleSkill(project.slug, skill.id, enabled);
+      onChanged();
+    } catch (e: any) {
+      setSkills((list) => list.map((s) => (s.id === skill.id ? { ...s, is_enabled: !enabled } : s)));
+      Alert.alert('No se pudo cambiar el skill', e?.message || 'Intenta de nuevo.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (skills.length === 0) {
+    return <EmptyState icon={<Sparkles size={28} color={colors.textMuted} />} title="Sin skills" message="Este proyecto no tiene skills configurados." />;
+  }
+
+  return (
+    <Section title="Se ejecutan en cada switch">
+      <ListGroup>
+        {skills.map((skill, i) => (
+          <View key={skill.id}>
+            {i > 0 ? <RowDivider /> : null}
+            <XStack alignItems="center" gap={space.md} paddingHorizontal={space.lg} paddingVertical={13}>
+              <YStack flex={1} gap={3}>
+                <XStack alignItems="center" gap={space.sm}>
+                  <Text fontSize={15} fontWeight="600" color={colors.text}>{skill.name}</Text>
+                  {skill.is_premium ? <Badge label="PRO" color={colors.warning} /> : null}
+                </XStack>
+                <Text fontSize={12} color={colors.textMuted} numberOfLines={2}>{skill.description}</Text>
+              </YStack>
+              <Switch
+                value={skill.is_enabled}
+                disabled={busy === skill.id}
+                onValueChange={(v) => toggle(skill, v)}
+                trackColor={{ false: colors.borderStrong, true: colors.primary }}
+                thumbColor="#ffffff"
+              />
+            </XStack>
+          </View>
+        ))}
+      </ListGroup>
+    </Section>
+  );
+}
+
+function ActivityTab({ projectId }: { projectId: string }) {
+  const [entries, setEntries] = useState<AuditEntry[] | null>(null);
 
   useEffect(() => {
-    api.listAudit({ limit: 15 }).then(setAudit).catch(console.error);
-  }, []);
+    api.listAudit({ project_id: projectId, limit: 30 }).then(setEntries).catch(() => setEntries([]));
+  }, [projectId]);
 
-  if (audit.length === 0) {
-    return (
-      <YStack alignItems="center" padding="$8" gap="$2">
-        <Activity size={32} color="#3a3a4a" />
-        <Text fontSize={14} color="#64748b">No hay actividad reciente</Text>
-      </YStack>
-    );
+  if (!entries) return <LoadingState />;
+  if (entries.length === 0) {
+    return <EmptyState icon={<Activity size={28} color={colors.textMuted} />} title="Sin actividad" message="Los switches de este proyecto aparecerán aquí." />;
   }
 
   return (
-    <>
-      {audit.map((entry) => (
-        <View key={entry.id} style={styles.activityCard}>
-          <XStack alignItems="center" gap="$3">
-            {entry.success ? (
-              <CheckCircle2 size={14} color="#10b981" />
-            ) : (
-              <XCircle size={14} color="#ef4444" />
-            )}
-            <YStack flex={1}>
-              <Text fontSize={13} color="#f8fafc" numberOfLines={1}>{entry.message}</Text>
-              <Text fontSize={11} color="#4a4a5a">
-                {new Date(entry.created_at).toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-            </YStack>
-          </XStack>
-        </View>
-      ))}
-    </>
+    <Section title="Últimos eventos">
+      <ListGroup>
+        {entries.map((e, i) => (
+          <View key={e.id}>
+            {i > 0 ? <RowDivider /> : null}
+            <XStack alignItems="center" gap={space.md} paddingHorizontal={space.lg} paddingVertical={12}>
+              <IconTile size={30} color={e.success ? colors.successSoft : colors.dangerSoft}>
+                {e.success ? <CheckCircle2 size={15} color={colors.success} /> : <XCircle size={15} color={colors.danger} />}
+              </IconTile>
+              <YStack flex={1} gap={2}>
+                <Text fontSize={14} color={colors.text} numberOfLines={1}>{e.message}</Text>
+                <Text fontSize={12} color={colors.textMuted}>
+                  {[e.skill_name, e.environment].filter(Boolean).join(' · ') || e.action}
+                </Text>
+              </YStack>
+              <Text fontSize={12} color={colors.textFaint}>{timeAgo(e.created_at)}</Text>
+            </XStack>
+          </View>
+        ))}
+      </ListGroup>
+    </Section>
   );
-}
-
-function envColor(env: string): string {
-  switch (env) {
-    case 'development': return '#10b981';
-    case 'staging': return '#f59e0b';
-    case 'production': return '#ef4444';
-    default: return '#7c3aed';
-  }
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0a0f',
+  repo: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: space.xl, marginTop: -space.md, marginBottom: space.xl },
+  segmented: {
+    flexDirection: 'row',
+    marginHorizontal: space.xl,
+    marginBottom: space.xxl,
+    padding: 4,
+    gap: 4,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
-  scroll: {
-    paddingBottom: 100,
-  },
-  backButton: {
+  segment: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: radius.sm },
+  segmentActive: { backgroundColor: colors.surfacePressed, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.borderStrong },
+  envDot: { width: 8, height: 8, borderRadius: 4 },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  backBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  projectIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#111118',
-    borderWidth: 1,
-    borderColor: '#1e1e2a',
-  },
-  tabActive: {
-    backgroundColor: '#7c3aed',
-    borderColor: '#7c3aed',
-  },
-  envCard: {
-    backgroundColor: '#111118',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#1e1e2a',
-    gap: 4,
-  },
-  envBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  profileChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(124, 58, 237, 0.1)',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.2)',
-  },
-  skillCard: {
-    backgroundColor: '#111118',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#1e1e2a',
-  },
-  skillIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  premiumBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-  },
-  activityCard: {
-    backgroundColor: '#111118',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#1e1e2a',
+    gap: 5,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radius.sm,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
 });

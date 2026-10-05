@@ -1,213 +1,183 @@
-import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Pressable, TextInput, Alert, StyleSheet } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/auth/provider';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
+import { KeyRound, Plus, Copy, Check, Trash2, TriangleAlert } from 'lucide-react-native';
 import { api, type ApiKeyResponse } from '@/api/client';
-import { Key, Plus, Copy, Trash2, CheckCircle2, Eye, EyeOff } from 'lucide-react-native';
+import {
+  Screen, ScreenHeader, Section, Card, IconTile, ListGroup, RowDivider,
+  LoadingState, EmptyState, ErrorBanner, Button,
+} from '@/components/ui';
+import { colors, radius, space } from '@/theme/tokens';
+import { timeAgo } from '@/lib/format';
 
 export default function ApiKeysScreen() {
-  const { user } = useAuth();
-  const [keys, setKeys] = useState<ApiKeyResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [keys, setKeys] = useState<ApiKeyResponse[] | null>(null);
+  const [error, setError] = useState('');
+  const [name, setName] = useState('');
   const [newKey, setNewKey] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const loadKeys = async () => {
+  const loadKeys = useCallback(async () => {
     try {
-      const data = await api.listApiKeys();
-      setKeys(data);
-    } catch (e) {
-      console.error('Failed to load API keys', e);
-    } finally {
-      setLoading(false);
+      setKeys(await api.listApiKeys());
+      setError('');
+    } catch {
+      setKeys([]);
+      setError('No pudimos cargar tus API keys.');
     }
-  };
-
-  useEffect(() => {
-    loadKeys();
   }, []);
 
-  const handleGenerate = async () => {
+  useFocusEffect(useCallback(() => { loadKeys(); }, [loadKeys]));
+
+  const generate = async () => {
     setGenerating(true);
     try {
-      const result = await api.generateApiKey('Mobile Key');
+      const result = await api.generateApiKey(name.trim() || 'Móvil');
       setNewKey(result.full_key);
+      setName('');
+      setCopied(false);
       await loadKeys();
-    } catch (e) {
-      console.error('Failed to generate key', e);
+    } catch (e: any) {
+      Alert.alert('No se pudo generar la key', e?.message || 'Intenta de nuevo.');
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleRevoke = async (keyId: string) => {
-    try {
-      await api.revokeApiKey(keyId);
-      await loadKeys();
-    } catch (e) {
-      console.error('Failed to revoke key', e);
-    }
+  const copy = async () => {
+    if (!newKey) return;
+    await Clipboard.setStringAsync(newKey);
+    setCopied(true);
   };
 
-  const handleCopy = async () => {
-    if (newKey) {
-      // In React Native, we'd use Clipboard API
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+  const revoke = (key: ApiKeyResponse) => {
+    Alert.alert(
+      `Revocar "${key.name}"`,
+      'Los CLI que usen esta key dejarán de tener acceso. Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Revocar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.revokeApiKey(key.id);
+              await loadKeys();
+            } catch (e: any) {
+              Alert.alert('No se pudo revocar', e?.message || 'Intenta de nuevo.');
+            }
+          },
+        },
+      ],
+    );
   };
+
+  const active = (keys ?? []).filter((k) => k.is_active);
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Header */}
-        <YStack padding="$6" paddingTop={60} gap="$2">
-          <Text fontSize={24} fontWeight="800" color="#f8fafc">
-            API Keys
-          </Text>
-          <Text fontSize={14} color="#64748b">
-            Gestiona las llaves de acceso al API de Nexus
-          </Text>
-        </YStack>
+    <Screen>
+      <ScreenHeader back title="API Keys" subtitle="Conectan el CLI (nexus login) con tu cuenta" />
 
-        {/* New Key Display */}
-        {newKey && (
-          <View style={styles.newKeyCard}>
-            <XStack alignItems="center" gap="$2">
-              <CheckCircle2 size={16} color="#10b981" />
-              <Text fontSize={14} fontWeight="600" color="#10b981">Nueva API Key Generada</Text>
+      {error ? <ErrorBanner message={error} onRetry={loadKeys} /> : null}
+
+      {newKey ? (
+        <Section>
+          <Card style={styles.newKey}>
+            <XStack alignItems="center" gap={space.sm}>
+              <TriangleAlert size={16} color={colors.warning} />
+              <Text flex={1} fontSize={14} fontWeight="700" color={colors.text}>Cópiala ahora: no la volverás a ver</Text>
             </XStack>
-            <View style={styles.keyDisplay}>
-              <Text fontSize={12} color="#f8fafc" fontFamily="monospace" numberOfLines={1}>
-                {newKey}
-              </Text>
-            </View>
-            <Text fontSize={11} color="#f59e0b">
-              ⚠️ Guarda esta key ahora. No podrás verla de nuevo.
-            </Text>
-            <Pressable style={styles.copyButton} onPress={handleCopy}>
-              {copied ? (
-                <CheckCircle2 size={14} color="#10b981" />
-              ) : (
-                <Copy size={14} color="#7c3aed" />
-              )}
-              <Text fontSize={13} fontWeight="600" color={copied ? '#10b981' : '#7c3aed'}>
-                {copied ? 'Copiado' : 'Copiar'}
-              </Text>
+            <Pressable onPress={copy} style={({ pressed }) => [styles.keyBox, pressed && { opacity: 0.8 }]}>
+              <Text flex={1} fontSize={13} color={colors.text} fontFamily="monospace" numberOfLines={2}>{newKey}</Text>
+              {copied ? <Check size={18} color={colors.success} /> : <Copy size={18} color={colors.textMuted} />}
             </Pressable>
-          </View>
-        )}
+            <Button
+              label={copied ? 'Copiada' : 'Copiar key'}
+              variant={copied ? 'secondary' : 'primary'}
+              icon={copied ? <Check size={18} color={colors.success} /> : <Copy size={18} color="#fff" />}
+              onPress={copy}
+            />
+            <Text fontSize={13} color={colors.textMuted} lineHeight={19}>
+              En tu terminal corre <Text fontFamily="monospace" color={colors.textSecondary}>nexus login</Text> y pégala.
+            </Text>
+            <Button variant="ghost" compact label="Listo" onPress={() => setNewKey(null)} />
+          </Card>
+        </Section>
+      ) : (
+        <Section title="Nueva key">
+          <Card>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="Nombre (p. ej. Laptop trabajo)"
+              placeholderTextColor={colors.textFaint}
+              maxLength={60}
+              style={styles.input}
+            />
+            <Button style={{ marginTop: space.md }} label="Generar key" icon={<Plus size={18} color="#fff" />}
+              onPress={generate} loading={generating} />
+          </Card>
+        </Section>
+      )}
 
-        {/* Generate Button */}
-        <Pressable
-          style={[styles.generateButton, generating && styles.buttonDisabled]}
-          onPress={handleGenerate}
-          disabled={generating}
-        >
-          <Plus size={18} color="#ffffff" />
-          <Text fontSize={14} fontWeight="700" color="#ffffff">
-            {generating ? 'Generando...' : 'Generar Nueva Key'}
-          </Text>
-        </Pressable>
-
-        {/* Keys List */}
-        <YStack gap="$3" marginTop="$4">
-          <Text fontSize={14} fontWeight="600" color="#94a3b8">
-            Keys Existentes ({keys.length})
-          </Text>
-
-          {keys.length === 0 && !loading ? (
-            <YStack alignItems="center" padding="$8" gap="$2">
-              <Key size={32} color="#3a3a4a" />
-              <Text fontSize={14} color="#64748b">No hay API keys</Text>
-            </YStack>
-          ) : (
-            keys.map((key) => (
-              <View key={key.id} style={styles.keyCard}>
-                <XStack alignItems="center" gap="$3">
-                  <View style={styles.keyIcon}>
-                    <Key size={16} color="#a78bfa" />
-                  </View>
-                  <YStack flex={1}>
-                    <Text fontSize={14} fontWeight="600" color="#f8fafc">{key.name}</Text>
-                    <Text fontSize={12} color="#64748b">
-                      {key.key_prefix}... • {key.is_active ? 'Activa' : 'Revocada'}
+      <Section title={`Activas${keys ? ` · ${active.length}` : ''}`}>
+        {keys === null ? (
+          <LoadingState />
+        ) : active.length === 0 ? (
+          <EmptyState icon={<KeyRound size={28} color={colors.textMuted} />} title="Sin keys activas"
+            message="Genera una para conectar el CLI desde tu computadora." />
+        ) : (
+          <ListGroup>
+            {active.map((k, i) => (
+              <View key={k.id}>
+                {i > 0 ? <RowDivider /> : null}
+                <XStack alignItems="center" gap={space.md} paddingHorizontal={space.lg} paddingVertical={13}>
+                  <IconTile size={34}><KeyRound size={16} color={colors.primaryBright} /></IconTile>
+                  <YStack flex={1} gap={2}>
+                    <Text fontSize={15} fontWeight="600" color={colors.text} numberOfLines={1}>{k.name}</Text>
+                    <Text fontSize={12} color={colors.textMuted} numberOfLines={1}>
+                      <Text fontFamily="monospace" fontSize={12} color={colors.textMuted}>{k.key_prefix.replace(/\.+$/, "")}…</Text>
+                      {'  ·  '}{k.last_used_at ? `usada ${timeAgo(k.last_used_at)}` : 'sin usar'}
                     </Text>
                   </YStack>
-                  {key.is_active && (
-                    <Pressable onPress={() => handleRevoke(key.id)}>
-                      <Trash2 size={16} color="#ef4444" />
-                    </Pressable>
-                  )}
+                  <Pressable onPress={() => revoke(k)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Revocar ${k.name}`}
+                    style={({ pressed }) => [styles.revoke, pressed && { backgroundColor: colors.dangerSoft }]}>
+                    <Trash2 size={17} color={colors.danger} />
+                  </Pressable>
                 </XStack>
               </View>
-            ))
-          )}
-        </YStack>
-      </ScrollView>
-    </View>
+            ))}
+          </ListGroup>
+        )}
+      </Section>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0a0f',
-  },
-  scroll: {
-    paddingBottom: 100,
-  },
-  newKeyCard: {
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-  },
-  keyDisplay: {
-    backgroundColor: '#111118',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#2a2a3a',
-  },
-  copyButton: {
+  newKey: { gap: space.md, borderColor: 'rgba(245, 158, 11, 0.35)' },
+  keyBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
+    gap: space.md,
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
-  generateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#7c3aed',
-    borderRadius: 12,
+  input: {
     height: 48,
-    marginHorizontal: 16,
-    marginTop: 16,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  keyCard: {
-    backgroundColor: '#111118',
-    borderRadius: 12,
-    padding: 14,
-    marginHorizontal: 16,
+    paddingHorizontal: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#1e1e2a',
+    borderColor: colors.borderStrong,
+    color: colors.text,
+    fontSize: 15,
   },
-  keyIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  revoke: { width: 36, height: 36, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
 });

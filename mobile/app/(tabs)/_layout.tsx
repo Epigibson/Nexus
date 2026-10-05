@@ -1,66 +1,54 @@
 import { Tabs } from 'expo-router';
-import { View, StyleSheet } from 'react-native';
-import { LayoutDashboard, FolderOpen, ScrollText, Settings } from 'lucide-react-native';
+import { StyleSheet } from 'react-native';
+import { House, FolderKanban, Activity, Settings } from 'lucide-react-native';
+import { colors } from '@/theme/tokens';
 
+// Una pestaña por sección. Cada carpeta (projects, audit, settings) tiene su propio Stack,
+// así sus pantallas de detalle se abren encima de la pestaña en lugar de crear pestañas nuevas.
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: '#7c3aed',
-        tabBarInactiveTintColor: '#64748b',
+        tabBarActiveTintColor: colors.primaryBright,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: styles.tabLabel,
-        tabBarItemStyle: styles.tabItem,
+        tabBarHideOnKeyboard: true,
+        sceneStyle: { backgroundColor: colors.bg },
       }}
     >
       <Tabs.Screen
         name="index"
-        options={{
-          title: 'Overview',
-          tabBarIcon: ({ color, size }) => <LayoutDashboard size={size - 2} color={color} />,
-        }}
+        options={{ title: 'Inicio', tabBarIcon: ({ color }) => <House size={22} color={color} /> }}
       />
       <Tabs.Screen
         name="projects"
-        options={{
-          title: 'Proyectos',
-          tabBarIcon: ({ color, size }) => <FolderOpen size={size - 2} color={color} />,
-        }}
+        options={{ title: 'Proyectos', tabBarIcon: ({ color }) => <FolderKanban size={22} color={color} /> }}
       />
       <Tabs.Screen
         name="audit"
-        options={{
-          title: 'Audit',
-          tabBarIcon: ({ color, size }) => <ScrollText size={size - 2} color={color} />,
-        }}
+        options={{ title: 'Actividad', tabBarIcon: ({ color }) => <Activity size={22} color={color} /> }}
       />
       <Tabs.Screen
         name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Settings size={size - 2} color={color} />,
-        }}
+        options={{ title: 'Ajustes', tabBarIcon: ({ color }) => <Settings size={22} color={color} /> }}
       />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
+  // Sin altura fija: React Navigation suma el margen seguro inferior (barra de gestos) por su cuenta.
   tabBar: {
-    backgroundColor: '#111118',
-    borderTopWidth: 1,
-    borderTopColor: '#1e1e2a',
-    height: 85,
-    paddingTop: 8,
-    paddingBottom: 28,
+    backgroundColor: colors.surface,
+    borderTopColor: colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 6,
+    elevation: 0,
   },
   tabLabel: {
     fontSize: 11,
     fontWeight: '600',
-    marginTop: 4,
-  },
-  tabItem: {
-    gap: 4,
   },
 });

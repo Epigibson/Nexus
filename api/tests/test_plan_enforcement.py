@@ -280,3 +280,11 @@ async def test_upgrade_org_to_premium(db: AsyncSession):
     assert org.plan == "premium"
     assert org.max_projects == settings.premium_max_projects
     assert org.max_members == settings.premium_max_members
+
+
+@pytest.mark.asyncio
+async def test_plan_limits_counts_owner_once(client, auth_headers):
+    """El dueño ya es un OrganizationMember: una cuenta nueva usa 1 de 1 miembros, no 2."""
+    r = await client.get("/api/v1/billing/plan-limits", headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json()["usage"]["members"] == 1

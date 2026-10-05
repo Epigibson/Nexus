@@ -1,4 +1,5 @@
-import { View, Pressable, Switch, Alert, Linking, StyleSheet } from 'react-native';
+import { View, Pressable, Switch, Linking, StyleSheet } from 'react-native';
+import { useDialog } from '@/components/Dialog';
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -6,7 +7,7 @@ import { api, type ProjectResponse, type EnvironmentResponse, type SkillResponse
 import { GitBranch, Terminal, KeyRound, Plus, Activity, CheckCircle2, XCircle, ExternalLink, Layers, Sparkles } from 'lucide-react-native';
 import {
   Screen, ScreenHeader, Section, Card, IconTile, Badge, ListGroup, RowDivider,
-  LoadingState, EmptyState, ErrorBanner, Button,
+  LoadingState, EmptyState, ErrorBanner, Button, Monogram, FadeIn,
 } from '@/components/ui';
 import { colors, radius, space, envColor } from '@/theme/tokens';
 import { timeAgo } from '@/lib/format';
@@ -63,7 +64,7 @@ export default function ProjectDetailScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadProject(); }}>
-      <ScreenHeader back title={project.name} subtitle={project.description || `/${project.slug}`} />
+      <ScreenHeader back title={project.name} subtitle={project.description || `/${project.slug}`} right={<Monogram name={project.name} size={52} />} />
 
       {project.repo_url ? (
         <Pressable onPress={() => Linking.openURL(project.repo_url!)} style={styles.repo} hitSlop={8}>
@@ -116,10 +117,11 @@ function EnvironmentsTab({ environments, onAdd }: { environments: EnvironmentRes
 
   return (
     <Section title={`${environments.length} entorno${environments.length === 1 ? '' : 's'}`} action={addButton}>
-      {environments.map((env) => {
+      {environments.map((env, index) => {
         const keys = env.env_var_keys?.length ? env.env_var_keys : Object.keys(env.env_vars ?? {});
         return (
-          <Card key={env.id}>
+          <FadeIn key={env.id} index={index}>
+          <Card>
             <XStack alignItems="center" gap={space.sm}>
               <View style={[styles.envDot, { backgroundColor: envColor(env.environment) }]} />
               <Text fontSize={16} fontWeight="700" color={colors.text} flex={1} numberOfLines={1}>{env.name}</Text>
@@ -151,6 +153,7 @@ function EnvironmentsTab({ environments, onAdd }: { environments: EnvironmentRes
               </XStack>
             ) : null}
           </Card>
+          </FadeIn>
         );
       })}
     </Section>
@@ -171,6 +174,7 @@ function Detail({ icon, text, mono }: { icon: React.ReactNode; text: string; mon
 function SkillsTab({ project, onChanged }: { project: ProjectResponse; onChanged: () => void }) {
   const [skills, setSkills] = useState<SkillResponse[]>(project.skills ?? []);
   const [busy, setBusy] = useState<string | null>(null);
+  const dialog = useDialog();
 
   useEffect(() => setSkills(project.skills ?? []), [project.skills]);
 
@@ -182,7 +186,7 @@ function SkillsTab({ project, onChanged }: { project: ProjectResponse; onChanged
       onChanged();
     } catch (e: any) {
       setSkills((list) => list.map((s) => (s.id === skill.id ? { ...s, is_enabled: !enabled } : s)));
-      Alert.alert('No se pudo cambiar el skill', e?.message || 'Intenta de nuevo.');
+      dialog.notify({ title: 'No se pudo cambiar el skill', message: e?.message || 'Intenta de nuevo.' });
     } finally {
       setBusy(null);
     }
@@ -273,7 +277,7 @@ const styles = StyleSheet.create({
   },
   segment: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: radius.sm },
   segmentActive: { backgroundColor: colors.surfacePressed, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.borderStrong },
-  envDot: { width: 8, height: 8, borderRadius: 4 },
+  envDot: { width: 9, height: 9, borderRadius: 5, shadowOpacity: 0.9, shadowRadius: 6, elevation: 0 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

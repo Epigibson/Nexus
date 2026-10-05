@@ -1,4 +1,5 @@
-import { TextInput, StyleSheet, Alert } from 'react-native';
+import { TextInput, StyleSheet } from 'react-native';
+import { useDialog } from '@/components/Dialog';
 import { Text, YStack } from 'tamagui';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -10,6 +11,7 @@ import { colors, radius, space } from '@/theme/tokens';
 export default function ProfileScreen() {
   const { user, refreshProfile } = useAuth();
   const router = useRouter();
+  const dialog = useDialog();
   const [name, setName] = useState(user?.display_name ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -23,7 +25,7 @@ export default function ProfileScreen() {
       await refreshProfile();
       router.back();
     } catch (e: any) {
-      Alert.alert('No se pudo guardar', e?.message || 'Intenta de nuevo.');
+      dialog.notify({ title: 'No se pudo guardar', message: e?.message || 'Intenta de nuevo.' });
     } finally {
       setSaving(false);
     }
@@ -69,5 +71,6 @@ const styles = StyleSheet.create({
     borderColor: colors.borderStrong,
     color: colors.text,
     fontSize: 16,
+    fontFamily: 'Inter_500Medium',
   },
 });

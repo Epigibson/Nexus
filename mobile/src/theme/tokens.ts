@@ -2,10 +2,12 @@
 
 export const colors = {
   bg: '#09090d',
-  surface: '#111117',
+  surface: 'rgba(22, 22, 32, 0.92)',
   surfaceRaised: '#16161e',
   surfacePressed: '#1b1b25',
   border: '#1f1f2b',
+  /** Borde de tarjetas: blanco muy tenue, se ve "de vidrio" sobre el fondo con resplandor. */
+  hairline: 'rgba(255, 255, 255, 0.07)',
   borderStrong: '#2c2c3b',
 
   text: '#f4f4f8',
@@ -43,4 +45,27 @@ export const envColors: Record<string, string> = {
 
 export function envColor(env: string): string {
   return envColors[env] ?? colors.primaryBright;
+}
+
+/** Degradados de marca (de → a). */
+export const gradients = {
+  brand: ['#8b5cf6', '#6d28d9'] as const,
+  hero: ['#2a1659', '#140d2b'] as const,
+  avatar: ['#a78bfa', '#ec4899'] as const,
+};
+
+/** Paleta para monogramas de proyecto: el color sale del nombre, así cada proyecto es reconocible. */
+const MONOGRAM_PALETTES: readonly (readonly [string, string])[] = [
+  ['#8b5cf6', '#6d28d9'],
+  ['#3b82f6', '#1d4ed8'],
+  ['#10b981', '#047857'],
+  ['#f59e0b', '#b45309'],
+  ['#ec4899', '#be185d'],
+  ['#06b6d4', '#0e7490'],
+];
+
+export function paletteFor(name: string): readonly [string, string] {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return MONOGRAM_PALETTES[h % MONOGRAM_PALETTES.length];
 }

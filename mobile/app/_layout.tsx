@@ -3,7 +3,11 @@ import { Stack } from 'expo-router';
 import { TamaguiProvider } from 'tamagui';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import {
+  useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
 import { AuthProvider, useAuth } from '@/auth/provider';
+import { DialogProvider } from '@/components/Dialog';
 import tamaguiConfig from '@/theme/tamagui.config';
 import { colors } from '@/theme/tokens';
 
@@ -14,20 +18,22 @@ const modalOptions = {
   headerShown: true,
   headerStyle: { backgroundColor: colors.surface },
   headerTintColor: colors.text,
-  headerTitleStyle: { fontWeight: '700' as const },
+  headerTitleStyle: { fontFamily: 'Inter_700Bold' },
   headerShadowVisible: false,
   contentStyle: { backgroundColor: colors.bg },
 };
 
-function RootNavigator() {
+function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { isAuthenticated, isLoading } = useAuth();
+  const ready = fontsReady && !isLoading;
 
-  // El splash nativo se queda hasta saber si hay sesión: así nunca se ve una pantalla equivocada.
+  // El splash nativo se queda hasta tener la tipografía y saber si hay sesión:
+  // así nunca se ve un cambio de fuente ni una pantalla equivocada.
   useEffect(() => {
-    if (!isLoading) SplashScreen.hideAsync();
-  }, [isLoading]);
+    if (ready) SplashScreen.hideAsync();
+  }, [ready]);
 
-  if (isLoading) return null;
+  if (!ready) return null;
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'fade' }}>
@@ -44,11 +50,17 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold,
+  });
+
   return (
     <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
       <AuthProvider>
-        <StatusBar style="light" />
-        <RootNavigator />
+        <DialogProvider>
+          <StatusBar style="light" />
+          <RootNavigator fontsReady={fontsLoaded || !!fontError} />
+        </DialogProvider>
       </AuthProvider>
     </TamaguiProvider>
   );

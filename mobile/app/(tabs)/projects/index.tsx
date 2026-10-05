@@ -4,8 +4,8 @@ import { useState, useCallback } from 'react';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { api, type ProjectResponse } from '@/api/client';
 import { FolderKanban, Plus, Layers, Zap, Clock, ChevronRight } from 'lucide-react-native';
-import { Screen, ScreenHeader, Section, Card, IconTile, LoadingState, EmptyState, ErrorBanner, Button } from '@/components/ui';
-import { colors, radius, space } from '@/theme/tokens';
+import { Screen, ScreenHeader, Section, Card, LoadingState, EmptyState, ErrorBanner, Button, Monogram, FadeIn, GradientFill } from '@/components/ui';
+import { colors, radius, space, gradients } from '@/theme/tokens';
 import { timeAgo } from '@/lib/format';
 
 export default function ProjectsScreen() {
@@ -44,6 +44,7 @@ export default function ProjectsScreen() {
             accessibilityLabel="Nuevo proyecto"
             style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.8 }]}
           >
+            <GradientFill from={gradients.brand[0]} to={gradients.brand[1]} />
             <Plus size={22} color="#ffffff" />
           </Pressable>
         }
@@ -62,18 +63,14 @@ export default function ProjectsScreen() {
         />
       ) : (
         <Section>
-          {projects.map((project) => (
+          {projects.map((project, index) => (
+            <FadeIn key={project.id} index={index}>
             <Card
-              key={project.id}
               onPress={() => router.push(`/(tabs)/projects/${project.slug}`)}
               accessibilityLabel={`Abrir ${project.name}`}
             >
               <XStack alignItems="center" gap={space.md}>
-                <IconTile size={44}>
-                  <Text fontSize={18} fontWeight="800" color={colors.primaryBright}>
-                    {project.name.charAt(0).toUpperCase()}
-                  </Text>
-                </IconTile>
+                <Monogram name={project.name} size={46} />
                 <YStack flex={1} gap={2}>
                   <Text fontSize={16} fontWeight="700" color={colors.text} numberOfLines={1}>{project.name}</Text>
                   <Text fontSize={13} color={colors.textMuted} numberOfLines={1}>
@@ -90,6 +87,7 @@ export default function ProjectsScreen() {
                 <Meta icon={<Clock size={13} color={colors.textMuted} />} text={timeAgo(project.last_switch)} />
               </XStack>
             </Card>
+            </FadeIn>
           ))}
         </Section>
       )}
@@ -111,7 +109,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: radius.md,
-    backgroundColor: colors.primary,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },

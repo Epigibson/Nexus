@@ -1,15 +1,15 @@
 import { View, StyleSheet } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'expo-router';
+import { useState, useCallback } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/auth/provider';
-import { api, type DashboardStats, type RecentSwitch } from '@/api/client';
-import { Zap, FolderKanban, Terminal, Plug, CheckCircle2, XCircle, History, Plus } from 'lucide-react-native';
+import { api, type DashboardStats, type RecentSwitch, type ActivityPoint } from '@/api/client';
+import { FolderKanban, Terminal, Plug, CheckCircle2, XCircle, History, Plus, Zap } from 'lucide-react-native';
 import {
-  Screen, ScreenHeader, Section, Card, IconTile, Badge, ListGroup, RowDivider,
-  LoadingState, EmptyState, ErrorBanner, Button,
+  Screen, Section, Card, IconTile, Badge, ListGroup, RowDivider,
+  LoadingState, EmptyState, ErrorBanner, Button, GradientFill, BarChart, FadeIn, Monogram, Glow,
 } from '@/components/ui';
-import { colors, space, envColor } from '@/theme/tokens';
+import { colors, radius, space, gutter, gradients, envColor } from '@/theme/tokens';
 import { timeAgo } from '@/lib/format';
 
 function greeting() {
@@ -24,6 +24,7 @@ export default function OverviewScreen() {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recent, setRecent] = useState<RecentSwitch[]>([]);
+  const [activity, setActivity] = useState<ActivityPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -33,6 +34,7 @@ export default function OverviewScreen() {
       const overview = await api.getDashboardOverview();
       setStats(overview.stats);
       setRecent(overview.recent);
+      setActivity(overview.activity);
       setError('');
     } catch {
       setError('No pudimos cargar tu resumen.');
@@ -42,15 +44,19 @@ export default function OverviewScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const firstName = (user?.display_name || user?.email || '').split(/[\s@]/)[0];
+  // La API manda los últimos 7 días en orden (hoy al final), con nombre corto: "Mar", "Mié"…
+  const week = activity.map((p) => ({ label: p.day, value: p.switches }));
+  const weekTotal = week.reduce((sum, d) => sum + d.value, 0);
 
   return (
     <Screen refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }}>
-      <ScreenHeader eyebrow={greeting()} title={firstName || 'Nexus'} />
+      <YStack paddingHorizontal={gutter} paddingBottom={space.xl} gap={2}>
+        <Text fontSize={14} color={colors.textMuted}>{greeting()}</Text>
+        <Text fontSize={30} fontWeight="800" color={colors.text} letterSpacing={-0.8}>{firstName || 'Nexus'}</Text>
+      </YStack>
 
       {error ? <ErrorBanner message={error} onRetry={loadData} /> : null}
 
@@ -58,15 +64,47 @@ export default function OverviewScreen() {
         <LoadingState label="Cargando tu resumen…" />
       ) : (
         <>
-          <View style={styles.grid}>
-            <StatCard icon={<FolderKanban size={18} color={colors.primaryBright} />} tint={colors.primarySoft}
-              value={stats?.total_projects ?? 0} label="Proyectos" />
-            <StatCard icon={<Zap size={18} color={colors.warning} />} tint={colors.warningSoft}
-              value={stats?.switches_today ?? 0} label="Switches hoy" />
-            <StatCard icon={<Terminal size={18} color={colors.success} />} tint={colors.successSoft}
-              value={stats?.skills_executed ?? 0} label="Skills (7 días)" />
-            <StatCard icon={<Plug size={18} color={colors.info} />} tint={colors.infoSoft}
-              value={stats?.tools_connected ?? 0} label="Herramientas" />
+          {/* Tarjeta principal: actividad de la semana */}
+          <FadeIn style={styles.heroWrap}>
+            <View style={styles.hero}>
+              <GradientFill from={gradients.hero[0]} to={gradients.hero[1]} />
+              <Glow color="#a78bfa" size={280} style={styles.heroGlow} />
+              <XStack alignItems="flex-start" justifyContent="space-between">
+                <YStack gap={2}>
+                  <Text fontSize={13} fontWeight="600" color="rgba(221, 214, 254, 0.8)">Switches esta semana</Text>
+                  <XStack alignItems="baseline" gap={space.sm}>
+                    <Text fontSize={44} fontWeight="800" color="#ffffff" letterSpacing={-1.5}>{weekTotal}</Text>
+                    <Text fontSize={14} fontWeight="600" color="rgba(221, 214, 254, 0.7)">
+                      {stats?.switches_today ?? 0} hoy
+                    </Text>
+                  </XStack>
+                </YStack>
+                <View style={styles.heroBadge}>
+                  <Zap size={14} color="#fde68a" fill="#fde68a" />
+                  <Text fontSize={12} fontWeight="700" color="#ffffff">{(user?.plan ?? 'free').toUpperCase()}</Text>
+                </View>
+              </XStack>
+              <View style={{ marginTop: space.lg }}>
+                <BarChart data={week} />
+              </View>
+            </View>
+          </FadeIn>
+
+          {/* Indicadores */}
+          <View style={styles.statsRow}>
+            {[
+              { icon: <FolderKanban size={17} color={colors.primaryBright} />, tint: colors.primarySoft, value: stats?.total_projects ?? 0, label: 'Proyectos' },
+              { icon: <Terminal size={17} color={colors.success} />, tint: colors.successSoft, value: stats?.skills_executed ?? 0, label: 'Skills 7 d' },
+              { icon: <Plug size={17} color={colors.info} />, tint: colors.infoSoft, value: stats?.tools_connected ?? 0, label: 'Herramientas' },
+            ].map((s, i) => (
+              <FadeIn key={s.label} index={i + 1} style={styles.statWrap}>
+                <Card style={styles.stat}>
+                  <IconTile size={32} color={s.tint}>{s.icon}</IconTile>
+                  <Text fontSize={22} fontWeight="800" color={colors.text} letterSpacing={-0.5} marginTop={space.md}>{s.value}</Text>
+                  <Text fontSize={12} color={colors.textMuted} numberOfLines={1}>{s.label}</Text>
+                </Card>
+              </FadeIn>
+            ))}
           </View>
 
           <Section title="Switches recientes">
@@ -83,28 +121,33 @@ export default function OverviewScreen() {
                 />
               </Card>
             ) : (
-              <ListGroup>
-                {recent.map((sw, i) => (
-                  <View key={sw.id}>
-                    {i > 0 ? <RowDivider /> : null}
-                    <XStack alignItems="center" gap={space.md} paddingHorizontal={space.lg} paddingVertical={13}>
-                      <IconTile size={34} color={sw.success ? colors.successSoft : colors.dangerSoft}>
-                        {sw.success ? <CheckCircle2 size={17} color={colors.success} /> : <XCircle size={17} color={colors.danger} />}
-                      </IconTile>
-                      <YStack flex={1} gap={3}>
-                        <XStack alignItems="center" gap={space.sm}>
-                          <Text fontSize={15} fontWeight="600" color={colors.text} numberOfLines={1} flexShrink={1}>
-                            {sw.project_name}
-                          </Text>
-                          <Badge label={sw.environment} color={envColor(sw.environment)} />
-                        </XStack>
-                        <Text fontSize={12} color={colors.textMuted} numberOfLines={1}>{sw.message}</Text>
-                      </YStack>
-                      <Text fontSize={12} color={colors.textFaint}>{timeAgo(sw.created_at)}</Text>
-                    </XStack>
-                  </View>
-                ))}
-              </ListGroup>
+              <FadeIn index={4}>
+                <ListGroup>
+                  {recent.map((sw, i) => (
+                    <View key={sw.id}>
+                      {i > 0 ? <RowDivider /> : null}
+                      <XStack alignItems="center" gap={space.md} paddingHorizontal={space.lg} paddingVertical={13}>
+                        <View>
+                          <Monogram name={sw.project_name} size={38} />
+                          <View style={[styles.statusDot, { backgroundColor: sw.success ? colors.success : colors.danger }]}>
+                            {sw.success ? <CheckCircle2 size={10} color="#fff" /> : <XCircle size={10} color="#fff" />}
+                          </View>
+                        </View>
+                        <YStack flex={1} gap={3}>
+                          <XStack alignItems="center" gap={space.sm}>
+                            <Text fontSize={15} fontWeight="600" color={colors.text} numberOfLines={1} flexShrink={1}>
+                              {sw.project_name}
+                            </Text>
+                            <Badge label={sw.environment} color={envColor(sw.environment)} />
+                          </XStack>
+                          <Text fontSize={12} color={colors.textMuted} numberOfLines={1}>{sw.message}</Text>
+                        </YStack>
+                        <Text fontSize={12} color={colors.textFaint}>{timeAgo(sw.created_at)}</Text>
+                      </XStack>
+                    </View>
+                  ))}
+                </ListGroup>
+              </FadeIn>
             )}
           </Section>
         </>
@@ -113,25 +156,40 @@ export default function OverviewScreen() {
   );
 }
 
-function StatCard({ icon, tint, value, label }: { icon: React.ReactNode; tint: string; value: number; label: string }) {
-  return (
-    <Card style={styles.stat}>
-      <IconTile size={34} color={tint}>{icon}</IconTile>
-      <YStack gap={2} marginTop={space.md}>
-        <Text fontSize={26} fontWeight="800" color={colors.text} letterSpacing={-0.5}>{value}</Text>
-        <Text fontSize={12} color={colors.textMuted}>{label}</Text>
-      </YStack>
-    </Card>
-  );
-}
-
 const styles = StyleSheet.create({
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space.md,
-    paddingHorizontal: space.xl,
-    marginBottom: space.xxl,
+  heroWrap: { paddingHorizontal: gutter, marginBottom: space.md },
+  hero: {
+    borderRadius: radius.xl + 4,
+    padding: space.xl,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.25)',
   },
-  stat: { flexBasis: '47%', flexGrow: 1, padding: space.lg },
+  heroGlow: { position: 'absolute', top: -140, right: -110 },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  statsRow: { flexDirection: 'row', gap: space.md, paddingHorizontal: gutter, marginBottom: space.xxl },
+  statWrap: { flex: 1 },
+  stat: { padding: space.md + 2 },
+  statusDot: {
+    position: 'absolute',
+    right: -3,
+    bottom: -3,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.bg,
+  },
 });

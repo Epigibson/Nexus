@@ -1,4 +1,5 @@
-import { View, Linking, Alert, StyleSheet } from 'react-native';
+import { View, Linking, StyleSheet } from 'react-native';
+import { useDialog } from '@/components/Dialog';
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -25,6 +26,7 @@ export default function BillingScreen() {
   const { user, refreshProfile } = useAuth();
   const [limits, setLimits] = useState<Limits | null>(null);
   const [opening, setOpening] = useState(false);
+  const dialog = useDialog();
 
   useFocusEffect(useCallback(() => {
     api.getPlanLimits().then(setLimits).catch(() => setLimits(null));
@@ -47,11 +49,14 @@ export default function BillingScreen() {
     }
   };
 
-  const upgrade = () =>
-    Alert.alert('Mejorar a Premium', 'El pago se hace de forma segura en el dashboard web.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Continuar', onPress: () => Linking.openURL(BILLING_URL) },
-    ]);
+  const upgrade = async () => {
+    const ok = await dialog.confirm({
+      title: 'Mejorar a Premium',
+      message: 'El pago se hace de forma segura en el dashboard web (Stripe).',
+      confirmLabel: 'Continuar',
+    });
+    if (ok) Linking.openURL(BILLING_URL);
+  };
 
   const CurrentIcon = current.icon;
   const maxProjects = Number(limits?.limits.max_projects ?? 0);

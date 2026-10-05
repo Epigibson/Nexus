@@ -1,12 +1,13 @@
-import { Alert, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useDialog } from '@/components/Dialog';
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useCallback } from 'react';
 import { useRouter, useFocusEffect } from 'expo-router';
 import Constants from 'expo-constants';
 import { UserRound, ShieldCheck, KeyRound, CreditCard, Users, LogOut } from 'lucide-react-native';
 import { useAuth } from '@/auth/provider';
-import { Screen, ScreenHeader, Section, Card, IconTile, Badge, ListGroup, ListRow, RowDivider } from '@/components/ui';
-import { colors, space } from '@/theme/tokens';
+import { Screen, ScreenHeader, Section, Card, Badge, ListGroup, ListRow, RowDivider, GradientFill } from '@/components/ui';
+import { colors, space, gradients } from '@/theme/tokens';
 
 const PLAN_LABEL: Record<string, string> = { free: 'Free', premium: 'Premium', enterprise: 'Enterprise' };
 
@@ -14,16 +15,20 @@ export default function SettingsScreen() {
   const { user, logout, getMfaStatus } = useAuth();
   const router = useRouter();
   const [mfaEnabled, setMfaEnabled] = useState<boolean | null>(null);
+  const dialog = useDialog();
 
   useFocusEffect(useCallback(() => {
     getMfaStatus().then((s) => setMfaEnabled(s.enabled));
   }, [getMfaStatus]));
 
-  const confirmLogout = () => {
-    Alert.alert('Cerrar sesión', '¿Seguro que quieres salir de tu cuenta en este dispositivo?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Cerrar sesión', style: 'destructive', onPress: () => logout() },
-    ]);
+  const confirmLogout = async () => {
+    const ok = await dialog.confirm({
+      title: 'Cerrar sesión',
+      message: '¿Seguro que quieres salir de tu cuenta en este dispositivo?',
+      confirmLabel: 'Cerrar sesión',
+      destructive: true,
+    });
+    if (ok) logout();
   };
 
   const plan = user?.plan ?? 'free';
@@ -36,9 +41,12 @@ export default function SettingsScreen() {
       <Section>
         <Card onPress={() => router.push('/(tabs)/settings/profile')} accessibilityLabel="Editar perfil">
           <XStack alignItems="center" gap={space.lg}>
-            <IconTile size={56}>
-              <Text fontSize={22} fontWeight="800" color={colors.primaryBright}>{initial}</Text>
-            </IconTile>
+            <View style={styles.avatarRing}>
+              <GradientFill from={gradients.avatar[0]} to={gradients.avatar[1]} />
+              <View style={styles.avatar}>
+                <Text fontSize={22} fontWeight="800" color={colors.text}>{initial}</Text>
+              </View>
+            </View>
             <YStack flex={1} gap={3}>
               <Text fontSize={17} fontWeight="700" color={colors.text} numberOfLines={1}>
                 {user?.display_name || 'Sin nombre'}
@@ -92,4 +100,6 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   version: { marginTop: -space.sm },
+  avatarRing: { width: 60, height: 60, borderRadius: 30, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#1a1428', alignItems: 'center', justifyContent: 'center' },
 });

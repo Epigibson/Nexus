@@ -1,4 +1,5 @@
-import { View, Pressable, Alert, Linking, StyleSheet } from 'react-native';
+import { View, Pressable, Linking, StyleSheet } from 'react-native';
+import { useDialog } from '@/components/Dialog';
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useEffect } from 'react';
 import * as Clipboard from 'expo-clipboard';
@@ -20,6 +21,7 @@ export default function SecurityScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const dialog = useDialog();
 
   useEffect(() => {
     getMfaStatus().then((s) => setEnabled(s.enabled));
@@ -35,7 +37,7 @@ export default function SecurityScreen() {
       setCode('');
       setStep('setup');
     } catch (e: any) {
-      Alert.alert('No se pudo iniciar', e?.message || 'Intenta de nuevo.');
+      dialog.notify({ title: 'No se pudo iniciar', message: e?.message || 'Intenta de nuevo.' });
     } finally {
       setBusy(false);
     }
@@ -45,10 +47,10 @@ export default function SecurityScreen() {
     try {
       await Linking.openURL(uri);
     } catch {
-      Alert.alert(
-        'No encontramos una app autenticadora',
-        'Instala Google Authenticator, Microsoft Authenticator o similar, o copia la clave manualmente.',
-      );
+      dialog.notify({
+        title: 'No encontramos una app autenticadora',
+        message: 'Instala Google Authenticator, Microsoft Authenticator o similar, o copia la clave manualmente.',
+      });
     }
   };
 
@@ -75,29 +77,23 @@ export default function SecurityScreen() {
     }
   };
 
-  const disable = () => {
-    Alert.alert(
-      'Desactivar verificación en dos pasos',
-      'Tu cuenta quedará protegida solo con tu contraseña.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Desactivar',
-          style: 'destructive',
-          onPress: async () => {
-            setBusy(true);
-            try {
-              await disableMfa();
-              setEnabled(false);
-            } catch (e: any) {
-              Alert.alert('No se pudo desactivar', e?.message || 'Intenta de nuevo.');
-            } finally {
-              setBusy(false);
-            }
-          },
-        },
-      ],
-    );
+  const disable = async () => {
+    const ok = await dialog.confirm({
+      title: 'Desactivar verificación en dos pasos',
+      message: 'Tu cuenta quedará protegida solo con tu contraseña.',
+      confirmLabel: 'Desactivar',
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await disableMfa();
+      setEnabled(false);
+    } catch (e: any) {
+      dialog.notify({ title: 'No se pudo desactivar', message: e?.message || 'Intenta de nuevo.' });
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

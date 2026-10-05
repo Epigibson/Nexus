@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { api, type AuditEntry } from '@/api/client';
 import { CheckCircle2, XCircle, ChevronDown, ChevronRight, SkipForward, History } from 'lucide-react-native';
-import { Screen, ScreenHeader, Section, Badge, LoadingState, EmptyState, ErrorBanner } from '@/components/ui';
+import { Screen, ScreenHeader, Section, Badge, LoadingState, EmptyState, ErrorBanner, FadeIn } from '@/components/ui';
 import { colors, radius, space, envColor } from '@/theme/tokens';
 import { dateTime, duration, parseDate } from '@/lib/format';
 
@@ -188,7 +188,7 @@ export default function AuditScreen() {
                 Nada que mostrar con este filtro.
               </Text>
             ) : (
-              visible.map((g) => <SwitchRow key={g.entry.id} group={g} />)
+              visible.map((g, i) => <FadeIn key={g.entry.id} index={i}><SwitchRow group={g} /></FadeIn>)
             )}
           </Section>
         </>

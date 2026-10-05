@@ -1,4 +1,5 @@
-import { View, Pressable, TextInput, Alert, StyleSheet } from 'react-native';
+import { View, Pressable, TextInput, StyleSheet } from 'react-native';
+import { useDialog } from '@/components/Dialog';
 import { Text, YStack, XStack } from 'tamagui';
 import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -19,6 +20,7 @@ export default function ApiKeysScreen() {
   const [newKey, setNewKey] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const dialog = useDialog();
 
   const loadKeys = useCallback(async () => {
     try {
@@ -41,7 +43,7 @@ export default function ApiKeysScreen() {
       setCopied(false);
       await loadKeys();
     } catch (e: any) {
-      Alert.alert('No se pudo generar la key', e?.message || 'Intenta de nuevo.');
+      dialog.notify({ title: 'No se pudo generar la key', message: e?.message || 'Intenta de nuevo.' });
     } finally {
       setGenerating(false);
     }
@@ -53,26 +55,20 @@ export default function ApiKeysScreen() {
     setCopied(true);
   };
 
-  const revoke = (key: ApiKeyResponse) => {
-    Alert.alert(
-      `Revocar "${key.name}"`,
-      'Los CLI que usen esta key dejarán de tener acceso. Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Revocar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await api.revokeApiKey(key.id);
-              await loadKeys();
-            } catch (e: any) {
-              Alert.alert('No se pudo revocar', e?.message || 'Intenta de nuevo.');
-            }
-          },
-        },
-      ],
-    );
+  const revoke = async (key: ApiKeyResponse) => {
+    const ok = await dialog.confirm({
+      title: `Revocar "${key.name}"`,
+      message: 'Los CLI que usen esta key dejarán de tener acceso. Esta acción no se puede deshacer.',
+      confirmLabel: 'Revocar',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await api.revokeApiKey(key.id);
+      await loadKeys();
+    } catch (e: any) {
+      dialog.notify({ title: 'No se pudo revocar', message: e?.message || 'Intenta de nuevo.' });
+    }
   };
 
   const active = (keys ?? []).filter((k) => k.is_active);
@@ -178,6 +174,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderStrong,
     color: colors.text,
     fontSize: 15,
+    fontFamily: 'Inter_500Medium',
   },
   revoke: { width: 36, height: 36, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
 });

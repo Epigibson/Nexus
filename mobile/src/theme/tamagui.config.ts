@@ -1,8 +1,22 @@
-import { createTamagui } from 'tamagui';
+import { createTamagui, createFont } from 'tamagui';
 import { config } from '@tamagui/config/v3';
+
+// Inter cargada con expo-font (app/_layout.tsx). En Android cada grosor es una familia distinta,
+// así que "face" le dice a Tamagui qué archivo usar según fontWeight.
+const interFace = {
+  400: { normal: 'Inter_400Regular' },
+  500: { normal: 'Inter_500Medium' },
+  600: { normal: 'Inter_600SemiBold' },
+  700: { normal: 'Inter_700Bold' },
+  800: { normal: 'Inter_800ExtraBold' },
+};
+
+const inter = (base: typeof config.fonts.body) =>
+  createFont({ ...base, family: 'Inter_400Regular', face: interFace });
 
 const nexusConfig = createTamagui({
   ...config,
+  fonts: { ...config.fonts, body: inter(config.fonts.body), heading: inter(config.fonts.heading) },
   themes: {
     ...config.themes,
     dark: {

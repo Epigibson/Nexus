@@ -8,7 +8,13 @@ import { Text, XStack, YStack } from 'tamagui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
-import { colors, radius, space, gutter } from '@/theme/tokens';
+import { colors, radius, space, gutter, gradients } from '@/theme/tokens';
+import { Backdrop, GradientFill } from './visual';
+
+export { Backdrop, GradientFill, Monogram, FadeIn, BarChart, Glow } from './visual';
+
+/** Espacio que deja libre la barra inferior flotante (ver app/(tabs)/_layout.tsx). */
+export const TAB_BAR_SPACE = 104;
 
 // ─── Screen ───
 
@@ -24,13 +30,20 @@ type ScreenProps = {
 /** Fondo, margen superior seguro (notch/barra de estado) y scroll con pull-to-refresh. */
 export function Screen({ children, refreshing = false, onRefresh, scroll = true }: ScreenProps) {
   const insets = useSafeAreaInsets();
-  const padding = { paddingTop: insets.top + space.md, paddingBottom: space.xxl * 2 };
+  const padding = { paddingTop: insets.top + space.md, paddingBottom: TAB_BAR_SPACE + insets.bottom };
   if (!scroll) {
-    return <View style={[styles.screen, padding]}>{children}</View>;
+    return (
+      <View style={[styles.screen, padding]}>
+        <Backdrop />
+        {children}
+      </View>
+    );
   }
   return (
+    <View style={styles.screen}>
+    <Backdrop />
     <ScrollView
-      style={styles.screen}
+      style={styles.scroll}
       contentContainerStyle={padding}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -48,6 +61,7 @@ export function Screen({ children, refreshing = false, onRefresh, scroll = true 
     >
       {children}
     </ScrollView>
+    </View>
   );
 }
 
@@ -183,11 +197,13 @@ export function Button({ label, onPress, variant = 'primary', icon, loading, dis
         styles.button,
         compact && styles.buttonCompact,
         { backgroundColor: v.bg, borderColor: v.border },
+        variant === 'primary' && styles.buttonPrimary,
         pressed && !off && styles.pressed,
         off && styles.disabled,
         style,
       ]}
     >
+      {variant === 'primary' ? <GradientFill from={gradients.brand[0]} to={gradients.brand[1]} /> : null}
       {loading ? <ActivityIndicator size="small" color={v.text} /> : icon}
       <Text fontSize={compact ? 13 : 15} fontWeight="700" color={v.text}>{label}</Text>
     </Pressable>
@@ -296,12 +312,13 @@ export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: (
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  scroll: { flex: 1 },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: -6, marginBottom: space.sm, alignSelf: 'flex-start' },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     padding: space.lg,
   },
   cardPressed: { backgroundColor: colors.surfacePressed, transform: [{ scale: 0.985 }] },
@@ -317,14 +334,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
   },
+  buttonPrimary: { overflow: 'hidden', borderWidth: 0 },
   buttonCompact: { height: 38, paddingHorizontal: space.md, borderRadius: radius.sm + 2 },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.5 },
   listGroup: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     overflow: 'hidden',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, paddingVertical: 13 },
@@ -340,7 +358,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderStrong,
   },
-  fieldInput: { flex: 1, height: '100%', color: colors.text, fontSize: 16 },
+  fieldInput: { flex: 1, height: '100%', color: colors.text, fontSize: 16, fontFamily: 'Inter_500Medium' },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',

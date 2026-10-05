@@ -3,6 +3,8 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable
 import { Text, YStack } from 'tamagui';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/auth/provider';
+import { Glow, GradientFill } from '@/components/ui';
+import { gradients } from '@/theme/tokens';
 import { KeyRound, Mail, Lock, ArrowLeft, ArrowRight } from 'lucide-react-native';
 
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -48,6 +50,7 @@ export default function ForgotPasswordScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <Glow color="#7c3aed" size={520} opacity={0.32} style={{ position: 'absolute', top: -160, left: -140 }} />
         <Pressable style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft size={20} color="#94a3b8" />
           <Text fontSize={14} color="#94a3b8">Volver</Text>
@@ -119,6 +122,8 @@ export default function ForgotPasswordScreen() {
             ) : null}
 
             <Pressable style={[styles.button, loading && styles.buttonDisabled]} onPress={handleSubmit} disabled={loading}>
+              <GradientFill from={gradients.brand[0]} to={gradients.brand[1]} />
+              <GradientFill from={gradients.brand[0]} to={gradients.brand[1]} />
               <Text fontSize={15} fontWeight="700" color="#ffffff">
                 {loading ? 'Procesando...' : step === 'email' ? 'Enviar código' : 'Guardar contraseña'}
               </Text>
@@ -175,12 +180,14 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     fontSize: 15,
+    fontFamily: 'Inter_500Medium',
     color: '#f8fafc',
     backgroundColor: 'transparent',
     borderWidth: 0,
     outlineStyle: 'none',
   } as any,
   button: {
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

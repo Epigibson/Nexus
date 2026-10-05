@@ -3,6 +3,8 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable
 import { Text, YStack, XStack } from 'tamagui';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/auth/provider';
+import { Glow, GradientFill } from '@/components/ui';
+import { gradients } from '@/theme/tokens';
 import { Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 
 export default function RegisterScreen() {
@@ -43,8 +45,8 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.glow1} />
-        <View style={styles.glow2} />
+        <Glow color="#7c3aed" size={520} opacity={0.32} style={{ position: 'absolute', top: -160, left: -140 }} />
+        <Glow color="#d946ef" size={420} opacity={0.18} style={{ position: 'absolute', bottom: -120, right: -160 }} />
 
         <YStack flex={1} justifyContent="center" alignItems="center" padding="$6" gap="$6">
           {/* Logo */}
@@ -135,6 +137,7 @@ export default function RegisterScreen() {
               onPress={handleRegister}
               disabled={loading}
             >
+              <GradientFill from={gradients.brand[0]} to={gradients.brand[1]} />
               <Text fontSize={15} fontWeight="700" color="#ffffff">
                 {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
               </Text>
@@ -213,6 +216,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     fontSize: 15,
+    fontFamily: 'Inter_500Medium',
     color: '#f8fafc',
     backgroundColor: 'transparent',
     borderWidth: 0,
@@ -222,6 +226,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   button: {
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

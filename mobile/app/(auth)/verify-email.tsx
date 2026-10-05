@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text, YStack } from 'tamagui';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/auth/provider';
+import { Glow } from '@/components/ui';
 import { OTPInput } from '@/components/ui/OTPInput';
 import { Mail, ArrowLeft } from 'lucide-react-native';
 
@@ -42,7 +43,7 @@ export default function VerifyEmailScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.glow1} />
+      <Glow color="#7c3aed" size={520} opacity={0.32} style={{ position: 'absolute', top: -160, left: -140 }} />
 
       <YStack flex={1} justifyContent="center" alignItems="center" padding="$6" gap="$6">
         <Pressable style={styles.backButton} onPress={() => router.replace('/(auth)/login')}>

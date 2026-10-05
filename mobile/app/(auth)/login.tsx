@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
+import { View, Image, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
 import { Text, YStack, XStack } from 'tamagui';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/auth/provider';
 import { KeyboardAware } from '@/components/KeyboardAware';
 import { Glow, GradientFill } from '@/components/ui';
 import { gradients } from '@/theme/tokens';
-import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -53,9 +53,7 @@ export default function LoginScreen() {
         <YStack flex={1} justifyContent="center" alignItems="center" padding="$6" gap="$6">
           {/* Logo */}
           <YStack alignItems="center" gap="$3">
-            <View style={styles.logoContainer}>
-              <Zap size={28} color="#7c3aed" />
-            </View>
+            <Image source={require('../../assets/logo-mark.png')} style={styles.logo} accessibilityLabel="Nexus" />
             <Text fontSize={28} fontWeight="800" color="#f8fafc" letterSpacing={-1}>
               Nexus
             </Text>
@@ -184,16 +182,7 @@ const styles = StyleSheet.create({
     borderRadius: 150,
     backgroundColor: 'rgba(217, 70, 239, 0.06)',
   },
-  logoContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.3)',
-  },
+  logo: { width: 84, height: 84 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',

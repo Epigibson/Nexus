@@ -3,7 +3,7 @@
     "name": "Nexus",
     "slug": "nexus-mobile",
     "owner": "nexus-app-epigibson",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -14,7 +14,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0a0a0f",
+        "backgroundColor": "#121a25",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -29,7 +29,15 @@
     "plugins": [
       "expo-router",
       "expo-status-bar",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 170,
+          "resizeMode": "contain",
+          "backgroundColor": "#09090d"
+        }
+      ],
       "expo-font",
       "expo-secure-store",
       "expo-updates",

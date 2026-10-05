@@ -9,6 +9,7 @@ from app.models.project import Project
 from app.models.audit import AuditLog
 from app.models.organization import OrganizationMember
 from app.services.project_service import get_user_org_id
+from app.services.time_utils import utc_iso
 
 
 async def get_stats(db: AsyncSession, user_id: str) -> dict:
@@ -103,7 +104,7 @@ async def get_recent_switches(db: AsyncSession, user_id: str, limit: int = 10) -
             "message": e.message,
             "success": e.success,
             "duration_ms": e.duration_ms,
-            "created_at": e.created_at.isoformat() if e.created_at else "",
+            "created_at": (utc_iso(e.created_at) or ""),
         }
         for e, proj_name in rows
     ]

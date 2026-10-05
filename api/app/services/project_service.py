@@ -10,6 +10,7 @@ from app.models.project import Project
 from app.models.organization import Organization, OrganizationMember
 from app.models.audit import AuditLog
 from app.config import settings
+from app.services.time_utils import utc_iso
 
 
 async def get_user_org_id(db: AsyncSession, user_id: str) -> str | None:
@@ -162,7 +163,7 @@ async def get_project_last_switch(db: AsyncSession, project_id: str) -> str | No
         ).order_by(AuditLog.created_at.desc()).limit(1)
     )
     row = result.scalar_one_or_none()
-    return row.isoformat() if row else None
+    return utc_iso(row)
 
 
 async def batch_get_switch_stats(db: AsyncSession, project_ids: list[str]) -> dict:
@@ -190,7 +191,7 @@ async def batch_get_switch_stats(db: AsyncSession, project_ids: list[str]) -> di
     stats_map = {
         row.project_id: {
             "count": row.cnt,
-            "last_switch": row.last_at.isoformat() if row.last_at else None,
+            "last_switch": utc_iso(row.last_at),
         }
         for row in result.all()
     }

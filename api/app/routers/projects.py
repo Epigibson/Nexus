@@ -19,6 +19,7 @@ from app.services.project_service import (
 from app.services.crypto_service import encrypt_dict, decrypt_dict, encrypt_value
 from app.services.plan_enforcement import check_cli_tools_limit
 from app.middleware.auth import get_current_user
+from app.services.time_utils import utc_iso
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
@@ -89,7 +90,7 @@ def _project_to_schema(project: Project, stats: dict, unmasked: bool = False) ->
         is_active=project.is_active, environments=envs, skills=skills,
         switch_count=stats.get("count", 0),
         last_switch=stats.get("last_switch"),
-        created_at=project.created_at.isoformat() if project.created_at else "",
+        created_at=(utc_iso(project.created_at) or ""),
     )
 
 

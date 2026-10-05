@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.organization import Organization, OrganizationMember, OrgRole
 from app.middleware.auth import get_current_user
 from app.services.plan_enforcement import check_member_limit
+from app.services.time_utils import utc_iso
 
 router = APIRouter(prefix="/teams", tags=["Teams"])
 
@@ -78,7 +79,7 @@ async def list_members(
             email=org.owner.email,
             display_name=org.owner.display_name,
             role="owner",
-            joined_at=org.created_at.isoformat() if org.created_at else "",
+            joined_at=(utc_iso(org.created_at) or ""),
         )
     ]
 
@@ -98,7 +99,7 @@ async def list_members(
                     email=member_user.email,
                     display_name=member_user.display_name,
                     role=m.role.value if isinstance(m.role, OrgRole) else m.role,
-                    joined_at=m.joined_at.isoformat() if m.joined_at else "",
+                    joined_at=(utc_iso(m.joined_at) or ""),
                 ))
 
     return members_data
@@ -153,7 +154,7 @@ async def invite_member(
         email=target_user.email,
         display_name=target_user.display_name,
         role=role.value,
-        joined_at=member.joined_at.isoformat() if member.joined_at else "",
+        joined_at=(utc_iso(member.joined_at) or ""),
     )
 
 
@@ -194,7 +195,7 @@ async def update_member_role(
         email=member_user.email,
         display_name=member_user.display_name,
         role=role.value,
-        joined_at=member.joined_at.isoformat() if member.joined_at else "",
+        joined_at=(utc_iso(member.joined_at) or ""),
     )
 
 

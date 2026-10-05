@@ -10,6 +10,7 @@ from app.models.audit import AuditLog
 from app.models.project import Project
 from app.schemas.dashboard import AuditEntryResponse, AuditCreate
 from app.middleware.auth import get_current_user
+from app.services.time_utils import utc_iso
 
 router = APIRouter(prefix="/audit", tags=["Audit"])
 
@@ -52,7 +53,7 @@ async def list_audit(
             message=e.message,
             success=e.success,
             duration_ms=e.duration_ms,
-            created_at=e.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if e.created_at else "",
+            created_at=(utc_iso(e.created_at) or ""),
         )
         for e, project_name in rows
     ]
@@ -112,7 +113,7 @@ async def create_audit(
             message=entry.message,
             success=entry.success,
             duration_ms=entry.duration_ms,
-            created_at=entry.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if entry.created_at else "",
+            created_at=(utc_iso(entry.created_at) or ""),
         )
     except Exception as e:
         import logging

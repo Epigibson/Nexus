@@ -25,6 +25,7 @@ from app.services.crypto_service import encrypt_value, decrypt_value
 from app.config import settings
 from app.middleware.auth import get_current_user
 from app.limiter import limiter
+from app.services.time_utils import utc_iso
 
 logger = logging.getLogger("nexus.auth")
 
@@ -284,7 +285,7 @@ async def get_profile(user: User = Depends(get_current_user)):
         display_name=user.display_name,
         avatar_url=user.avatar_url,
         plan=user.plan,
-        created_at=user.created_at.isoformat() if user.created_at else "",
+        created_at=(utc_iso(user.created_at) or ""),
     )
 
 
@@ -305,7 +306,7 @@ async def update_profile(
         display_name=user.display_name,
         avatar_url=user.avatar_url,
         plan=user.plan,
-        created_at=user.created_at.isoformat() if user.created_at else "",
+        created_at=(utc_iso(user.created_at) or ""),
     )
 
 
@@ -338,7 +339,7 @@ async def generate_api_key(
             full_key=full_key,
             is_active=api_key.is_active,
             last_used_at=None,
-            created_at=api_key.created_at.isoformat() if api_key.created_at else "",
+            created_at=(utc_iso(api_key.created_at) or ""),
         )
     except Exception as e:
         import logging
@@ -363,8 +364,8 @@ async def list_api_keys(
             name=k.name,
             key_prefix=k.key_prefix,
             is_active=k.is_active,
-            last_used_at=k.last_used_at.isoformat() if k.last_used_at else None,
-            created_at=k.created_at.isoformat() if k.created_at else "",
+            last_used_at=utc_iso(k.last_used_at),
+            created_at=(utc_iso(k.created_at) or ""),
         )
         for k in keys
     ]

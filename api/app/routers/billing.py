@@ -12,6 +12,7 @@ from app.models.organization import Organization
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.middleware.auth import get_current_user
 from app.services import stripe_service
+from app.services.time_utils import utc_iso
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
@@ -359,7 +360,7 @@ async def get_subscription(
         status=sub.status if sub else "none",
         stripe_customer_id=sub.stripe_customer_id if sub else None,
         stripe_subscription_id=sub.stripe_subscription_id if sub else None,
-        current_period_end=sub.current_period_end.isoformat() if sub and sub.current_period_end else None,
+        current_period_end=utc_iso(sub.current_period_end) if sub else None,
     )
 
 
